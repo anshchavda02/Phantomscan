@@ -150,9 +150,12 @@ tr:hover td {{ background:rgba(255,255,255,.025); }}
 input,select {{ background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px; }}
 .filter-pill {{ background:transparent; border:1px solid var(--border); padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:600; color:var(--text); }}
 .filter-pill.active {{ background:var(--card-hover); border-color:var(--border-glow); box-shadow:0 0 10px rgba(0,201,255,.1); }}
-.surface-map {{ min-height:330px; position:relative; overflow:hidden; }}
-.node {{ position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); transform:translate(-50%,-50%); word-wrap:break-word; }}
-.node.small {{ width:54px; height:54px; font-size:11px; background:rgba(68,138,255,.12); }}
+.surface-map { min-height:330px; position:relative; overflow:hidden; }
+.node { position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); transform:translate(-50%,-50%); word-wrap:break-word; z-index:2; }
+.node.small { width:54px; height:54px; font-size:11px; background:rgba(68,138,255,.12); }
+.node.info { border-color:var(--info); background:var(--info-bg); box-shadow:0 0 28px var(--info-bg); }
+.node.medium { border-color:var(--high); background:var(--high-bg); box-shadow:0 0 28px var(--high-bg); color:var(--high); }
+.node.high { border-color:var(--crit); background:var(--crit-bg); box-shadow:0 0 28px var(--crit-bg); color:var(--crit); }
 .edge {{ position:absolute; height:1px; background:linear-gradient(90deg,transparent,var(--accent2),transparent); transform-origin:left center; opacity:.5; }}
 .sidebar {{ position:fixed; right:16px; top:120px; z-index:12; display:flex; flex-direction:column; gap:8px; }}
 .sidebar a {{ width:11px; height:11px; border-radius:50%; background:var(--text-dim); border:1px solid var(--border); }}
@@ -649,12 +652,34 @@ def _subdomain_row(item: dict[str, Any]) -> str:
 
 
 def _surface_map(payload: dict[str, Any], ips: Any, ports: Any) -> str:
-    nodes = [("Domain", 50, 45, ""), *[(str(ip), 25 + i * 16, 72, "small") for i, ip in enumerate(ips[:4] if isinstance(ips, list) else [])]]
-    if isinstance(ports, list):
-        nodes.extend((f":{port}", 65 + i * 10, 70 - i * 10, "small") for i, port in enumerate(ports[:4]))
+    domain_x, domain_y = 50, 50
+    nodes = [("Domain", domain_x, domain_y, "")]
+    edges = []
+    
+    ip_list = ips[:4] if isinstance(ips, list) else []
+    for i, ip in enumerate(ip_list):
+        x = 25
+        y = 30 + i * 20
+        nodes.append((str(ip), x, y, "small info"))
+        edges.append((domain_x, domain_y, x, y))
+        
+    port_list = ports[:4] if isinstance(ports, list) else []
+    for i, port in enumerate(port_list):
+        x = 75
+        y = 30 + i * 20
+        cls = "small"
+        p = int(port) if str(port).isdigit() else 0
+        if p in [80, 443]: cls += " info"
+        elif p in [21, 22, 3389]: cls += " medium"
+        else: cls += " high"
+        nodes.append((f":{port}", x, y, cls))
+        edges.append((domain_x, domain_y, x, y))
+
     node_html = "".join(f"<div class='node {cls}' style='left:{x}%;top:{y}%'>{h(label)}</div>" for label, x, y, cls in nodes)
-    edge_html = "<div class='edge' style='left:50%;top:55%;width:35%;transform:rotate(22deg)'></div><div class='edge' style='left:28%;top:61%;width:25%;transform:rotate(-18deg)'></div>"
-    return f"<div class='card surface-map'><h3>Visual Attack Surface Map</h3>{edge_html}{node_html}<div style='position:absolute;right:16px;bottom:16px' class='pill'>Blue informational - Orange medium - Red high</div></div>"
+    svg_edges = "".join(f"<line x1='{x1}%' y1='{y1}%' x2='{x2}%' y2='{y2}%' stroke='var(--accent2)' stroke-width='1.5' opacity='0.4' />" for x1, y1, x2, y2 in edges)
+    edge_html = f"<svg style='position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;'>{svg_edges}</svg>"
+    
+    return f"<div class='card surface-map'><h3>Visual Attack Surface Map</h3>{edge_html}{node_html}<div style='position:absolute;right:16px;bottom:16px;z-index:3;' class='pill'>Blue info - Orange med - Red high</div></div>"
 
 
 def _finding_card(item: dict[str, Any], suppressed: bool = False) -> str:
