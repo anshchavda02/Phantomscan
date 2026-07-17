@@ -1,4 +1,5 @@
 import process from "node:process";
+import {fileURLToPath} from "node:url";
 
 function now() {
   return new Date().toISOString();
@@ -48,10 +49,9 @@ async function main() {
   process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((error) => {
     process.stderr.write(`${error.stack || error}\n`);
     process.exit(1);
   });
 }
-

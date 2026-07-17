@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
+import shutil
 from typing import Any
 
 from .models import EngineResult
@@ -15,15 +16,31 @@ from .scope import Target
 async def run_engine(command: list[str], request: dict[str, Any], engine: str, target: Target) -> EngineResult:
     """Run one JSON-speaking engine with graceful failure."""
     executable = command[0]
-    if not Path(executable).exists() and not _is_path_command(executable):
+    if _is_path_command(executable):
+        resolved = shutil.which(executable)
+        if not resolved:
+            return EngineResult.skipped(engine, target.host, f"engine command missing on PATH: {executable}")
+        command = [resolved, *command[1:]]
+    elif not Path(executable).exists():
         return EngineResult.skipped(engine, target.host, f"engine binary missing: {executable}")
+    elif not os.access(executable, os.X_OK):
+        return EngineResult.skipped(engine, target.host, f"engine binary is not executable: {executable}")
 
-    proc = await asyncio.create_subprocess_exec(
-        *command,
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except FileNotFoundError as exc:
+        missing = exc.filename or executable
+        return EngineResult.skipped(engine, target.host, f"engine command missing: {missing}")
+    except PermissionError as exc:
+        blocked = exc.filename or executable
+        return EngineResult.skipped(engine, target.host, f"engine command not executable: {blocked}")
+    except OSError as exc:
+        return EngineResult.skipped(engine, target.host, f"engine launch failed: {exc}")
     stdout, stderr = await proc.communicate(json.dumps(request).encode("utf-8"))
     if proc.returncode != 0:
         result = EngineResult.skipped(engine, target.host, stderr.decode("utf-8", errors="replace").strip())
@@ -50,4 +67,3 @@ async def run_engine(command: list[str], request: dict[str, Any], engine: str, t
 
 def _is_path_command(command: str) -> bool:
     return os.sep not in command and "/" not in command
-
