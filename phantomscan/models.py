@@ -29,6 +29,30 @@ class Finding:
     recommendation: str
     references: list[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """Validate fields."""
+        valid_severities = {"critical", "high", "medium", "low", "info"}
+        valid_confidences = {"high", "medium", "low"}
+        if self.severity not in valid_severities:
+            raise ValueError(f"Invalid severity: {self.severity}")
+        if self.confidence not in valid_confidences:
+            raise ValueError(f"Invalid confidence: {self.confidence}")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Finding":
+        """Instantiate from dictionary."""
+        return cls(
+            id=data.get("id", ""),
+            title=data.get("title", "Unknown"),
+            severity=data.get("severity", "info"),
+            confidence=data.get("confidence", "low"),
+            category=data.get("category", "general"),
+            target=data.get("target", ""),
+            evidence=data.get("evidence", ""),
+            recommendation=data.get("recommendation", ""),
+            references=data.get("references", []),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
         return asdict(self)
@@ -41,6 +65,15 @@ class Observation:
     name: str
     value: Any
     source: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Observation":
+        """Instantiate from dictionary."""
+        return cls(
+            name=data.get("name", "unknown"),
+            value=data.get("value"),
+            source=data.get("source", "unknown"),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""

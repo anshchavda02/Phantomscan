@@ -25,7 +25,7 @@ from phantomscan.recon import (
     lookup_whois,
     resolve_target,
 )
-from phantomscan.reporting import write_html_report, write_json_report
+from phantomscan.reporting import write_html_report, write_json_report, write_csv_report
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target
 
@@ -36,40 +36,16 @@ Authorized security assessment only. Run this tool only against systems you own
 or have explicit written authorization to test. Scope is enforced per target.
 """
 
-COLORS = {
-    "cyan": "\033[96m",
-    "green": "\033[92m",
-    "yellow": "\033[93m",
-    "red": "\033[91m",
-    "gray": "\033[90m",
-    "reset": "\033[0m",
-}
+from rich.console import Console
+from rich.logging import RichHandler
 
-
-def color_text(text: str, color: str) -> str:
-    """Return ANSI-colored text."""
-    return f"{COLORS.get(color, '')}{text}{COLORS['reset']}"
+console = Console()
 
 
 def cprint(text: str, color: str = "cyan") -> None:
-    """Print a colored terminal message."""
-    print(color_text(text, color))
+    """Print a terminal message using rich."""
+    console.print(text, style=color)
 
-
-class ColorFormatter(logging.Formatter):
-    """Color log levels in console output."""
-
-    LEVEL_COLORS = {
-        logging.DEBUG: "gray",
-        logging.INFO: "cyan",
-        logging.WARNING: "yellow",
-        logging.ERROR: "red",
-        logging.CRITICAL: "red",
-    }
-
-    def format(self, record: logging.LogRecord) -> str:
-        message = super().format(record)
-        return color_text(message, self.LEVEL_COLORS.get(record.levelno, "cyan"))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -133,10 +109,9 @@ def setup_logger(root: Path, target: str, debug: bool, log_file: str | None) -> 
     file_handler.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
     if debug:
-        stream_handler = logging.StreamHandler(sys.stderr)
-        stream_handler.setFormatter(ColorFormatter("%(asctime)s [%(levelname)s] %(module)s: %(message)s"))
-        stream_handler.setLevel(logging.DEBUG)
-        logger.addHandler(stream_handler)
+        rich_handler = RichHandler(console=console, rich_tracebacks=True, show_time=False, show_path=False)
+        rich_handler.setLevel(logging.DEBUG)
+        logger.addHandler(rich_handler)
     logger.info("Log file: %s", path)
     return logger
 
@@ -150,15 +125,22 @@ async def timed_step(
     *args: Any,
 ) -> Any:
     """Run and time one scan step."""
-    if not silent:
-        cprint(f"[*] {name}...", "cyan")
     started = time.perf_counter()
-    try:
-        result = await func(*args)
-    except (OSError, TimeoutError, ValueError, RuntimeError) as exc:
-        logger.exception("%s failed: %s", name, exc)
-        observations.append(Observation(f"{name.lower().replace(' ', '_')}_error", str(exc), "orchestrator").to_dict())
-        result = []
+    
+    async def _run_func():
+        try:
+            return await func(*args)
+        except (OSError, TimeoutError, ValueError, RuntimeError) as exc:
+            logger.exception("%s failed: %s", name, exc)
+            observations.append(Observation(f"{name.lower().replace(' ', '_')}_error", str(exc), "orchestrator").to_dict())
+            return []
+
+    if not silent:
+        with console.status(f"[*] {name}...", spinner="dots", spinner_style="cyan"):
+            result = await _run_func()
+    else:
+        result = await _run_func()
+
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     observations.append(Observation(f"{name.lower().replace(' ', '_')}_duration_ms", elapsed_ms, "timing").to_dict())
     if not silent:
@@ -310,13 +292,16 @@ async def main_async() -> int:
         safe_target = report["target"].replace("/", "_").replace(":", "_")
         json_path = Path(args.json_out) if args.json_out and len(reports) == 1 else output_dir / f"{safe_target}.json"
         html_path = output_dir / f"{safe_target}.html"
+        csv_path = output_dir / f"{safe_target}.csv"
         write_json_report(json_path, report)
+        write_csv_report(csv_path, report)
         write_html_report(html_path, report)
         if args.json:
             print(json.dumps(report, indent=2, sort_keys=True))
         elif not args.silent:
             cprint(f"Report written: {html_path}", "green")
             cprint(f"JSON written: {json_path}", "green")
+            cprint(f"CSV written: {csv_path}", "green")
     return 0
 
 

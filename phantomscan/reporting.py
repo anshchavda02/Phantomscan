@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import html
 import json
 from collections import Counter, defaultdict
@@ -17,6 +18,23 @@ def write_json_report(path: Path, payload: dict[str, Any]) -> None:
     """Write a JSON report."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def write_csv_report(path: Path, payload: dict[str, Any]) -> None:
+    """Write a CSV report of findings."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    findings = payload.get("findings", [])
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Target", "Title", "Severity", "Confidence", "Category"])
+        for item in findings:
+            writer.writerow([
+                payload.get("target", ""),
+                item.get("title", ""),
+                item.get("severity", "info"),
+                item.get("confidence", ""),
+                item.get("category", "")
+            ])
 
 
 def write_html_report(path: Path, payload: dict[str, Any]) -> None:
@@ -222,6 +240,17 @@ document.getElementById('export-json')?.addEventListener('click', () => {{
   a.href = url; a.download = `phantomscan-${{report.target}}.json`; a.click();
   URL.revokeObjectURL(url);
 }});
+document.getElementById('export-csv')?.addEventListener('click', () => {{
+  const rows = [['Target', 'Title', 'Severity', 'Confidence', 'Category']];
+  (report.findings || []).forEach(f => {{
+    rows.push([report.target, f.title, f.severity, f.confidence, f.category].map(v => '"' + String(v).replace(/"/g, '""') + '"'));
+  }});
+  const blob = new Blob([rows.map(r => r.join(',')).join('\\n')], {{type:'text/csv'}});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `phantomscan-${{report.target}}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}});
 </script>
 </body>
 </html>"""
@@ -275,7 +304,7 @@ def _top_nav(payload: dict[str, Any]) -> str:
 <div class="topnav">
   <strong>PHANTOM <span style="color:var(--accent2)">SCAN</span></strong>
   <nav><a href="#intelligence">Intel</a><a href="#summary">Summary</a><a href="#analytics">Analytics</a><a href="#findings">Findings</a><a href="#metadata">Metadata</a></nav>
-  <div><span class="pill">Score {h(payload.get('score'))}</span> <button id="theme-toggle">Theme</button> <button id="export-json">JSON</button></div>
+  <div><span class="pill">Score {h(payload.get('score'))}</span> <button id="theme-toggle">Theme</button> <button id="export-json">JSON</button> <button id="export-csv">CSV</button></div>
 </div>"""
 
 
@@ -515,7 +544,7 @@ def _finding_card(item: dict[str, Any], suppressed: bool = False) -> str:
     recommendation = h(item.get("recommendation", "Review and validate with the system owner."))
     return f"""
 <article class="card finding" data-severity="{severity}">
-  <div class="finding-head" data-toggle><div><span class="sev {severity}">{severity}</span> <strong>{title}</strong> <span class="pill">{h(item.get('confidence','medium'))}</span></div><span>Expand</span></div>
+  <div class="finding-head" data-toggle><div><span class="sev {severity}" title="{severity.title()} Severity">{severity}</span> <strong>{title}</strong> <span class="pill" title="{h(item.get('confidence','medium')).title()} Confidence">{h(item.get('confidence','medium'))}</span></div><span>Expand</span></div>
   <div class="finding-body">{reason}<p>{h(item.get('description','This finding was produced from scoped assessment evidence and post-processed for false positives.'))}</p>
     <div class="evidence"><button data-copy="{evidence}">Copy</button><pre>{evidence}</pre></div>
     <div class="fix"><strong>How to Fix</strong><p>{recommendation}</p></div>
