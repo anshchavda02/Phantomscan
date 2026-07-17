@@ -64,13 +64,18 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
   --bg:#f7f8fc; --surface:#ffffff; --card:#ffffff; --card-hover:#f0f5ff;
   --border:#d9e0ef; --border-glow:#b9c6df; --text:#151728;
   --text-muted:#526078; --text-dim:#7d889b;
+  --hero-bg:linear-gradient(135deg,#f7f8fc 0%,#edf0f8 50%,#f7f8fc 100%);
+  --intel-bg:linear-gradient(180deg,#ffffff 0%,#f0f5ff 100%);
+  --nav-bg:rgba(255,255,255,.9);
+  --footer-bg:#e2e8f0;
+  --code-bg:#f8fafc;
 }}
 * {{ box-sizing:border-box; }}
 html {{ scroll-behavior:smooth; }}
 body {{ margin:0; background:var(--bg); color:var(--text); font:14px/1.6 Inter, system-ui, -apple-system, Segoe UI, sans-serif; }}
 a {{ color:var(--accent2); text-decoration:none; }}
 code, pre, .mono {{ font-family:"JetBrains Mono", "Fira Code", Consolas, monospace; }}
-.hero {{ position:relative; min-height:420px; overflow:hidden; background:linear-gradient(135deg,#0a0a0f 0%,#0f0a1f 25%,#0a1020 50%,#0f0a1f 75%,#0a0a0f 100%); border-bottom:1px solid var(--border); }}
+.hero {{ position:relative; min-height:420px; overflow:hidden; background:var(--hero-bg, linear-gradient(135deg,#0a0a0f 0%,#0f0a1f 25%,#0a1020 50%,#0f0a1f 75%,#0a0a0f 100%)); border-bottom:1px solid var(--border); }}
 .hero:before {{ content:""; position:absolute; inset:-30%; background:radial-gradient(circle at 20% 30%,rgba(0,201,255,.24),transparent 22%),radial-gradient(circle at 80% 20%,rgba(255,107,157,.18),transparent 24%),radial-gradient(circle at 50% 80%,rgba(123,94,167,.26),transparent 24%); animation:mesh 12s ease-in-out infinite alternate; }}
 .hero:after {{ content:""; position:absolute; inset:0; background-image:radial-gradient(rgba(255,255,255,.2) 1px, transparent 1px); background-size:42px 42px; opacity:.16; }}
 @keyframes mesh {{ from {{ transform:translate3d(-2%,0,0) scale(1); }} to {{ transform:translate3d(2%,3%,0) scale(1.08); }} }}
@@ -86,7 +91,7 @@ code, pre, .mono {{ font-family:"JetBrains Mono", "Fira Code", Consolas, monospa
 .label {{ color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }}
 .value {{ font-weight:700; margin-top:3px; }}
 .confidential {{ position:relative; z-index:1; background:rgba(255,51,85,.12); color:#ffd4dc; border-top:1px solid var(--crit-border); border-bottom:1px solid var(--crit-border); text-align:center; padding:9px; font-weight:700; }}
-.topnav {{ position:sticky; top:0; z-index:20; backdrop-filter:blur(12px); background:rgba(10,10,15,.78); border-bottom:1px solid var(--border); padding:10px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; }}
+.topnav {{ position:sticky; top:0; z-index:20; backdrop-filter:blur(12px); background:var(--nav-bg, rgba(10,10,15,.78)); border-bottom:1px solid var(--border); padding:10px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; }}
 .topnav nav {{ display:flex; gap:10px; flex-wrap:wrap; }}
 .topnav a, button {{ color:var(--text); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 11px; cursor:pointer; transition:all .2s ease; }}
 .topnav a:hover, button:hover {{ transform:translateY(-1px); border-color:var(--accent2); box-shadow:0 0 18px rgba(0,201,255,.14); }}
@@ -100,8 +105,8 @@ h2 {{ font-size:25px; margin:0; }}
 .panel-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }}
 .card {{ background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018)); border:1px solid var(--border); border-radius:16px; padding:16px; transition:all .2s ease; box-shadow:0 12px 36px rgba(0,0,0,.18); }}
 .card:hover {{ transform:translateY(-2px); background:var(--card-hover); border-color:var(--border-glow); box-shadow:0 14px 44px rgba(0,201,255,.08); }}
-.intelligence {{ margin-left:-24px; margin-right:-24px; padding:28px 24px; background:linear-gradient(180deg,#080d14 0%,#0a1020 100%); border-top:2px solid var(--accent2); border-bottom:2px solid var(--border); }}
-.intel-card {{ min-height:190px; border-left:4px solid var(--accent2); }}
+.intelligence {{ margin-left:-24px; margin-right:-24px; padding:28px 24px; background:var(--intel-bg, linear-gradient(180deg,#080d14 0%,#0a1020 100%)); border-top:2px solid var(--accent2); border-bottom:2px solid var(--border); }}
+.intel-card {{ min-height:190px; border-left:4px solid var(--accent2); word-wrap:break-word; overflow-wrap:break-word; }}
 .intel-head {{ display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:12px; }}
 .status {{ font-size:11px; color:var(--accent2); border:1px solid rgba(0,201,255,.35); border-radius:999px; padding:3px 7px; }}
 .kv {{ display:grid; grid-template-columns:120px 1fr; gap:8px; font-size:13px; }}
@@ -138,18 +143,18 @@ tr:hover td {{ background:rgba(255,255,255,.025); }}
 .finding-head {{ display:flex; align-items:center; justify-content:space-between; gap:14px; cursor:pointer; }}
 .finding-body {{ display:none; margin-top:14px; }}
 .finding.open .finding-body {{ display:block; }}
-.evidence {{ position:relative; background:#070811; border:1px solid var(--border); border-radius:12px; padding:12px; max-height:220px; overflow:auto; }}
+.evidence {{ position:relative; background:var(--code-bg, #070811); border:1px solid var(--border); border-radius:12px; padding:12px; max-height:220px; overflow:auto; }}
 .fix {{ margin-top:12px; padding:12px; border-radius:12px; background:rgba(0,230,118,.07); border:1px solid rgba(0,230,118,.18); }}
 .filters {{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }}
 input,select {{ background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px; }}
 .surface-map {{ min-height:330px; position:relative; overflow:hidden; }}
-.node {{ position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); }}
+.node {{ position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); transform:translate(-50%,-50%); word-wrap:break-word; }}
 .node.small {{ width:54px; height:54px; font-size:11px; background:rgba(68,138,255,.12); }}
 .edge {{ position:absolute; height:1px; background:linear-gradient(90deg,transparent,var(--accent2),transparent); transform-origin:left center; opacity:.5; }}
 .sidebar {{ position:fixed; right:16px; top:120px; z-index:12; display:flex; flex-direction:column; gap:8px; }}
 .sidebar a {{ width:11px; height:11px; border-radius:50%; background:var(--text-dim); border:1px solid var(--border); }}
 .sidebar a.active {{ background:var(--accent2); box-shadow:0 0 14px var(--accent2); }}
-footer {{ padding:24px; border-top:1px solid var(--border); background:#07070c; color:var(--text-muted); text-align:center; }}
+footer {{ padding:24px; border-top:1px solid var(--border); background:var(--footer-bg, #07070c); color:var(--text-muted); text-align:center; }}
 @media (max-width:900px) {{ .hero-inner {{ grid-template-columns:1fr; }} .panel-grid,.metric-grid,.charts {{ grid-template-columns:1fr 1fr; }} .sidebar {{ display:none; }} }}
 @media (max-width:620px) {{ .brand {{ font-size:38px; }} .panel-grid,.metric-grid,.charts,.meta-grid {{ grid-template-columns:1fr; }} .topnav nav {{ display:none; }} }}
 @media print {{ .topnav,.sidebar,.filters,button {{ display:none !important; }} section {{ opacity:1; transform:none; break-inside:avoid; }} .finding-body {{ display:block !important; }} body {{ background:white; color:black; }} .card {{ box-shadow:none; }} }}
@@ -528,9 +533,9 @@ def _subdomain_row(item: dict[str, Any]) -> str:
 
 
 def _surface_map(payload: dict[str, Any], ips: Any, ports: Any) -> str:
-    nodes = [("Domain", 50, 45, ""), *[(str(ip), 22 + i * 18, 72, "small") for i, ip in enumerate(ips[:4] if isinstance(ips, list) else [])]]
+    nodes = [("Domain", 50, 45, ""), *[(str(ip), 25 + i * 16, 72, "small") for i, ip in enumerate(ips[:4] if isinstance(ips, list) else [])]]
     if isinstance(ports, list):
-        nodes.extend((f":{port}", 72 + i * 8, 70 - i * 12, "small") for i, port in enumerate(ports[:4]))
+        nodes.extend((f":{port}", 65 + i * 10, 70 - i * 10, "small") for i, port in enumerate(ports[:4]))
     node_html = "".join(f"<div class='node {cls}' style='left:{x}%;top:{y}%'>{h(label)}</div>" for label, x, y, cls in nodes)
     edge_html = "<div class='edge' style='left:50%;top:55%;width:35%;transform:rotate(22deg)'></div><div class='edge' style='left:28%;top:61%;width:25%;transform:rotate(-18deg)'></div>"
     return f"<div class='card surface-map'><h3>Visual Attack Surface Map</h3>{edge_html}{node_html}<div style='position:absolute;right:16px;bottom:16px' class='pill'>Blue informational - Orange medium - Red high</div></div>"
