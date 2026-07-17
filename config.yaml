@@ -1,0 +1,53 @@
+# PhantomScan 2.0.0 configuration
+app:
+  name: PhantomScan
+  version: 2.0.0
+  tagline: Scan Smart. Stay Secure.
+  authorization_warning: true
+
+scan:
+  default_profile: quick
+  timeout_seconds: 8
+  max_redirects: 5
+  user_agent: PhantomScan/2.0 authorized-security-assessment
+  enforce_scope: true
+  collect_evidence: false
+
+ports:
+  quick: top100
+  full: top1000
+  custom: ""
+
+network:
+  resolvers:
+    - 8.8.8.8
+    - 1.1.1.1
+    - 9.9.9.9
+  allow_private_targets: true
+  cidr_live_host_limit: 256
+
+cve:
+  enabled: false
+  cvss_min: 4.0
+  suppress_recent_days: 7
+  require_exact_cpe: true
+  minimum_relevance: 60
+
+report:
+  output_dir: reports
+  html: true
+  json: true
+  pdf: false
+  dark_theme: true
+
+engines:
+  go:
+    path: engines/go/bin/phantomscan-go
+    enabled: true
+  rust:
+    path: engines/rust/target/release/phantomscan-rust
+    enabled: true
+  node:
+    path: engines/node/browser_engine.js
+    enabled: true
+

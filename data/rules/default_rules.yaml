@@ -1,0 +1,27 @@
+rules:
+  - id: SEC-HEADER-HSTS
+    category: web
+    severity: medium
+    confidence: high
+    title: HTTP Strict Transport Security is not present
+  - id: SEC-HEADER-CSP
+    category: web
+    severity: medium
+    confidence: medium
+    title: Content Security Policy is not present
+  - id: COOKIE-MISSING-HTTPONLY
+    category: web
+    severity: low
+    confidence: medium
+    title: Cookie missing HttpOnly flag
+  - id: COOKIE-MISSING-SECURE
+    category: web
+    severity: low
+    confidence: medium
+    title: Cookie missing Secure flag
+  - id: CORS-WILDCARD-CREDENTIALS
+    category: api
+    severity: high
+    confidence: high
+    title: CORS allows wildcard origin with credentials
+

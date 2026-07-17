@@ -1,0 +1,7 @@
+cve:
+  require_exact_cpe: true
+  minimum_cvss: 4.0
+  suppress_cvss_zero: true
+  suppress_recent_days: 7
+  minimum_relevance: 60
+

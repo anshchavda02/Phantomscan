@@ -1,0 +1,5 @@
+known_platforms:
+  suppress_missing_mfa_without_login: true
+  suppress_rate_limit_missing_without_headers: true
+  use_contextual_waf_names: true
+

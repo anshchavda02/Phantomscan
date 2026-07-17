@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+reports/
+logs/
+evidence/
+engines/go/bin/
+engines/rust/target/
+node_modules/
+*.zip
+.DS_Store

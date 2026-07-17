@@ -1,0 +1,10 @@
+cookies:
+  downgrade_tracking_to_info: true
+  ignore_expired: true
+  secure_prefix_implies_secure: true
+  analytics_patterns:
+    - _ga
+    - _gid
+    - _fbp
+    - intercom-
+

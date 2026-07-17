@@ -1,0 +1,16 @@
+{
+  "schema": "phantomscan.favicon_hashes.v1",
+  "hashes": [
+    {"hash": "708578229", "name": "Apache default", "confidence": 70},
+    {"hash": "-127886975", "name": "Nginx default", "confidence": 70},
+    {"hash": "81586312", "name": "WordPress", "confidence": 80},
+    {"hash": "116323821", "name": "Jenkins", "confidence": 85},
+    {"hash": "-305179312", "name": "Grafana", "confidence": 85},
+    {"hash": "-1205024243", "name": "Kibana", "confidence": 85},
+    {"hash": "99432374", "name": "Drupal", "confidence": 80},
+    {"hash": "-1950415971", "name": "Joomla", "confidence": 80},
+    {"hash": "2128230701", "name": "phpMyAdmin", "confidence": 85},
+    {"hash": "-1275226814", "name": "cPanel", "confidence": 85}
+  ]
+}
+

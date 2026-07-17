@@ -1,0 +1,6 @@
+web:
+  cors_requires_credentials_confirmation: true
+  security_headers_grouped: true
+  clickjacking_checks_accept_csp_frame_ancestors: true
+  mfa_requires_confirmed_login_page: true
+
