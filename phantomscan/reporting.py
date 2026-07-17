@@ -114,7 +114,8 @@ h2 {{ font-size:25px; margin:0; }}
 .record-row {{ display:grid; grid-template-columns:90px 1fr; gap:10px; padding:8px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.025); }}
 .metric-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }}
 .metric .num {{ font-size:34px; font-weight:800; }}
-.score-ring {{ width:190px; height:190px; border-radius:50%; display:grid; place-items:center; margin:auto; background:conic-gradient(var(--accent2) calc(var(--score)*1%), rgba(255,255,255,.08) 0); box-shadow:0 0 35px rgba(0,201,255,.18); }}
+.score-ring {{ width:190px; height:190px; border-radius:50%; display:grid; place-items:center; margin:auto; background:conic-gradient(var(--accent2) calc(var(--score)*1%), rgba(255,255,255,.08) 0); box-shadow:0 0 35px rgba(0,201,255,.18); animation: fillRing 1.5s ease-out; }}
+@keyframes fillRing {{ from {{ background:conic-gradient(var(--accent2) 0%, rgba(255,255,255,.08) 0); }} to {{ background:conic-gradient(var(--accent2) calc(var(--score)*1%), rgba(255,255,255,.08) 0); }} }}
 .score-ring div {{ width:142px; height:142px; border-radius:50%; background:var(--surface); display:grid; place-items:center; text-align:center; border:1px solid var(--border); }}
 .score-ring strong {{ font-size:42px; line-height:1; }}
 .charts {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }}
@@ -147,6 +148,8 @@ tr:hover td {{ background:rgba(255,255,255,.025); }}
 .fix {{ margin-top:12px; padding:12px; border-radius:12px; background:rgba(0,230,118,.07); border:1px solid rgba(0,230,118,.18); }}
 .filters {{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }}
 input,select {{ background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px; }}
+.filter-pill {{ background:transparent; border:1px solid var(--border); padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:600; color:var(--text); }}
+.filter-pill.active {{ background:var(--card-hover); border-color:var(--border-glow); box-shadow:0 0 10px rgba(0,201,255,.1); }}
 .surface-map {{ min-height:330px; position:relative; overflow:hidden; }}
 .node {{ position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); transform:translate(-50%,-50%); word-wrap:break-word; }}
 .node.small {{ width:54px; height:54px; font-size:11px; background:rgba(68,138,255,.12); }}
@@ -157,7 +160,7 @@ input,select {{ background:var(--card); color:var(--text); border:1px solid var(
 footer {{ padding:24px; border-top:1px solid var(--border); background:var(--footer-bg, #07070c); color:var(--text-muted); text-align:center; }}
 @media (max-width:900px) {{ .hero-inner {{ grid-template-columns:1fr; }} .panel-grid,.metric-grid,.charts {{ grid-template-columns:1fr 1fr; }} .sidebar {{ display:none; }} }}
 @media (max-width:620px) {{ .brand {{ font-size:38px; }} .panel-grid,.metric-grid,.charts,.meta-grid {{ grid-template-columns:1fr; }} .topnav nav {{ display:none; }} }}
-@media print {{ .topnav,.sidebar,.filters,button {{ display:none !important; }} section {{ opacity:1; transform:none; break-inside:avoid; }} .finding-body {{ display:block !important; }} body {{ background:white; color:black; }} .card {{ box-shadow:none; }} }}
+@media print {{ .topnav,.sidebar,.filters,button {{ display:none !important; }} section {{ opacity:1; transform:none; break-inside:avoid; margin:10px 0; }} .finding-body {{ display:block !important; }} body {{ background:white; color:black; }} .card {{ box-shadow:none; border-color:#ccc; }} }}
 </style>
 </head>
 <body>
@@ -167,17 +170,21 @@ footer {{ padding:24px; border-top:1px solid var(--border); background:var(--foo
 <div class="sidebar" aria-label="section navigation">
   <a href="#intelligence" title="Target Intelligence"></a><a href="#summary" title="Executive Summary"></a>
   <a href="#analytics" title="Analytics"></a><a href="#matrix" title="Priority Matrix"></a>
+  <a href="#technologies" title="Technologies"></a><a href="#ports" title="Open Ports"></a>
   <a href="#findings" title="Findings"></a><a href="#metadata" title="Metadata"></a>
 </div>
 <main class="layout">
 {_intelligence(payload)}
 {_summary(payload)}
+{_roadmap(payload)}
 {_analytics(payload)}
 {_diff(payload)}
 {_compliance(payload)}
 {_matrix(payload)}
 {_cve(payload)}
 {_api(payload)}
+{_technologies(payload)}
+{_ports(payload)}
 {_findings(payload)}
 {_subdomains(payload)}
 {_checklist(payload)}
@@ -215,18 +222,24 @@ document.querySelectorAll('[data-copy]').forEach(button => {{
   }});
 }});
 const search = document.getElementById('finding-search');
-const severity = document.getElementById('severity-filter');
+let currentSev = 'all';
+document.querySelectorAll('.filter-pill').forEach(btn => {{
+  btn.addEventListener('click', () => {{
+    document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSev = btn.getAttribute('data-sev');
+    filterFindings();
+  }});
+}});
 function filterFindings() {{
   const q = (search?.value || '').toLowerCase();
-  const s = severity?.value || 'all';
   document.querySelectorAll('.finding').forEach(card => {{
     const okText = card.textContent.toLowerCase().includes(q);
-    const okSev = s === 'all' || card.dataset.severity === s;
+    const okSev = currentSev === 'all' || card.dataset.severity === currentSev;
     card.style.display = okText && okSev ? '' : 'none';
   }});
 }}
 search?.addEventListener('input', filterFindings);
-severity?.addEventListener('change', filterFindings);
 document.addEventListener('keydown', event => {{
   if (event.key === '/' && document.activeElement?.tagName !== 'INPUT') {{
     event.preventDefault(); search?.focus();
@@ -238,6 +251,32 @@ document.getElementById('theme-toggle')?.addEventListener('click', () => {{
   localStorage.setItem('phantomscan-theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
 }});
 if (localStorage.getItem('phantomscan-theme') === 'light') document.documentElement.classList.add('light');
+document.getElementById('btn-print')?.addEventListener('click', () => window.print());
+document.querySelectorAll('#matrix-table th[data-sort]').forEach(th => {
+  th.style.cursor = 'pointer';
+  th.addEventListener('click', () => {
+    const table = th.closest('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    if(rows.length === 0 || rows[0].querySelector('td').colSpan > 1) return;
+    const index = Array.from(th.parentNode.children).indexOf(th);
+    const type = th.getAttribute('data-sort');
+    const isAsc = th.classList.contains('asc');
+    table.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
+    th.classList.add(isAsc ? 'desc' : 'asc');
+    const sevMap = { 'critical': 5, 'high': 4, 'medium': 3, 'low': 2, 'info': 1 };
+    rows.sort((a, b) => {
+      const valA = a.children[index].textContent.trim();
+      const valB = b.children[index].textContent.trim();
+      let cmp = 0;
+      if(type === 'num') cmp = parseInt(valA) - parseInt(valB);
+      else if(type === 'sev') cmp = (sevMap[valA.toLowerCase()] || 0) - (sevMap[valB.toLowerCase()] || 0);
+      else cmp = valA.localeCompare(valB);
+      return isAsc ? -cmp : cmp;
+    });
+    tbody.append(...rows);
+  });
+});
 document.getElementById('export-json')?.addEventListener('click', () => {{
   const blob = new Blob([JSON.stringify(report, null, 2)], {{type:'application/json'}});
   const url = URL.createObjectURL(blob);
@@ -309,7 +348,7 @@ def _top_nav(payload: dict[str, Any]) -> str:
 <div class="topnav">
   <strong>PHANTOM <span style="color:var(--accent2)">SCAN</span></strong>
   <nav><a href="#intelligence">Intel</a><a href="#summary">Summary</a><a href="#analytics">Analytics</a><a href="#findings">Findings</a><a href="#metadata">Metadata</a></nav>
-  <div><span class="pill">Score {h(payload.get('score'))}</span> <button id="theme-toggle">Theme</button> <button id="export-json">JSON</button> <button id="export-csv">CSV</button></div>
+  <div><span class="pill">Score {h(payload.get('score'))}</span> <button id="btn-print">Print</button> <button id="theme-toggle">Theme</button> <button id="export-json">JSON</button> <button id="export-csv">CSV</button></div>
 </div>"""
 
 
@@ -396,17 +435,29 @@ def _matrix(payload: dict[str, Any]) -> str:
     return f"""
 <section id="matrix">
   <div class="section-title"><h2>Remediation Priority Matrix</h2><span class="pill">Sortable by browser search/filter</span></div>
-  <div class="table-wrap"><table><thead><tr><th>#</th><th>Finding</th><th>Severity</th><th>Confidence</th><th>Module</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows or '<tr><td colspan="7">No findings.</td></tr>'}</tbody></table></div>
+  <div class="table-wrap"><table id="matrix-table"><thead><tr><th data-sort="num">#</th><th data-sort="alpha">Finding</th><th data-sort="sev">Severity</th><th data-sort="alpha">Confidence</th><th data-sort="alpha">Module</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows or '<tr><td colspan="7">No findings.</td></tr>'}</tbody></table></div>
 </section>"""
 
 
 def _findings(payload: dict[str, Any]) -> str:
     cards = "".join(_finding_card(item) for item in payload.get("findings", [])) or "<div class='card'><p>No confirmed findings after post-processing.</p></div>"
     suppressed = "".join(_finding_card(item, suppressed=True) for item in payload.get("suppressed_findings", []))
+    counts = Counter(str(item.get("severity", "info")).lower() for item in payload.get("findings", []))
+    
     return f"""
 <section id="findings">
   <div class="section-title"><h2>All Findings</h2><span class="pill">{len(payload.get('findings', []))} shown</span></div>
-  <div class="filters"><input id="finding-search" placeholder="Search findings..."><select id="severity-filter"><option value="all">All severities</option>{''.join(f'<option value="{s}">{s.title()}</option>' for s in SEVERITIES)}</select></div>
+  <div class="filters">
+    <input id="finding-search" placeholder="Search findings...">
+    <div class="filter-pills">
+      <button class="filter-pill active" data-sev="all">All</button>
+      <button class="filter-pill" data-sev="critical" style="color:var(--crit)">Critical ({counts.get('critical', 0)})</button>
+      <button class="filter-pill" data-sev="high" style="color:var(--high)">High ({counts.get('high', 0)})</button>
+      <button class="filter-pill" data-sev="medium" style="color:var(--med)">Medium ({counts.get('medium', 0)})</button>
+      <button class="filter-pill" data-sev="low" style="color:var(--low)">Low ({counts.get('low', 0)})</button>
+      <button class="filter-pill" data-sev="info" style="color:var(--info)">Info ({counts.get('info', 0)})</button>
+    </div>
+  </div>
   {cards}
   <div class="card collapsible"><div data-toggle><strong>{len(payload.get('suppressed_findings', []))} auto-suppressed findings</strong> <span class="muted">click to review</span></div><div class="finding-body">{suppressed or '<p class="muted">No suppressed findings.</p>'}</div></div>
 </section>"""
@@ -414,14 +465,24 @@ def _findings(payload: dict[str, Any]) -> str:
 
 def _metadata(payload: dict[str, Any]) -> str:
     observations = payload.get("observations", [])
-    rows = "".join(
+    obs_rows = "".join(
         f"<tr><td>{h(obs.get('name'))}</td><td>{h(obs.get('source'))}</td><td><code>{h(obs.get('value'))}</code></td></tr>"
         for obs in observations
     )
+    
+    options = payload.get("options", {})
+    opts_rows = "".join(
+        f"<tr><td>{h(k)}</td><td><code>{h(v)}</code></td></tr>"
+        for k, v in options.items()
+    )
+    
     return f"""
 <section id="metadata">
   <div class="section-title"><h2>Scan Metadata</h2><span class="pill">{len(observations)} observations</span></div>
-  <div class="table-wrap"><table><thead><tr><th>Module</th><th>Source</th><th>Value</th></tr></thead><tbody>{rows}</tbody></table></div>
+  <div class="charts">
+    <div class="table-wrap"><table><thead><tr><th>Module</th><th>Source</th><th>Value</th></tr></thead><tbody>{obs_rows or '<tr><td colspan="3">No observations.</td></tr>'}</tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Configuration Option</th><th>Value</th></tr></thead><tbody>{opts_rows or '<tr><td colspan="2">No options recorded.</td></tr>'}</tbody></table></div>
+  </div>
 </section>"""
 
 
@@ -476,6 +537,61 @@ def _screenshots(payload: dict[str, Any]) -> str:
 
 def _footer(payload: dict[str, Any]) -> str:
     return f"<footer>PhantomScan v2.0.0 | Generated {h(datetime.utcnow().isoformat(timespec='seconds'))} UTC | Authorized use only. Unauthorized testing is illegal.</footer>"
+
+
+def _technologies(payload: dict[str, Any]) -> str:
+    obs = payload.get("observations", [])
+    tech = _tech(obs)
+    if not tech:
+        return ""
+    rows = "".join(
+        f"<tr><td><code>{h(item.get('name'))}</code></td><td>{h(item.get('version', 'N/A'))}</td><td><span class='pill'>{h(item.get('confidence'))}%</span></td><td>{h(item.get('categories', ['general'])[0] if isinstance(item.get('categories'), list) else 'general')}</td></tr>"
+        for item in tech
+    )
+    return f"""
+<section id='technologies'>
+  <div class='section-title'><h2>Technologies Detected</h2><span class='pill'>{len(tech)} detected</span></div>
+  <div class='table-wrap'><table><thead><tr><th>Technology</th><th>Version</th><th>Confidence</th><th>Category</th></tr></thead><tbody>{rows}</tbody></table></div>
+</section>"""
+
+
+def _ports(payload: dict[str, Any]) -> str:
+    obs = payload.get("observations", [])
+    open_ports = _obs_value(obs, "open_tcp_ports", [])
+    if not open_ports:
+        return ""
+    rows = "".join(
+        f"<tr><td><code>{h(port)}</code></td><td>TCP</td><td><span class='pill'>Open</span></td><td>-</td></tr>"
+        for port in open_ports
+    )
+    return f"""
+<section id='ports'>
+  <div class='section-title'><h2>Open Ports</h2><span class='pill'>{len(open_ports)} exposed</span></div>
+  <div class='table-wrap'><table><thead><tr><th>Port</th><th>Protocol</th><th>State</th><th>Service (Estimated)</th></tr></thead><tbody>{rows}</tbody></table></div>
+</section>"""
+
+
+def _roadmap(payload: dict[str, Any]) -> str:
+    findings = payload.get("findings", [])
+    if not findings:
+        return ""
+    immediate = [f for f in findings if str(f.get("severity", "")).lower() in ("critical", "high")]
+    short_term = [f for f in findings if str(f.get("severity", "")).lower() == "medium"]
+    long_term = [f for f in findings if str(f.get("severity", "")).lower() in ("low", "info")]
+    
+    def _list_findings(flist):
+        if not flist: return "<p class='muted'>No actions required.</p>"
+        return "".join(f"<div style='margin-bottom:8px'><strong>{h(f.get('title'))}</strong></div>" for f in flist)
+        
+    return f"""
+<section id='roadmap'>
+  <div class='section-title'><h2>Remediation Action Plan</h2><span class='pill'>Prioritized Roadmap</span></div>
+  <div class='panel-grid'>
+    <div class='card' style='border-top:3px solid var(--crit)'><h3>Phase 1: Immediate</h3>{_list_findings(immediate)}</div>
+    <div class='card' style='border-top:3px solid var(--med)'><h3>Phase 2: Short Term</h3>{_list_findings(short_term)}</div>
+    <div class='card' style='border-top:3px solid var(--info)'><h3>Phase 3: Long Term</h3>{_list_findings(long_term)}</div>
+  </div>
+</section>"""
 
 
 def _intel_card(title: str, status: str, rows: list[tuple[str, Any]], color: str) -> str:
