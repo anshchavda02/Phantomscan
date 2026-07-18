@@ -6,3 +6,5 @@ tldextract>=5.1
 weasyprint>=62.0
 rich>=13.7
 pytest>=8.0
+PyYAML>=6.0
+mitmproxy>=10.0
