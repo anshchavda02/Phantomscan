@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 import sys
 import time
@@ -240,8 +241,9 @@ async def scan_one(
             break
 
     # Deep web analysis (sensitive paths, CORS, disclosures, redirect)
+    deep_findings = []
     if args.profile in ("full", "bug-bounty", "owasp"):
-        await timed_step(
+        deep_findings = await timed_step(
             "Deep web analysis", logger, observations, args.silent, deep_analyze_web, target, effective_url, logger
         )
         await timed_step(
@@ -443,4 +445,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding='utf-8')
     raise SystemExit(main())
