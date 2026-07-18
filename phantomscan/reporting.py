@@ -652,34 +652,55 @@ def _subdomain_row(item: dict[str, Any]) -> str:
 
 
 def _surface_map(payload: dict[str, Any], ips: Any, ports: Any) -> str:
+    import math
     domain_x, domain_y = 50, 50
     nodes = [("Domain", domain_x, domain_y, "")]
     edges = []
     
-    ip_list = ips[:4] if isinstance(ips, list) else []
+    ip_list = ips[:12] if isinstance(ips, list) else []
+    port_list = ports[:12] if isinstance(ports, list) else []
+    
+    # Position IPs in a left semicircle
     for i, ip in enumerate(ip_list):
-        x = 25
-        y = 30 + i * 20
+        angle = math.pi/2 + (i + 1) * math.pi / (len(ip_list) + 1)  # between pi/2 and 3pi/2
+        r = 38  # radius in percent
+        x = 50 + r * math.cos(angle)
+        y = 50 - r * math.sin(angle)
         nodes.append((str(ip), x, y, "small info"))
         edges.append((domain_x, domain_y, x, y))
         
-    port_list = ports[:4] if isinstance(ports, list) else []
+    # Position Ports in a right semicircle
     for i, port in enumerate(port_list):
-        x = 75
-        y = 30 + i * 20
+        angle = math.pi/2 - (i + 1) * math.pi / (len(port_list) + 1)  # between -pi/2 and pi/2
+        r = 38
+        x = 50 + r * math.cos(angle)
+        y = 50 - r * math.sin(angle)
+        
         cls = "small"
         p = int(port) if str(port).isdigit() else 0
         if p in [80, 443]: cls += " info"
-        elif p in [21, 22, 3389]: cls += " medium"
+        elif p in [21, 22, 3389, 445]: cls += " medium"
         else: cls += " high"
         nodes.append((f":{port}", x, y, cls))
         edges.append((domain_x, domain_y, x, y))
 
     node_html = "".join(f"<div class='node {cls}' style='left:{x}%;top:{y}%'>{h(label)}</div>" for label, x, y, cls in nodes)
-    svg_edges = "".join(f"<line x1='{x1}%' y1='{y1}%' x2='{x2}%' y2='{y2}%' stroke='var(--accent2)' stroke-width='1.5' opacity='0.4' />" for x1, y1, x2, y2 in edges)
-    edge_html = f"<svg style='position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;'>{svg_edges}</svg>"
     
-    return f"<div class='card surface-map'><h3>Visual Attack Surface Map</h3>{edge_html}{node_html}<div style='position:absolute;right:16px;bottom:16px;z-index:3;' class='pill'>Blue info - Orange med - Red high</div></div>"
+    # Draw curved edges using svg path
+    svg_paths = ""
+    for x1, y1, x2, y2 in edges:
+        # Control points for bezier curve to make them look dynamic
+        cx1 = x1 + (x2 - x1) * 0.4
+        cy1 = y1
+        cx2 = x1 + (x2 - x1) * 0.6
+        cy2 = y2
+        path = f"M {x1} {y1} C {cx1} {cy1}, {cx2} {cy2}, {x2} {y2}"
+        svg_paths += f"<path d='{path}' stroke='var(--accent2)' fill='transparent' stroke-width='0.4' opacity='0.6' />"
+        
+    # Make sure svg preserves aspect ratio
+    edge_html = f"<svg viewBox='0 0 100 100' preserveAspectRatio='none' style='position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible;'>{svg_paths}</svg>"
+    
+    return f"<div class='card surface-map' style='min-height: 420px;'><h3>Visual Attack Surface Map</h3>{edge_html}{node_html}<div style='position:absolute;right:16px;bottom:16px;z-index:3;' class='pill'>Blue: Info / Safe | Orange: Medium Risk | Red: High Risk</div></div>"
 
 
 def _finding_card(item: dict[str, Any], suppressed: bool = False) -> str:

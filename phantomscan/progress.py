@@ -138,13 +138,14 @@ class ScanProgressDisplay:
 
         grid = Table.grid(expand=False)
         grid.add_row(
-            Text("✅ Scan Complete", style="bold green"),
+            Text("[+] Scan Complete", style="bold green"),
             Text(f"  {elapsed:.1f}s", style="dim"),
         )
-
         self._console.print()
         self._console.print(Panel(
             f"[bold]Score:[/]  [{score_color}]{final_score}/100  Grade {final_grade}[/]\n"
+            f"[bold]Target:[/] {report.get('target', 'unknown')}\n"
+            f"[bold]Status:[/] [green][OK][/] Complete\n"
             f"[bold]Findings:[/]  "
             f"[red]Critical {counts['critical']}[/]  "
             f"[orange1]High {counts['high']}[/]  "
@@ -152,7 +153,7 @@ class ScanProgressDisplay:
             f"[green]Low {counts['low']}[/]  "
             f"[dim]Info {counts['info']}[/]\n"
             f"[dim]Elapsed: {elapsed:.1f}s[/]",
-            title="[bold green]✅ Scan Complete[/]",
+            title="[bold green][+] Scan Complete[/]",
             border_style="green",
             expand=False,
         ))

@@ -8,8 +8,8 @@ from typing import Any
 
 
 SEVERITY_ORDER = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
-DEDUCTIONS = {"critical": 15, "high": 8, "medium": 3, "low": 1, "info": 0}
-DEDUCTION_CAPS = {"critical": 30, "high": 24, "medium": 18, "low": 10, "info": 0}
+DEDUCTIONS = {"critical": 30, "high": 15, "medium": 8, "low": 3, "info": 1}
+DEDUCTION_CAPS = {"critical": 60, "high": 45, "medium": 30, "low": 20, "info": 10}
 
 
 def load_known_platform(data_dir: Path, host: str) -> dict[str, Any] | None:

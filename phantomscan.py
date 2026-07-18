@@ -158,7 +158,7 @@ async def timed_step(
             return []
 
     if not silent:
-        with console.status(f"[*] {name}…", spinner="dots", spinner_style="cyan"):
+        with console.status(f"[*] {name}...", spinner="line", spinner_style="cyan"):
             result = await _run_func()
     else:
         result = await _run_func()

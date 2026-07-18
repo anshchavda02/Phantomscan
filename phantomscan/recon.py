@@ -126,7 +126,7 @@ async def resolve_target(
         log.warning("DNS OS error for %s: %s", target.host, exc)
         return [Observation("dns_error", str(exc), "resolver")]
 
-    log.info("Resolved %s → %s", target.host, ips)
+    log.info("Resolved %s -> %s", target.host, ips)
     return [Observation("resolved_ips", ips, "resolver")]
 
 

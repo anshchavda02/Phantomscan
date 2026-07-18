@@ -33,6 +33,16 @@ if exist "%ROOT%requirements.txt" (
   "%VENV%\Scripts\python.exe" -m pip install -r "%ROOT%requirements.txt"
 )
 
+echo.
+echo Compiling Go Port Scanner...
+cd /d "%ROOT%engines\go"
+go build -o bin\phantomscan-go.exe main.go
+
+echo Compiling Rust TLS Inspector...
+cd /d "%ROOT%engines\rust"
+cargo build --release
+cd /d "%ROOT%"
+
 (
   echo @echo off
   echo setlocal

@@ -117,7 +117,8 @@ class EngineHealthChecker:
 
     async def _check_internet(self) -> EngineStatus:
         try:
-            connector = aiohttp.TCPConnector(ssl=False)
+            resolver = aiohttp.ThreadedResolver()
+            connector = aiohttp.TCPConnector(ssl=False, resolver=resolver)
             async with aiohttp.ClientSession(connector=connector) as session:
                 async with session.get(
                     "https://dns.google/resolve?name=example.com&type=A",
@@ -166,13 +167,13 @@ class EngineHealthChecker:
         table.add_column("Detail", style="dim")
 
         for status in results.values():
-            icon = "[green]✅ Ready[/]" if status.available else "[red]❌ Unavailable[/]"
+            icon = "[green][OK] Ready[/]" if status.available else "[red][FAIL] Unavailable[/]"
             req = "[yellow]Required[/]" if status.critical else "Optional"
             table.add_row(status.name, icon, req, status.detail)
 
         self._console.print(table)
         if not all(s.available for s in results.values() if s.critical):
             self._console.print(
-                "[bold red]⚠  One or more required engines are unavailable. "
+                "[bold red]!  One or more required engines are unavailable. "
                 "Scan will use Python fallbacks where possible.[/]"
             )
