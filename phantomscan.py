@@ -28,6 +28,7 @@ from phantomscan.recon import (
     lookup_whois,
     resolve_target,
 )
+from phantomscan.rules_engine import run_yaml_rules
 from phantomscan.reporting import write_html_report, write_json_report, write_csv_report
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target, root_domain
@@ -239,10 +240,13 @@ async def scan_one(
             break
 
     # Deep web analysis (sensitive paths, CORS, disclosures, redirect)
-    deep_findings = await timed_step(
-        "Deep web analysis", logger, observations, args.silent,
-        deep_analyze_web, target, effective_url, logger,
-    )
+    if args.profile in ("full", "bug-bounty", "owasp"):
+        await timed_step(
+            "Deep web analysis", logger, observations, args.silent, deep_analyze_web, target, effective_url, logger
+        )
+        await timed_step(
+            "YAML vulnerability rules", logger, observations, args.silent, run_yaml_rules, effective_url, observations
+        )
     if isinstance(deep_findings, list):
         findings.extend(item.to_dict() for item in deep_findings)
 

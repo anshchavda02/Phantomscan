@@ -1,0 +1,27 @@
+id: exposed-env-file
+info:
+  name: Exposed .env file
+  author: phantomscan
+  severity: high
+  description: The server is exposing a .env file which may contain sensitive credentials, API keys, and database passwords.
+  tags: config,exposure,sensitive
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.env"
+      - "{{BaseURL}}/api/.env"
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        words:
+          - "DB_PASSWORD"
+          - "APP_SECRET"
+          - "AWS_ACCESS_KEY"
+          - "API_KEY"
+        condition: or
+
+      - type: status
+        status:
+          - 200
