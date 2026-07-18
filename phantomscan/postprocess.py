@@ -93,36 +93,68 @@ def post_process(
 
 
 def score(findings: list[dict[str, Any]], observations: list[dict[str, Any]] | None = None) -> int:
-    """Calculate a score from real findings and scan completeness."""
+    """Calculate a score from real confirmed findings and scan completeness."""
     totals = {key: 0 for key in DEDUCTIONS}
     for item in findings:
         severity = str(item.get("severity", "info")).lower()
-        totals[severity] = min(DEDUCTION_CAPS[severity], totals[severity] + DEDUCTIONS[severity])
+        if severity in totals:
+            totals[severity] = min(DEDUCTION_CAPS[severity], totals[severity] + DEDUCTIONS[severity])
     value = 100 - sum(totals.values())
     obs = observations or []
-    text = " ".join(f"{item.get('name', '')} {item.get('value', '')}" for item in obs).lower()
+
     completeness_penalty = _scan_completeness_penalty(obs)
     value -= completeness_penalty
-    bonuses = [
-        ("ssl_grade a", 2),
-        ("ssl_grade a+", 3),
-        ("waf", 2),
-        ("cdn", 1),
-        ("dnssec", 1),
-        ("dmarc", 1),
-        ("http/3", 1),
-        ("h3", 1),
-    ]
+
+    # Build a flat text blob for simple marker checks
+    text = " ".join(f"{item.get('name', '')} {item.get('value', '')}" for item in obs).lower()
+
+    # Extract SSL grade from structured observation first, then fall back to text
+    ssl_grade = _extract_ssl_grade(obs)
+
     bonus_total = 0
-    for marker, bonus in bonuses:
-        if marker in text:
-            bonus_total += bonus
+    if ssl_grade in ("a+", "a"):
+        bonus_total += 3 if ssl_grade == "a+" else 2
+    if ssl_grade and ssl_grade not in ("f", "unknown"):
+        bonus_total += 1  # cert is at least valid
+    if any(
+        any(w in str(item.get("value", "")).lower() for w in ("cloudflare", "waf", "shield", "armor"))
+        for item in obs
+        if "waf" in str(item.get("name", "")).lower() or "technologies" in str(item.get("name", "")).lower()
+    ):
+        bonus_total += 2
+    if "cloudflare" in text or "fastly" in text or "akamai" in text or "cloudfront" in text:
+        bonus_total += 1  # CDN bonus
+    if "dmarc1" in text or "dmarc record" in text:
+        bonus_total += 1
+    if "hsts" in text or "strict-transport-security" in text:
+        bonus_total += 2
+    if "http/3" in text or "\"h3\"" in text or "alt-svc" in text:
+        bonus_total += 1
+
+    # Cap bonuses at the total deductions applied (can't bonus past penalised amount)
     value += min(bonus_total, sum(totals.values()) + completeness_penalty // 2)
+
     if findings:
         value = min(value, 99)
     if obs:
         value = max(20, value)
     return max(0, min(100, value))
+
+
+def _extract_ssl_grade(observations: list[dict[str, Any]]) -> str:
+    """Extract the SSL/TLS grade from observations."""
+    for item in observations:
+        name = str(item.get("name", "")).lower()
+        val = item.get("value")
+        # Direct ssl_grade observation
+        if name == "ssl_grade" and isinstance(val, str):
+            return val.lower()
+        # tls_inspection dict may carry a 'grade' key
+        if name == "tls_inspection" and isinstance(val, dict):
+            g = val.get("grade", "")
+            if g:
+                return str(g).lower()
+    return ""
 
 
 def grade(value: int) -> str:
@@ -175,12 +207,18 @@ def _scan_completeness_penalty(observations: list[dict[str, Any]]) -> int:
     penalty = 0
     if "http_error" in names:
         penalty += 8
-    if "tls_error" in names or "TLS service could not be verified".lower() in text:
+    if "tls_error" in names or "tls service could not be verified" in text:
         penalty += 6
     if "whois_info" in names and "unavailable" in text:
         penalty += 2
-    if "open_tcp_ports" not in names and any("engine_go-portscan" in name for name in names):
-        penalty += 5
+    # Port scan penalty — covers both Go engine and Python fallback observation names
+    port_scan_done = (
+        "open_tcp_ports" in names
+        or "port_scan_results" in names
+        or any("go-portscan" in name or "python-portscan" in name for name in names)
+    )
+    if not port_scan_done:
+        penalty += 3
     if "dns_error" in names:
         penalty += 8
     return min(25, penalty)

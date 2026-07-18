@@ -150,12 +150,12 @@ tr:hover td {{ background:rgba(255,255,255,.025); }}
 input,select {{ background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px; }}
 .filter-pill {{ background:transparent; border:1px solid var(--border); padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:600; color:var(--text); }}
 .filter-pill.active {{ background:var(--card-hover); border-color:var(--border-glow); box-shadow:0 0 10px rgba(0,201,255,.1); }}
-.surface-map { min-height:330px; position:relative; overflow:hidden; }
-.node { position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); transform:translate(-50%,-50%); word-wrap:break-word; z-index:2; }
-.node.small { width:54px; height:54px; font-size:11px; background:rgba(68,138,255,.12); }
-.node.info { border-color:var(--info); background:var(--info-bg); box-shadow:0 0 28px var(--info-bg); }
-.node.medium { border-color:var(--high); background:var(--high-bg); box-shadow:0 0 28px var(--high-bg); color:var(--high); }
-.node.high { border-color:var(--crit); background:var(--crit-bg); box-shadow:0 0 28px var(--crit-bg); color:var(--crit); }
+.surface-map {{ min-height:330px; position:relative; overflow:hidden; }}
+.node {{ position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); transform:translate(-50%,-50%); word-wrap:break-word; z-index:2; }}
+.node.small {{ width:54px; height:54px; font-size:11px; background:rgba(68,138,255,.12); }}
+.node.info {{ border-color:var(--info); background:var(--info-bg); box-shadow:0 0 28px var(--info-bg); }}
+.node.medium {{ border-color:var(--high); background:var(--high-bg); box-shadow:0 0 28px var(--high-bg); color:var(--high); }}
+.node.high {{ border-color:var(--crit); background:var(--crit-bg); box-shadow:0 0 28px var(--crit-bg); color:var(--crit); }}
 .edge {{ position:absolute; height:1px; background:linear-gradient(90deg,transparent,var(--accent2),transparent); transform-origin:left center; opacity:.5; }}
 .sidebar {{ position:fixed; right:16px; top:120px; z-index:12; display:flex; flex-direction:column; gap:8px; }}
 .sidebar a {{ width:11px; height:11px; border-radius:50%; background:var(--text-dim); border:1px solid var(--border); }}
@@ -255,9 +255,9 @@ document.getElementById('theme-toggle')?.addEventListener('click', () => {{
 }});
 if (localStorage.getItem('phantomscan-theme') === 'light') document.documentElement.classList.add('light');
 document.getElementById('btn-print')?.addEventListener('click', () => window.print());
-document.querySelectorAll('#matrix-table th[data-sort]').forEach(th => {
-  th.style.cursor = 'pointer';
-  th.addEventListener('click', () => {
+document.querySelectorAll('#matrix-table th[data-sort]').forEach(th => {{
+  th.style.cursor = "pointer";
+  th.addEventListener('click', () => {{
     const table = th.closest('table');
     const tbody = table.querySelector('tbody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -267,8 +267,8 @@ document.querySelectorAll('#matrix-table th[data-sort]').forEach(th => {
     const isAsc = th.classList.contains('asc');
     table.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
     th.classList.add(isAsc ? 'desc' : 'asc');
-    const sevMap = { 'critical': 5, 'high': 4, 'medium': 3, 'low': 2, 'info': 1 };
-    rows.sort((a, b) => {
+    const sevMap = {{ 'critical': 5, 'high': 4, 'medium': 3, 'low': 2, 'info': 1 }};
+    rows.sort((a, b) => {{
       const valA = a.children[index].textContent.trim();
       const valB = b.children[index].textContent.trim();
       let cmp = 0;
@@ -276,10 +276,10 @@ document.querySelectorAll('#matrix-table th[data-sort]').forEach(th => {
       else if(type === 'sev') cmp = (sevMap[valA.toLowerCase()] || 0) - (sevMap[valB.toLowerCase()] || 0);
       else cmp = valA.localeCompare(valB);
       return isAsc ? -cmp : cmp;
-    });
+    }});
     tbody.append(...rows);
-  });
-});
+  }});
+}});
 document.getElementById('export-json')?.addEventListener('click', () => {{
   const blob = new Blob([JSON.stringify(report, null, 2)], {{type:'application/json'}});
   const url = URL.createObjectURL(blob);

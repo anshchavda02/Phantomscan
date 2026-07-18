@@ -9,8 +9,12 @@ class PostProcessTests(unittest.TestCase):
         self.assertEqual(len(deduplicate_findings([item, item])), 1)
 
     def test_score_and_grade(self):
-        self.assertEqual(score([{"severity": "medium"}]), 97)
+        # A scan with one medium finding AND port-scan data:
+        port_obs = [{"name": "open_tcp_ports", "value": [80], "source": "go-portscan"}]
+        self.assertEqual(score([{"severity": "medium"}], port_obs), 97)
         self.assertEqual(grade(97), "A+")
+        # Without port scan data a 3-point completeness penalty applies
+        self.assertEqual(score([{"severity": "medium"}]), 94)
 
     def test_incomplete_scan_is_not_perfect(self):
         observations = [

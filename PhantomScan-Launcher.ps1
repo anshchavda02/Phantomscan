@@ -158,7 +158,7 @@ while ($true) {
         $scanArgs += "--debug"
     }
     if (-not $saveJson) {
-        Write-Host "Note: this build still writes a JSON report for traceability." -ForegroundColor Yellow
+        Write-Host "JSON report will not be saved." -ForegroundColor Yellow
     }
 
     Write-Host ""
