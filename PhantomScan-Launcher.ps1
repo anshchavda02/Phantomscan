@@ -4,8 +4,8 @@ $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.WindowTitle = "PhantomScan Launcher"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$BundledPython = "C:\Users\anshc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-$Python = if (Test-Path -LiteralPath $BundledPython) { $BundledPython } else { "python" }
+$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
+$Python = if (Test-Path -LiteralPath $VenvPython) { $VenvPython } else { "python" }
 $Cli = Join-Path $Root "phantomscan.py"
 $Reports = Join-Path $Root "reports"
 $Logs = Join-Path $Root "logs"
