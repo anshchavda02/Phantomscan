@@ -6,18 +6,21 @@ This module parses Nuclei/Xray style YAML templates and executes them against ta
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 import yaml
 import aiohttp
 
 from phantomscan.models import Observation
+from phantomscan.oob import oob_listener
 
 
 class RuleEngine:
     def __init__(self, rules_dir: str = "rules"):
         self.rules_dir = Path(rules_dir)
         self.rules = self._load_rules()
+        self.current_oob_id: Optional[str] = None
 
     def _load_rules(self) -> list[dict[str, Any]]:
         """Load all YAML rules from the rules directory."""
@@ -37,20 +40,31 @@ class RuleEngine:
 
     async def _execute_rule(self, session: aiohttp.ClientSession, target: str, rule: dict[str, Any], observations: list[Observation]) -> None:
         """Execute a single rule against a target."""
-        base_url = f"http://{target}" if not target.startswith("http") else target
+        target_url = f"http://{target}" if not target.startswith("http") else target
         
         for req in rule.get("requests", []):
             method = req.get("method", "GET").upper()
             paths = req.get("path", [])
             
             for path_template in paths:
-                url = path_template.replace("{{BaseURL}}", base_url)
+                url = path_template.replace("{{BaseURL}}", target_url)
+                body = req.get("body", "")
+                
+                # Handle OOB injection
+                if "{{oob_url}}" in url or (body and "{{oob_url}}" in body):
+                    if not oob_listener.is_running:
+                        oob_listener.start()
+                    self.current_oob_id, callback_url = oob_listener.generate_payload_url()
+                    url = url.replace("{{oob_url}}", callback_url)
+                    if body:
+                        body = body.replace("{{oob_url}}", callback_url)
+
                 try:
-                    async with session.request(method, url, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                    async with session.request(method, url, data=body, timeout=aiohttp.ClientTimeout(total=5)) as response:
                         text = await response.text()
                         status = response.status
                         
-                        if self._match_response(req, status, text):
+                        if await self._match_response(req, status, text):
                             info = rule.get("info", {})
                             observations.append(
                                 Observation(
@@ -68,7 +82,7 @@ class RuleEngine:
                 except Exception:
                     pass
 
-    def _match_response(self, request_def: dict[str, Any], status: int, body: str) -> bool:
+    async def _match_response(self, request_def: dict[str, Any], status: int, body: str) -> bool:
         """Check if a response matches the rule criteria."""
         matchers = request_def.get("matchers", [])
         if not matchers:
@@ -91,6 +105,22 @@ class RuleEngine:
                     results.append(all(word_matches) if word_matches else False)
                 else:
                     results.append(any(word_matches) if word_matches else False)
+            elif m_type == "regex":
+                regexes = matcher.get("regex", [])
+                r_condition = matcher.get("condition", "or").lower()
+                regex_matches = [bool(re.search(r, body)) for r in regexes]
+                
+                if r_condition == "and":
+                    results.append(all(regex_matches) if regex_matches else False)
+                else:
+                    results.append(any(regex_matches) if regex_matches else False)
+            elif m_type == "oob":
+                # Wait briefly to let network callbacks arrive
+                await asyncio.sleep(1.0)
+                if self.current_oob_id and oob_listener.check_hit(self.current_oob_id):
+                    results.append(True)
+                else:
+                    results.append(False)
             else:
                 results.append(False) # Unknown matcher
                 
