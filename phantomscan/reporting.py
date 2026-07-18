@@ -102,17 +102,17 @@ section.visible {{ opacity:1; transform:translateY(0); }}
 h1,h2,h3 {{ letter-spacing:0; line-height:1.15; }}
 h2 {{ font-size:25px; margin:0; }}
 .muted {{ color:var(--text-muted); }}
-.panel-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }}
+.panel-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
 .card {{ background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018)); border:1px solid var(--border); border-radius:16px; padding:16px; transition:all .2s ease; box-shadow:0 12px 36px rgba(0,0,0,.18); }}
 .card:hover {{ transform:translateY(-2px); background:var(--card-hover); border-color:var(--border-glow); box-shadow:0 14px 44px rgba(0,201,255,.08); }}
 .intelligence {{ margin-left:-24px; margin-right:-24px; padding:28px 24px; background:var(--intel-bg, linear-gradient(180deg,#080d14 0%,#0a1020 100%)); border-top:2px solid var(--accent2); border-bottom:2px solid var(--border); }}
 .intel-card {{ min-height:190px; border-left:4px solid var(--accent2); word-wrap:break-word; overflow-wrap:break-word; }}
 .intel-head {{ display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:12px; }}
 .status {{ font-size:11px; color:var(--accent2); border:1px solid rgba(0,201,255,.35); border-radius:999px; padding:3px 7px; }}
-.kv {{ display:grid; grid-template-columns:120px 1fr; gap:8px; font-size:13px; }}
-.record-list {{ display:grid; gap:8px; margin-top:12px; }}
-.record-row {{ display:grid; grid-template-columns:90px 1fr; gap:10px; padding:8px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.025); }}
-.metric-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }}
+.kv { display:grid; grid-template-columns:100px minmax(0,1fr); gap:8px; font-size:13px; }
+.record-list { display:grid; gap:8px; margin-top:12px; }
+.record-row { display:grid; grid-template-columns:90px minmax(0,1fr); gap:10px; padding:8px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.025); }
+.metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
 .metric .num {{ font-size:34px; font-weight:800; }}
 .score-ring {{ width:190px; height:190px; border-radius:50%; display:grid; place-items:center; margin:auto; background:conic-gradient(var(--accent2) calc(var(--score)*1%), rgba(255,255,255,.08) 0); box-shadow:0 0 35px rgba(0,201,255,.18); animation: fillRing 1.5s ease-out; }}
 @keyframes fillRing {{ from {{ background:conic-gradient(var(--accent2) 0%, rgba(255,255,255,.08) 0); }} to {{ background:conic-gradient(var(--accent2) calc(var(--score)*1%), rgba(255,255,255,.08) 0); }} }}
@@ -150,13 +150,12 @@ tr:hover td {{ background:rgba(255,255,255,.025); }}
 input,select {{ background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px; }}
 .filter-pill {{ background:transparent; border:1px solid var(--border); padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:600; color:var(--text); }}
 .filter-pill.active {{ background:var(--card-hover); border-color:var(--border-glow); box-shadow:0 0 10px rgba(0,201,255,.1); }}
-.surface-map {{ min-height:330px; position:relative; overflow:hidden; }}
-.node {{ position:absolute; width:80px; height:80px; border-radius:50%; display:grid; place-items:center; text-align:center; padding:8px; border:1px solid var(--border-glow); background:rgba(0,201,255,.12); box-shadow:0 0 28px rgba(0,201,255,.12); transform:translate(-50%,-50%); word-wrap:break-word; z-index:2; }}
-.node.small {{ width:54px; height:54px; font-size:11px; background:rgba(68,138,255,.12); }}
-.node.info {{ border-color:var(--info); background:var(--info-bg); box-shadow:0 0 28px var(--info-bg); }}
-.node.medium {{ border-color:var(--high); background:var(--high-bg); box-shadow:0 0 28px var(--high-bg); color:var(--high); }}
-.node.high {{ border-color:var(--crit); background:var(--crit-bg); box-shadow:0 0 28px var(--crit-bg); color:var(--crit); }}
-.edge {{ position:absolute; height:1px; background:linear-gradient(90deg,transparent,var(--accent2),transparent); transform-origin:left center; opacity:.5; }}
+.surface-map { min-height:500px; position:relative; overflow:hidden; background:var(--bg); border:1px solid var(--border); border-radius:12px; }
+.node-label { font-size:11px; fill:var(--text); pointer-events:none; font-family:var(--font); font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
+.node-circle { cursor:grab; stroke-width:1.5px; transition:filter 0.2s; }
+.node-circle:active { cursor:grabbing; }
+.node-circle:hover { filter:brightness(1.2) drop-shadow(0 0 8px rgba(255,255,255,0.4)); }
+.edge { stroke:var(--border-glow); stroke-opacity:0.6; stroke-width:1.5px; }
 .sidebar {{ position:fixed; right:16px; top:120px; z-index:12; display:flex; flex-direction:column; gap:8px; }}
 .sidebar a {{ width:11px; height:11px; border-radius:50%; background:var(--text-dim); border:1px solid var(--border); }}
 .sidebar a.active {{ background:var(--accent2); box-shadow:0 0 14px var(--accent2); }}
@@ -165,6 +164,7 @@ footer {{ padding:24px; border-top:1px solid var(--border); background:var(--foo
 @media (max-width:620px) {{ .brand {{ font-size:38px; }} .panel-grid,.metric-grid,.charts,.meta-grid {{ grid-template-columns:1fr; }} .topnav nav {{ display:none; }} }}
 @media print {{ .topnav,.sidebar,.filters,button {{ display:none !important; }} section {{ opacity:1; transform:none; break-inside:avoid; margin:10px 0; }} .finding-body {{ display:block !important; }} body {{ background:white; color:black; }} .card {{ box-shadow:none; border-color:#ccc; }} }}
 </style>
+<script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
 <script id="report-data" type="application/json">{escaped_json}</script>
@@ -652,55 +652,113 @@ def _subdomain_row(item: dict[str, Any]) -> str:
 
 
 def _surface_map(payload: dict[str, Any], ips: Any, ports: Any) -> str:
-    import math
-    domain_x, domain_y = 50, 50
-    nodes = [("Domain", domain_x, domain_y, "")]
-    edges = []
+    target = str(payload.get("target", "Target"))
     
-    ip_list = ips[:12] if isinstance(ips, list) else []
-    port_list = ports[:12] if isinstance(ports, list) else []
+    nodes = [{"id": target, "group": 1, "size": 30, "color": "var(--accent2)"}]
+    links = []
     
-    # Position IPs in a left semicircle
-    for i, ip in enumerate(ip_list):
-        angle = math.pi/2 + (i + 1) * math.pi / (len(ip_list) + 1)  # between pi/2 and 3pi/2
-        r = 38  # radius in percent
-        x = 50 + r * math.cos(angle)
-        y = 50 - r * math.sin(angle)
-        nodes.append((str(ip), x, y, "small info"))
-        edges.append((domain_x, domain_y, x, y))
+    ip_list = ips if isinstance(ips, list) else []
+    for ip in ip_list:
+        ip_str = str(ip)
+        nodes.append({"id": ip_str, "group": 2, "size": 22, "color": "var(--info)"})
+        links.append({"source": target, "target": ip_str})
         
-    # Position Ports in a right semicircle
-    for i, port in enumerate(port_list):
-        angle = math.pi/2 - (i + 1) * math.pi / (len(port_list) + 1)  # between -pi/2 and pi/2
-        r = 38
-        x = 50 + r * math.cos(angle)
-        y = 50 - r * math.sin(angle)
+    port_list = ports if isinstance(ports, list) else []
+    for port in port_list:
+        port_str = f":{port}"
         
-        cls = "small"
-        p = int(port) if str(port).isdigit() else 0
-        if p in [80, 443]: cls += " info"
-        elif p in [21, 22, 3389, 445]: cls += " medium"
-        else: cls += " high"
-        nodes.append((f":{port}", x, y, cls))
-        edges.append((domain_x, domain_y, x, y))
+        p_num = int(port) if str(port).isdigit() else 0
+        if p_num in [80, 443]: 
+            color = "var(--info)"
+        elif p_num in [21, 22, 3389, 445]: 
+            color = "var(--high)"
+        else: 
+            color = "var(--crit)"
+            
+        nodes.append({"id": port_str, "group": 3, "size": 22, "color": color})
+        # Connect ports to the primary IP for visual hierarchy
+        parent = str(ip_list[0]) if ip_list else target
+        links.append({"source": parent, "target": port_str})
 
-    node_html = "".join(f"<div class='node {cls}' style='left:{x}%;top:{y}%'>{h(label)}</div>" for label, x, y, cls in nodes)
+    graph_data = json.dumps({"nodes": nodes, "links": links})
     
-    # Draw curved edges using svg path
-    svg_paths = ""
-    for x1, y1, x2, y2 in edges:
-        # Control points for bezier curve to make them look dynamic
-        cx1 = x1 + (x2 - x1) * 0.4
-        cy1 = y1
-        cx2 = x1 + (x2 - x1) * 0.6
-        cy2 = y2
-        path = f"M {x1} {y1} C {cx1} {cy1}, {cx2} {cy2}, {x2} {y2}"
-        svg_paths += f"<path d='{path}' stroke='var(--accent2)' fill='transparent' stroke-width='0.4' opacity='0.6' />"
+    script = f"""
+    <div id="d3-map" style="width:100%;height:100%;min-height:500px"></div>
+    <script>
+      (function() {{
+        const data = {graph_data};
+        const container = document.getElementById('d3-map');
+        const width = container.clientWidth || 800;
+        const height = container.clientHeight || 500;
         
-    # Make sure svg preserves aspect ratio
-    edge_html = f"<svg viewBox='0 0 100 100' preserveAspectRatio='none' style='position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible;'>{svg_paths}</svg>"
+        const svg = d3.select('#d3-map').append('svg')
+          .attr('viewBox', [0, 0, width, height])
+          .attr('style', 'max-width: 100%; height: auto;');
+          
+        const simulation = d3.forceSimulation(data.nodes)
+          .force('link', d3.forceLink(data.links).id(d => d.id).distance(100))
+          .force('charge', d3.forceManyBody().strength(-300))
+          .force('center', d3.forceCenter(width / 2, height / 2))
+          .force('collide', d3.forceCollide().radius(d => d.size + 20));
+          
+        const link = svg.append('g')
+          .selectAll('line')
+          .data(data.links)
+          .join('line')
+          .attr('class', 'edge');
+          
+        const node = svg.append('g')
+          .selectAll('g')
+          .data(data.nodes)
+          .join('g')
+          .call(d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended));
+            
+        node.append('circle')
+          .attr('class', 'node-circle')
+          .attr('r', d => d.size)
+          .attr('fill', d => d.color)
+          .attr('stroke', d => d3.color(d.color).darker());
+          
+        node.append('text')
+          .attr('class', 'node-label')
+          .attr('x', d => d.size + 5)
+          .attr('y', 4)
+          .text(d => d.id);
+          
+        simulation.on('tick', () => {{
+          link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+          node
+            .attr('transform', d => `translate(${{d.x}},${{d.y}})`);
+        }});
+        
+        function dragstarted(event) {{
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          event.subject.fx = event.subject.x;
+          event.subject.fy = event.subject.y;
+        }}
+        
+        function dragged(event) {{
+          event.subject.fx = event.x;
+          event.subject.fy = event.y;
+        }}
+        
+        function dragended(event) {{
+          if (!event.active) simulation.alphaTarget(0);
+          event.subject.fx = null;
+          event.subject.fy = null;
+        }}
+      }})();
+    </script>
+    """
     
-    return f"<div class='card surface-map' style='min-height: 420px;'><h3>Visual Attack Surface Map</h3>{edge_html}{node_html}<div style='position:absolute;right:16px;bottom:16px;z-index:3;' class='pill'>Blue: Info / Safe | Orange: Medium Risk | Red: High Risk</div></div>"
+    return f"<div class='card surface-map'><h3>Visual Attack Surface Map</h3>{script}<div style='position:absolute;right:16px;bottom:16px;z-index:3;' class='pill'>Interactive Map | Blue: Info | Orange: High Risk | Red: Critical Risk</div></div>"
 
 
 def _finding_card(item: dict[str, Any], suppressed: bool = False) -> str:
