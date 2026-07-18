@@ -54,51 +54,80 @@ def cprint(text: str, color: str = "cyan") -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser."""
-    parser = argparse.ArgumentParser(prog="phantomscan")
-    parser.add_argument("--target", required=False)
-    parser.add_argument("--batch")
-    parser.add_argument("--threads", type=int, default=1)
-    parser.add_argument(
+    parser = argparse.ArgumentParser(
+        prog="phantomscan", 
+        description="PhantomScan v2 - Advanced Extensible Vulnerability Scanner",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    
+    # Target Selection
+    target_group = parser.add_argument_group("Target Selection")
+    target_group.add_argument("--target", help="Single target domain, IP, CIDR, or URL to scan (e.g., example.com)")
+    target_group.add_argument("--batch", help="File containing a list of targets (one per line)")
+    
+    # Scan Profiles & Modules
+    scan_group = parser.add_argument_group("Scan Profiles & Modules")
+    scan_group.add_argument(
         "--profile",
         default="quick",
         choices=["quick", "full", "passive", "owasp", "bug-bounty", "api", "network"],
+        help="Scan profile to execute:\n"
+             "  quick      - Fast HTTP checks, top 100 ports, basic TLS\n"
+             "  full       - Deep web analysis, full TLS, concurrent port scan, YAML engine\n"
+             "  passive    - Safe DNS/email checks & Deep Web without active fuzzing\n"
+             "  api        - API-focused HTTP analysis without web crawling\n"
+             "  network    - Intensive Go port-scanner focused profile"
     )
-    parser.add_argument("--ports", default="top100")
-    parser.add_argument("--recon", action="store_true")
-    parser.add_argument("--recon-only", action="store_true")
-    parser.add_argument("--crawl", action="store_true")
-    parser.add_argument("--depth", type=int, default=1)
-    parser.add_argument("--screenshot", action="store_true")
-    parser.add_argument("--cve", action="store_true")
-    parser.add_argument("--cvss-min", type=float, default=4.0)
-    parser.add_argument("--compliance")
-    parser.add_argument("--checklist", action="store_true")
-    parser.add_argument("--output", default="report")
-    parser.add_argument("--pdf", action="store_true")
-    parser.add_argument("--pdf-out")
-    parser.add_argument("--json", action="store_true")
-    parser.add_argument("--json-out")
-    parser.add_argument("--collect-evidence", action="store_true")
-    parser.add_argument("--silent", action="store_true")
-    parser.add_argument("--narrative", action="store_true")
-    parser.add_argument("--learning", action="store_true")
-    parser.add_argument("--client")
-    parser.add_argument("--assessor")
-    parser.add_argument("--engagement-type")
-    parser.add_argument("--ref")
-    parser.add_argument("--confidence", choices=["high", "medium", "low"], default="medium")
-    parser.add_argument("--show-medium", action="store_true")
-    parser.add_argument("--show-all", action="store_true")
-    parser.add_argument("--proxy")
-    parser.add_argument("--diff", action="store_true")
-    parser.add_argument("--verify")
-    parser.add_argument("--watch")
-    parser.add_argument("--interval")
-    parser.add_argument("--daemon", choices=["start", "stop", "status"])
-    parser.add_argument("--annotate", action="store_true")
-    parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--log-file")
+    scan_group.add_argument("--ports", default="top100", help="Ports to scan (e.g., 'top100', 'top1000', or '80,443,8080')")
+    scan_group.add_argument("--proxy", help="Start Passive Proxy Mode on HOST:PORT (e.g., 127.0.0.1:8080) to intercept and feed browser traffic to the YAML engine")
+    
+    # Scan Configuration
+    config_group = parser.add_argument_group("Scan Configuration")
+    config_group.add_argument("--threads", type=int, default=1, help="Number of concurrent threads (default: 1)")
+    config_group.add_argument("--depth", type=int, default=1, help="Web crawler depth (default: 1)")
+    config_group.add_argument("--silent", action="store_true", help="Suppress rich terminal output (useful for piping)")
+    config_group.add_argument("--debug", action="store_true", help="Enable verbose debug logging and pre-scan engine health checks")
+    
+    # Output & Reporting
+    report_group = parser.add_argument_group("Output & Reporting")
+    report_group.add_argument("--json", action="store_true", help="Print JSON findings to stdout at the end of the scan")
+    report_group.add_argument("--json-out", help="Path to save the JSON report")
+    report_group.add_argument("--pdf", action="store_true", help="Generate a PDF report (experimental)")
+    report_group.add_argument("--pdf-out", help="Path to save the PDF report")
+    report_group.add_argument("--log-file", help="Custom path for the debug log file")
+    
+    # Advanced Options
+    adv_group = parser.add_argument_group("Advanced & Tuning")
+    adv_group.add_argument("--confidence", choices=["high", "medium", "low"], default="medium", help="Minimum confidence level to report (default: medium)")
+    adv_group.add_argument("--show-medium", action="store_true", help="Include medium-confidence findings in the main output")
+    adv_group.add_argument("--show-all", action="store_true", help="Include all findings regardless of confidence")
+    adv_group.add_argument("--cve", action="store_true", help="Focus exclusively on CVE detection modules")
+    adv_group.add_argument("--cvss-min", type=float, default=4.0, help="Minimum CVSS score to flag (default: 4.0)")
+    
+    # Legacy / Unused in v2 (Kept for compatibility)
+    legacy_group = parser.add_argument_group("Legacy / Enterprise Options")
+    legacy_group.add_argument("--recon", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--recon-only", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--crawl", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--screenshot", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--compliance", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--checklist", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--output", default="report", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--collect-evidence", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--narrative", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--learning", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--client", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--assessor", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--engagement-type", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--ref", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--diff", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--verify", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--watch", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--interval", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--daemon", choices=["start", "stop", "status"], help=argparse.SUPPRESS)
+    legacy_group.add_argument("--annotate", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)
+
     return parser
 
 
