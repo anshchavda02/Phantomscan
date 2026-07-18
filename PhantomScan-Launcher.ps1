@@ -102,11 +102,12 @@ while ($true) {
     Write-Host "  4. API scan          API-focused HTTP analysis without web crawling"
     Write-Host "  5. Network scan      Intensive Go Portscanner focused profile"
     Write-Host "  6. Custom profile"
+    Write-Host "  8. Proxy mode        Intercept traffic and feed to YAML Rules Engine"
     Write-Host "  7. Help"
     Write-Host "  0. Exit"
     Write-Host ""
 
-    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7") "1"
+    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8") "1"
     if ($mode -eq "0") {
         break
     }
@@ -124,6 +125,7 @@ while ($true) {
         "4" { "api" }
         "5" { "network" }
         "6" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network") "quick" }
+        "8" { "proxy" }
     }
 
     $target = Read-Host "Target domain, IP, CIDR, or URL"
@@ -133,11 +135,14 @@ while ($true) {
         continue
     }
 
-    $ports = Read-Choice "Ports" @("top100", "top1000", "custom") "top100"
-    if ($ports -eq "custom") {
-        $ports = Read-Host "Enter ports, for example 80,443,8080 or 1-1000"
-        if ([string]::IsNullOrWhiteSpace($ports)) {
-            $ports = "top100"
+    $ports = "top100"
+    if ($profile -ne "proxy") {
+        $ports = Read-Choice "Ports" @("top100", "top1000", "custom") "top100"
+        if ($ports -eq "custom") {
+            $ports = Read-Host "Enter ports, for example 80,443,8080 or 1-1000"
+            if ([string]::IsNullOrWhiteSpace($ports)) {
+                $ports = "top100"
+            }
         }
     }
 
@@ -147,7 +152,21 @@ while ($true) {
     $requestPdf = Read-YesNo "Request PDF flag (experimental in this build)" $false
     $debugLogging = Read-YesNo "Show debug log output in this window" $false
 
-    $scanArgs = @("--target", $target, "--profile", $profile, "--ports", $ports)
+    $scanArgs = @("--target", $target)
+    
+    if ($profile -eq "proxy") {
+        $proxyPort = Read-Host "Enter local port for proxy [8080]"
+        if ([string]::IsNullOrWhiteSpace($proxyPort)) {
+            $proxyPort = "8080"
+        }
+        $scanArgs += "--proxy"
+        $scanArgs += "127.0.0.1:$proxyPort"
+    } else {
+        $scanArgs += "--profile"
+        $scanArgs += $profile
+        $scanArgs += "--ports"
+        $scanArgs += $ports
+    }
     if ($showJsonInWindow) {
         $scanArgs += "--json"
     }

@@ -247,11 +247,13 @@ async def scan_one(
         deep_findings = await timed_step(
             "Deep web analysis", logger, observations, args.silent, deep_analyze_web, target, effective_url, logger
         )
+    if isinstance(deep_findings, list):
+        findings.extend(item.to_dict() for item in deep_findings)
+
+    if args.profile != "network":
         await timed_step(
             "YAML vulnerability rules", logger, observations, args.silent, run_yaml_rules, effective_url, observations
         )
-    if isinstance(deep_findings, list):
-        findings.extend(item.to_dict() for item in deep_findings)
 
     # Technology fingerprinting
     tech_obs_list = detect_technologies([*dns_obs, *(item for item in http_obs if hasattr(item, "name"))])
