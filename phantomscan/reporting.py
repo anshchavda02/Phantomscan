@@ -109,9 +109,11 @@ h2 {{ font-size:25px; margin:0; }}
 .intel-card {{ min-height:190px; border-left:4px solid var(--accent2); word-wrap:break-word; overflow-wrap:break-word; }}
 .intel-head {{ display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:12px; }}
 .status {{ font-size:11px; color:var(--accent2); border:1px solid rgba(0,201,255,.35); border-radius:999px; padding:3px 7px; }}
-.kv {{ display:grid; grid-template-columns:100px minmax(0,1fr); gap:8px; font-size:13px; }}
-.record-list {{ display:grid; gap:8px; margin-top:12px; }}
-.record-row {{ display:grid; grid-template-columns:90px minmax(0,1fr); gap:10px; padding:8px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.025); }}
+.kv {{ display:flex; flex-direction:column; gap:12px; font-size:13px; }}
+.kv-item {{ display:flex; flex-direction:column; gap:2px; }}
+.value-wrap {{ overflow-wrap:anywhere; word-break:normal; }}
+.record-list {{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }}
+.record-row {{ display:flex; flex-direction:column; gap:4px; padding:10px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.025); font-size:12px; }}
 .metric-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }}
 .metric .num {{ font-size:34px; font-weight:800; }}
 .score-ring {{ width:190px; height:190px; border-radius:50%; display:grid; place-items:center; margin:auto; background:conic-gradient(var(--accent2) calc(var(--score)*1%), rgba(255,255,255,.08) 0); box-shadow:0 0 35px rgba(0,201,255,.18); animation: fillRing 1.5s ease-out; }}
@@ -150,12 +152,15 @@ tr:hover td {{ background:rgba(255,255,255,.025); }}
 input,select {{ background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px; }}
 .filter-pill {{ background:transparent; border:1px solid var(--border); padding:6px 12px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:600; color:var(--text); }}
 .filter-pill.active {{ background:var(--card-hover); border-color:var(--border-glow); box-shadow:0 0 10px rgba(0,201,255,.1); }}
-.surface-map {{ min-height:500px; position:relative; overflow:hidden; background:var(--bg); border:1px solid var(--border); border-radius:12px; }}
-.node-label {{ font-size:11px; fill:var(--text); pointer-events:none; font-family:var(--font); font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,0.8); }}
-.node-circle {{ cursor:grab; stroke-width:1.5px; transition:filter 0.2s; }}
-.node-circle:active {{ cursor:grabbing; }}
-.node-circle:hover {{ filter:brightness(1.2) drop-shadow(0 0 8px rgba(255,255,255,0.4)); }}
-.edge {{ stroke:var(--border-glow); stroke-opacity:0.6; stroke-width:1.5px; }}
+.tree-container {{ display:flex; flex-direction:column; align-items:center; gap:20px; padding:24px; background:rgba(0,0,0,0.2); border-radius:16px; margin-top:20px; }}
+.tree-group {{ display:flex; flex-wrap:wrap; justify-content:center; gap:12px; width:100%; padding:18px; border:1px dashed rgba(255,255,255,0.1); border-radius:12px; background:rgba(255,255,255,0.02); }}
+.tree-arrow {{ color:var(--text-muted); font-size:24px; text-shadow:0 0 10px rgba(0,201,255,0.3); }}
+.tree-node {{ padding:10px 18px; border-radius:8px; font-weight:bold; font-family:var(--font, monospace); font-size:13px; text-align:center; border:2px solid var(--border); box-shadow:0 4px 12px rgba(0,0,0,0.15); }}
+.tree-node.root {{ border-color:var(--accent2); background:rgba(0,201,255,0.1); font-size:16px; color:#fff; }}
+.tree-node.ip {{ border-color:var(--accent); color:var(--text); background:rgba(123,94,167,0.15); }}
+.tree-node.port.info {{ border-color:var(--info); color:var(--info); background:var(--info-bg); }}
+.tree-node.port.medium {{ border-color:var(--high); color:var(--high); background:var(--high-bg); }}
+.tree-node.port.high {{ border-color:var(--crit); color:var(--crit); background:var(--crit-bg); }}
 .sidebar {{ position:fixed; right:16px; top:120px; z-index:12; display:flex; flex-direction:column; gap:8px; }}
 .sidebar a {{ width:11px; height:11px; border-radius:50%; background:var(--text-dim); border:1px solid var(--border); }}
 .sidebar a.active {{ background:var(--accent2); box-shadow:0 0 14px var(--accent2); }}
@@ -598,7 +603,7 @@ def _roadmap(payload: dict[str, Any]) -> str:
 
 
 def _intel_card(title: str, status: str, rows: list[tuple[str, Any]], color: str) -> str:
-    body = "".join(f"<div class='label'>{h(k)}</div><div>{v if str(v).startswith('<') else h(v)}</div>" for k, v in rows)
+    body = "".join(f"<div class='kv-item'><div class='label'>{h(k)}</div><div class='value-wrap'>{v if str(v).startswith('<') else h(v)}</div></div>" for k, v in rows)
     return f"<div class='card intel-card' style='border-left-color:{color}'><div class='intel-head'><h3>{h(title)}</h3><span class='status'>{h(status)}</span></div><div class='kv'>{body}</div></div>"
 
 
@@ -620,7 +625,7 @@ def _format_dict(value: Any) -> str:
     if not isinstance(value, dict) or not value:
         return "not available"
     return "<div class='record-list'>" + "".join(
-        f"<div class='record-row'><strong>{h(key)}</strong><span>{h(val)}</span></div>"
+        f"<div class='record-row'><strong style='color:var(--text-muted)'>{h(key)}</strong><span class='value-wrap'>{h(val)}</span></div>"
         for key, val in value.items()
     ) + "</div>"
 
@@ -653,112 +658,30 @@ def _subdomain_row(item: dict[str, Any]) -> str:
 
 def _surface_map(payload: dict[str, Any], ips: Any, ports: Any) -> str:
     target = str(payload.get("target", "Target"))
+    ip_list = ips[:12] if isinstance(ips, list) else []
+    port_list = ports[:24] if isinstance(ports, list) else []
     
-    nodes = [{"id": target, "group": 1, "size": 30, "color": "var(--accent2)"}]
-    links = []
+    html = "<div class='tree-container'>"
+    html += f"<div class='tree-node root'>{h(target)}</div>"
     
-    ip_list = ips if isinstance(ips, list) else []
-    for ip in ip_list:
-        ip_str = str(ip)
-        nodes.append({"id": ip_str, "group": 2, "size": 22, "color": "var(--info)"})
-        links.append({"source": target, "target": ip_str})
+    if ip_list:
+        html += "<div class='tree-arrow'>&#8595;</div><div class='tree-group'>"
+        for ip in ip_list:
+            html += f"<div class='tree-node ip'>{h(ip)}</div>"
+        html += "</div>"
         
-    port_list = ports if isinstance(ports, list) else []
-    for port in port_list:
-        port_str = f":{port}"
+    if port_list:
+        html += "<div class='tree-arrow'>&#8595;</div><div class='tree-group'>"
+        for port in port_list:
+            p_num = int(port) if str(port).isdigit() else 0
+            if p_num in [80, 443]: color_cls = "info"
+            elif p_num in [21, 22, 3389, 445]: color_cls = "medium"
+            else: color_cls = "high"
+            html += f"<div class='tree-node port {color_cls}'>:{h(port)}</div>"
+        html += "</div>"
         
-        p_num = int(port) if str(port).isdigit() else 0
-        if p_num in [80, 443]: 
-            color = "var(--info)"
-        elif p_num in [21, 22, 3389, 445]: 
-            color = "var(--high)"
-        else: 
-            color = "var(--crit)"
-            
-        nodes.append({"id": port_str, "group": 3, "size": 22, "color": color})
-        # Connect ports to the primary IP for visual hierarchy
-        parent = str(ip_list[0]) if ip_list else target
-        links.append({"source": parent, "target": port_str})
-
-    graph_data = json.dumps({"nodes": nodes, "links": links})
-    
-    script = f"""
-    <div id="d3-map" style="width:100%;height:100%;min-height:500px"></div>
-    <script>
-      (function() {{
-        const data = {graph_data};
-        const container = document.getElementById('d3-map');
-        const width = container.clientWidth || 800;
-        const height = container.clientHeight || 500;
-        
-        const svg = d3.select('#d3-map').append('svg')
-          .attr('viewBox', [0, 0, width, height])
-          .attr('style', 'max-width: 100%; height: auto;');
-          
-        const simulation = d3.forceSimulation(data.nodes)
-          .force('link', d3.forceLink(data.links).id(d => d.id).distance(100))
-          .force('charge', d3.forceManyBody().strength(-300))
-          .force('center', d3.forceCenter(width / 2, height / 2))
-          .force('collide', d3.forceCollide().radius(d => d.size + 20));
-          
-        const link = svg.append('g')
-          .selectAll('line')
-          .data(data.links)
-          .join('line')
-          .attr('class', 'edge');
-          
-        const node = svg.append('g')
-          .selectAll('g')
-          .data(data.nodes)
-          .join('g')
-          .call(d3.drag()
-            .on('start', dragstarted)
-            .on('drag', dragged)
-            .on('end', dragended));
-            
-        node.append('circle')
-          .attr('class', 'node-circle')
-          .attr('r', d => d.size)
-          .attr('fill', d => d.color)
-          .attr('stroke', d => d3.color(d.color).darker());
-          
-        node.append('text')
-          .attr('class', 'node-label')
-          .attr('x', d => d.size + 5)
-          .attr('y', 4)
-          .text(d => d.id);
-          
-        simulation.on('tick', () => {{
-          link
-            .attr('x1', d => d.source.x)
-            .attr('y1', d => d.source.y)
-            .attr('x2', d => d.target.x)
-            .attr('y2', d => d.target.y);
-          node
-            .attr('transform', d => `translate(${{d.x}},${{d.y}})`);
-        }});
-        
-        function dragstarted(event) {{
-          if (!event.active) simulation.alphaTarget(0.3).restart();
-          event.subject.fx = event.subject.x;
-          event.subject.fy = event.subject.y;
-        }}
-        
-        function dragged(event) {{
-          event.subject.fx = event.x;
-          event.subject.fy = event.y;
-        }}
-        
-        function dragended(event) {{
-          if (!event.active) simulation.alphaTarget(0);
-          event.subject.fx = null;
-          event.subject.fy = null;
-        }}
-      }})();
-    </script>
-    """
-    
-    return f"<div class='card surface-map'><h3>Visual Attack Surface Map</h3>{script}<div style='position:absolute;right:16px;bottom:16px;z-index:3;' class='pill'>Interactive Map | Blue: Info | Orange: High Risk | Red: Critical Risk</div></div>"
+    html += "</div>"
+    return f"<div class='card surface-map'><h3>Visual Attack Surface Map</h3>{html}</div>"
 
 
 def _finding_card(item: dict[str, Any], suppressed: bool = False) -> str:
