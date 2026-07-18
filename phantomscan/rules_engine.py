@@ -105,6 +105,8 @@ async def run_yaml_rules(target: str, observations: list[Observation]) -> None:
     if not engine.rules:
         return
         
-    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+    resolver = aiohttp.ThreadedResolver()
+    connector = aiohttp.TCPConnector(ssl=False, resolver=resolver)
+    async with aiohttp.ClientSession(connector=connector) as session:
         tasks = [engine._execute_rule(session, target, rule, observations) for rule in engine.rules]
         await asyncio.gather(*tasks)

@@ -33,6 +33,7 @@ from phantomscan.rules_engine import run_yaml_rules
 from phantomscan.reporting import write_html_report, write_json_report, write_csv_report
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target, root_domain
+from phantomscan.proxy import start_proxy
 
 WARNING = """
 PhantomScan 2.0.0 - Scan Smart. Stay Secure.
@@ -441,6 +442,20 @@ async def main_async() -> int:
 
 def main() -> int:
     """CLI entrypoint."""
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.daemon == "stop":
+        sys.exit(0)
+        
+    if args.proxy:
+        if ":" not in args.proxy:
+            print("Proxy argument must be in format HOST:PORT (e.g., 127.0.0.1:8080)")
+            sys.exit(1)
+        host, port_str = args.proxy.split(":", 1)
+        start_proxy(host, int(port_str), target_scope=args.target or "localhost")
+        return 0
+
     return asyncio.run(main_async())
 
 
