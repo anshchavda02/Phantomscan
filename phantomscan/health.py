@@ -62,9 +62,12 @@ class EngineHealthChecker:
 
     async def check_all(self) -> HealthReport:
         """Run all checks concurrently and return a :class:`HealthReport`."""
+        import sys
+        _exe = ".exe" if sys.platform == "win32" else ""
+
         results: dict[str, EngineStatus] = {}
 
-        go_bin = self._root / "engines" / "go" / "bin" / "phantomscan-go"
+        go_bin = self._root / "engines" / "go" / "bin" / f"phantomscan-go{_exe}"
         results["go_scanner"] = EngineStatus(
             name="Go Port Scanner",
             available=go_bin.exists(),
@@ -72,7 +75,7 @@ class EngineHealthChecker:
             detail=str(go_bin) if go_bin.exists() else f"Binary missing: {go_bin}",
         )
 
-        rust_bin = self._root / "engines" / "rust" / "target" / "release" / "phantomscan-rust"
+        rust_bin = self._root / "engines" / "rust" / "target" / "release" / f"phantomscan-rust{_exe}"
         results["rust_tls"] = EngineStatus(
             name="Rust TLS Inspector",
             available=rust_bin.exists(),
