@@ -96,11 +96,11 @@ while ($true) {
     Write-Title
     Write-Host "Scan options:" -ForegroundColor White
     Write-Host "-------------" -ForegroundColor DarkGray
-    Write-Host "  1. Passive scan      Safe HTTP/DNS/email checks only"
-    Write-Host "  2. Quick scan        Real HTTP/DNS + TCP/TLS fallback checks"
-    Write-Host "  3. Full scan         Real TCP port scan + TLS inspection"
-    Write-Host "  4. API scan          API-focused profile"
-    Write-Host "  5. Network scan      Network-focused profile"
+    Write-Host "  1. Passive scan      Safe DNS/email checks & Deep Web Analysis"
+    Write-Host "  2. Quick scan        Fast HTTP checks + Top 100 Port Scan + Basic TLS"
+    Write-Host "  3. Full scan         Deep Web + Concurrent Go Portscan + Rust TLS Inspection"
+    Write-Host "  4. API scan          API-focused HTTP analysis without web crawling"
+    Write-Host "  5. Network scan      Intensive Go Portscanner focused profile"
     Write-Host "  6. Custom profile"
     Write-Host "  7. Help"
     Write-Host "  0. Exit"
@@ -163,8 +163,15 @@ while ($true) {
 
     Write-Host ""
     Write-Host "Starting PhantomScan..." -ForegroundColor Green
-    if ($profile -ne "passive") {
-        Write-Host "Real network scanning is enabled. Full/network scans can take 20-60 seconds depending on target and ports." -ForegroundColor Yellow
+    if ($profile -eq "full") {
+        Write-Host "[*] Full Scan Activated:" -ForegroundColor Cyan
+        Write-Host "    - Deep Web Analysis (Headers, Cookies, CORS, Sensitive Paths)" -ForegroundColor Cyan
+        Write-Host "    - Rust Native TLS Inspection (Certificates, SANs, Grading)" -ForegroundColor Cyan
+        Write-Host "    - Go Concurrent TCP Port Scanner" -ForegroundColor Cyan
+        Write-Host "    - Email Security (SPF/DMARC) & DNS Brute-forcing" -ForegroundColor Cyan
+        Write-Host "    Note: Full scans may take 1-5 minutes depending on the target." -ForegroundColor Yellow
+    } elseif ($profile -ne "passive") {
+        Write-Host "Real network scanning is enabled. Scans can take 1-3 minutes depending on target and ports." -ForegroundColor Yellow
     }
     Write-Host "& `"$Python`" `"$Cli`" $($scanArgs -join ' ')" -ForegroundColor DarkGray
     Write-Host ""
