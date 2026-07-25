@@ -7,134 +7,137 @@
  |_|   |_| |_|\__,_|_| |_|\__\___/|_| |_| |_|____/ \___\__,_|_| |_|
 </pre>
   <h3>Scan Smart. Stay Secure.</h3>
-  <p>An advanced, high-performance Authorized Security Assessment Platform.</p>
+  <p><strong>The ultimate polyglot, enterprise-grade Vulnerability Scanner for Web Apps and Networks.</strong></p>
 </div>
 
 ---
 
-## What is PhantomScan?
+## 🚀 What is PhantomScan?
 
-PhantomScan is a modern, modular, and highly concurrent security assessment tool designed for penetration testers, security engineers, and system administrators. It performs deep reconnaissance and vulnerability analysis on web applications, domains, and network infrastructure.
+PhantomScan is an advanced, automated security assessment platform built for penetration testers, security engineers, and system administrators. 
 
-PhantomScan is built with a hybrid architecture for maximum performance and reliability:
-- **Python (Orchestrator)**: Handles the asynchronous event loop, deep web analysis (HTTP headers, path fuzzing, cookies), email security (SPF/DMARC), and DNS/WHOIS lookups.
-- **Go (Port Scanner)**: A highly concurrent TCP port scanning engine utilizing goroutines for lightning-fast network probing.
-- **Rust (TLS Inspector)**: A native, high-performance TLS/SSL analysis engine utilizing `rustls` and `ring` to extract certificate metadata and dynamically grade connection security.
+Unlike traditional scanners that only check for outdated software or simple injection flaws, **PhantomScan understands business logic, multi-step workflows, and complex exploit chains.** It simulates how a modern attacker thinks—finding deep logical flaws, bypassing state machines, and identifying misconfigurations across your web applications, cloud environments, and raw network infrastructure.
 
-### Ethical Use Policy
-**AUTHORIZED USE ONLY.** PhantomScan must only be run against systems you own or have explicit, written authorization to assess. The tool automatically enforces scope constraints based on the provided target.
+Whether you are securing a simple blog or a complex API-driven microservice architecture, PhantomScan provides actionable, compliance-ready intelligence to secure your perimeter.
 
 ---
 
-## Features
+## 🏗️ The Hybrid Architecture
+
+PhantomScan leverages the strengths of three different programming languages to achieve maximum speed, concurrency, and deep analysis without compromise:
+
+- 🐍 **Python (The Brain)**: Orchestrates the scan, runs the 20 advanced vulnerability modules, handles asynchronous web fuzzing, and generates AI-driven reports.
+- 🐹 **Go (The Muscle)**: Powers a blazing-fast, concurrent TCP SYN port scanner using goroutines to map network boundaries in seconds.
+- 🦀 **Rust (The Inspector)**: Handles low-level, high-performance TLS/SSL cryptographic analysis, extracting certificate metadata and grading connection security safely and natively.
+
+---
+
+## ✨ Features Breakdown
+
+### 🧠 Advanced Vulnerability Detection (20 Specialized Modules)
+PhantomScan goes beyond the basics. It includes 20 bespoke security modules that actively test for complex, modern vulnerabilities:
 
 <details>
-<summary><strong>Advanced Vulnerability Modules</strong></summary>
+<summary><strong>1. Business Logic & Authentication Flaws</strong></summary>
 <br>
-Includes 20 specialized modules for detecting complex vulnerabilities like Business Logic Flaws, IDOR/BOLA, JWT bypasses, Blind/OOB vulnerabilities, Race Conditions, HTTP Request Smuggling, and Server-Side Request Forgery (SSRF).
+<ul>
+  <li><strong>Business Logic Analyzer:</strong> Detects mass assignment, negative price manipulation, and logic limits.</li>
+  <li><strong>IDOR / BOLA Detector:</strong> Automatically swaps object IDs cross-session to find Insecure Direct Object References.</li>
+  <li><strong>JWT / OAuth Tester:</strong> Cracks weak HMACs, tests 'none' alg bypass, and key confusion attacks.</li>
+  <li><strong>Auth & Session Manager:</strong> Tests for session fixation and improper token invalidation after logout.</li>
+  <li><strong>Stateful Workflow Scanner:</strong> Learns multi-step flows (Cart -> Checkout) and attempts state machine bypasses.</li>
+</ul>
 </details>
 
 <details>
-<summary><strong>Vulnerability Chain Engine & Attack Paths</strong></summary>
+<summary><strong>2. Injection & Memory Corruption</strong></summary>
 <br>
-Automatically correlates isolated findings (e.g., CORS + XSS) into high-impact exploit chains, generating visual Mermaid.js attack path diagrams.
+<ul>
+  <li><strong>Prototype Pollution:</strong> Injects <code>__proto__</code> payloads to detect client/server-side JS pollution.</li>
+  <li><strong>Second-Order Injection:</strong> Stores XSS/SQLi in profiles/settings and checks if they trigger on admin dashboards.</li>
+  <li><strong>HTTP Request Smuggling:</strong> Exploits CL.TE, TE.CL ambiguities using raw TCP sockets to bypass WAFs.</li>
+</ul>
 </details>
 
 <details>
-<summary><strong>Deep Web Analysis</strong></summary>
+<summary><strong>3. Advanced Web & Cloud Attacks</strong></summary>
 <br>
-Automatically probes for missing security headers, insecure cookies, wildcard CORS policies, and exposed sensitive paths (e.g., <code>.git/HEAD</code>, <code>.env</code>, <code>robots.txt</code>).
+<ul>
+  <li><strong>Blind / OOB Detector:</strong> Uses Out-Of-Band callbacks to catch asynchronous vulnerabilities like Log4Shell or Blind SSRF.</li>
+  <li><strong>Race Condition Detector:</strong> Floods endpoints concurrently to exploit Time-of-Check to Time-of-Use (TOCTOU) flaws.</li>
+  <li><strong>SSRF Detector:</strong> Probes for internal network access and cloud metadata evasion.</li>
+  <li><strong>GraphQL Tester:</strong> Enables introspection, discovers hidden queries, and attempts batching DoS attacks.</li>
+  <li><strong>WebSocket Tester:</strong> Tests for Cross-Site WebSocket Hijacking (CSWSH) and unauthenticated channels.</li>
+  <li><strong>Cloud Metadata Exposure:</strong> Detects exposed S3 buckets and probes AWS/GCP/Azure IMDS endpoints.</li>
+  <li><strong>Supply Chain Analyzer:</strong> Scans 3rd-party JS for hardcoded AWS/Stripe keys and missing SRI tags.</li>
+</ul>
 </details>
 
+### 🌐 Core Infrastructure Reconnaissance
 <details>
-<summary><strong>Concurrent TCP Port Scanning</strong></summary>
+<summary><strong>Deep Network & Web Recon</strong></summary>
 <br>
-Leverages Go for blazing-fast SYN/TCP port checks on the most common ports.
+<ul>
+  <li><strong>Concurrent TCP Port Scanning:</strong> Rapidly identifies open services across 1000s of ports.</li>
+  <li><strong>TLS/SSL Grading:</strong> Evaluates cipher strength, certificate transparency, and issues an A-F grade.</li>
+  <li><strong>Email Security Auditing:</strong> Checks SPF, DMARC, and MX records to prevent domain spoofing.</li>
+  <li><strong>Subdomain Enumeration:</strong> Queries <code>crt.sh</code> and brute-forces hidden subdomains.</li>
+  <li><strong>Deep Web Analysis:</strong> Finds missing security headers, insecure cookies, wild CORS policies, and sensitive exposed paths (<code>.git</code>, <code>.env</code>).</li>
+</ul>
 </details>
 
+### 📊 Intelligence & Reporting
 <details>
-<summary><strong>TLS/SSL Inspection</strong></summary>
+<summary><strong>Actionable Insights & Compliance</strong></summary>
 <br>
-Uses Rust to evaluate certificate transparency, validity periods, Subject Alternative Names (SANs), and issues TLS grades (A-F) based on configuration strength.
-</details>
-
-<details>
-<summary><strong>Email Security Auditing</strong></summary>
-<br>
-Verifies the presence and strictness of SPF, DMARC, and MX records.
-</details>
-
-<details>
-<summary><strong>Subdomain Enumeration</strong></summary>
-<br>
-Queries <code>crt.sh</code> and performs asynchronous DNS brute-forcing.
-</details>
-
-<details>
-<summary><strong>Compliance Mapping</strong></summary>
-<br>
-Automatically maps findings to OWASP Top 10 (2021), PCI DSS v4.0, and NIST 800-53 controls.
-</details>
-
-<details>
-<summary><strong>Rich Reporting & AI Narratives</strong></summary>
-<br>
-Outputs highly detailed JSON, CSV, and aesthetic HTML reports. Uses rule-based Natural Language Generation (NLG) to create executive summaries and remediation narratives without requiring external API keys.
+<ul>
+  <li><strong>Vulnerability Chain Engine:</strong> Automatically correlates isolated low-risk findings (e.g., CORS + Reflected XSS) into critical exploit chains (Account Takeover).</li>
+  <li><strong>Attack Path Builder:</strong> Generates visual <strong>Mermaid.js</strong> diagrams showing how an attacker pivots through your app to achieve business impact.</li>
+  <li><strong>Compliance Mapping:</strong> Maps every finding directly to <strong>OWASP Top 10 (2021)</strong>, <strong>PCI DSS v4.0</strong>, and <strong>NIST 800-53</strong> controls.</li>
+  <li><strong>AI Narrative Generation:</strong> Uses a local, rule-based Natural Language Generation engine to write executive summaries and custom remediation advice (No API keys required!).</li>
+  <li><strong>Continuous Monitoring:</strong> Compares scans against previous baselines and fires webhooks for newly introduced vulnerabilities.</li>
+</ul>
 </details>
 
 ---
 
-## Installation & Requirements
+## 🛠️ Installation
 
-For comprehensive, step-by-step instructions for all platforms, please refer to the detailed installation guide:
+PhantomScan supports Windows, macOS, and Linux. For detailed, step-by-step setup instructions for the Python, Go, and Rust components, see the Installation Guide:
 
-**[View Detailed Installation Guide (Windows, macOS, Linux)](INSTALL.md)**
-
-### Prerequisites Summary
-- **Python 3.10+** (for the orchestrator)
-- **Go 1.21+** (for the port scanning engine)
-- **Rust 2021 Toolchain** (for the TLS engine)
+**👉 [View Detailed Installation Guide](INSTALL.md)**
 
 ---
 
-## How to Run
+## 🏃 Getting Started
 
-### Option 1: The Interactive Launcher (Windows)
-For the easiest experience on Windows, simply double-click the `PhantomScan Launcher.bat` file in the root directory. This will open a user-friendly PowerShell interface allowing you to select your scan profile, target, and reporting options without needing the CLI.
+### 🖥️ Option 1: The Interactive Launcher (Recommended for Windows)
+Just double-click **`PhantomScan Launcher.bat`**. 
+This launches a beautiful, interactive PowerShell menu where you can configure advanced scans, supply authentication tokens, and choose target profiles without typing a single command.
 
-### Option 2: Command Line Interface
-You can run PhantomScan directly via Python for automation or advanced usage:
+### 💻 Option 2: Command Line Interface
+Run PhantomScan directly from your terminal for CI/CD automation or quick ad-hoc testing:
 
 ```bash
-# Quick Scan (Web + DNS + TLS)
-python phantomscan.py --target example.com --profile quick
-
-# Full Scan (Includes full TCP port scan)
-python phantomscan.py --target example.com --profile full
-
-# Advanced Scan (Includes all 20 advanced modules like IDOR, SSRF, Logic Flaws)
+# 1. Advanced Full Scan (Runs all 20 advanced modules + Network + TLS)
 python phantomscan.py --target example.com --advanced
 
-# Stateful Authenticated Scan
-python phantomscan.py --target example.com --advanced --auth-cookie "session=abc123"
+# 2. Stateful Authenticated Scan (Test behind a login)
+python phantomscan.py --target example.com --advanced --auth-cookie "session_id=12345abcde"
 
-# Save output to JSON directly in the terminal
+# 3. Continuous Monitoring (Diff against a baseline)
+python phantomscan.py --target example.com --advanced --baseline reports/baseline.json
+
+# 4. Quick Passive Scan (Safe recon only, no active fuzzing)
 python phantomscan.py --target example.com --profile passive --json
 ```
 
-**Profiles & Flags:**
-- `passive`: Safe HTTP/DNS/email checks only.
-- `quick`: Real HTTP/DNS + TCP/TLS checks on common ports.
-- `full`: Complete TCP port scan + deep TLS inspection.
-- `--advanced`: Runs the 20 advanced vulnerability modules.
-- `--modules`: Comma-separated list of specific advanced modules to run (e.g., `business_logic,idor`).
-
 ---
 
-## Output & Reports
-Upon completion, PhantomScan generates reports in the `reports/` directory:
-- **HTML Report**: A beautiful, easily readable summary of the score, grade, and evidence for each finding.
-- **JSON Report**: Machine-readable data perfect for integrating into CI/CD pipelines or SIEMs.
-- **CSV Report**: Tabular data for quick spreadsheet analysis.
+## ⚖️ Ethical Use Policy
 
-All scan findings include an `evidence` field detailing the exact HTTP response, missing header, or configuration flaw that triggered the alert.
+**⚠️ AUTHORIZED USE ONLY.** 
+
+PhantomScan is a powerful tool capable of altering application state (via advanced modules like Race Conditions and Business Logic testing). **You must only run this tool against systems you own or systems you have explicit, written authorization to assess.**
+
+The tool strictly enforces scope constraints based on the provided target to prevent accidental out-of-bounds scanning, but the operator bears all responsibility for its use.
