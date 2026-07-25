@@ -12,7 +12,10 @@ from phantomscan.modules import get_all_modules
 logger = logging.getLogger(__name__)
 
 # Modules that run after active scanning is complete (post-processing)
-_POST_SCAN_MODULES = {"vuln_chain", "attack_path", "compliance", "ai_narrative", "continuous_monitor"}
+_POST_SCAN_MODULES = {
+    "vuln_chain", "attack_path", "compliance", "ai_narrative", "continuous_monitor",
+    "trend_predictor", "expiry_calendar", "scan_merger"
+}
 
 
 async def run_advanced_modules(

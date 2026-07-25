@@ -33,6 +33,21 @@ MODULE_REGISTRY: dict[str, str] = {
     "ai_narrative":         ".ai_narrative.AINarrativeReporter",
     "stateful_scanner":     ".stateful_scanner.StatefulScanner",
     "attack_path":          ".attack_path.AttackPathBuilder",
+    # New v2.1 Modules
+    "auth_profiles":        ".auth_profiles.AuthenticatedScanner",
+    "diff_env":             ".diff_env_scanner.DifferentialScanner",
+    "mobile_api":           ".mobile_api.MobileAPIExtractor",
+    "dep_confusion":        ".dep_confusion.DependencyConfusionChecker",
+    "subdomain_takeover":   ".subdomain_takeover.SubdomainTakeoverDetector",
+    "expiry_calendar":      ".expiry_calendar.ExpiryCalendarBuilder",
+    "anti_automation":      ".anti_automation.AntiAutomationTester",
+    "privacy_scanner":      ".privacy_scanner.PrivacyScanner",
+    "ticketing":            ".ticketing.TicketingIntegration",
+    "video_summary":        ".video_summary.VideoSummaryGenerator",
+    "trend_predictor":      ".trend_predictor.TrendPredictor",
+    "remediation_verifier": ".remediation_verifier.RemediationVerifier",
+    "scan_merger":          ".scan_merger.TeamScanMerger",
+    "finding_chat":         ".finding_chat.FindingChatAssistant",
 }
 
 
