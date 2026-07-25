@@ -192,12 +192,13 @@ class BusinessLogicAnalyzer:
                 avg_valid = sum(times_valid) / len(times_valid)
                 diff_ms = abs(avg_valid - avg_invalid) * 1000
 
-                if diff_ms > 100:
+                # Require at least 500ms difference over multiple samples to eliminate network jitter FP
+                if diff_ms > 500:
                     findings.append({
                         "id": "BL-TIMING-ENUM",
                         "title": "Account Enumeration via Timing Side-Channel",
                         "severity": "medium",
-                        "confidence": "medium",
+                        "confidence": "high",
                         "category": "business-logic",
                         "target": url,
                         "evidence": (

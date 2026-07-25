@@ -43,6 +43,18 @@ def dict_to_finding(f_dict: dict) -> Any:
     except:
         return f_dict
 
+def _calculate_days_remaining(date_str: str) -> int:
+    if not date_str:
+        return 999
+    try:
+        from datetime import datetime
+        clean_str = str(date_str).split("T")[0].split(" ")[0].strip()
+        dt = datetime.strptime(clean_str, "%Y-%m-%d")
+        now = datetime.now()
+        return (dt - now).days
+    except Exception:
+        return 999
+
 def parse_intel(observations: list[dict]) -> IntelligenceData:
     from phantomscan.report_models import (
         IntelligenceData, WhoisData, DNSRecords, Subdomain, 
@@ -53,13 +65,16 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     # 1. WHOIS
     whois_val = obs.get("whois_info") or {}
     events = whois_val.get("events", {})
+    exp_date = events.get("expiration") or events.get("expiry") or whois_val.get("expiry_date", "")
+    days_rem = _calculate_days_remaining(exp_date)
     whois = WhoisData(
         registrar=whois_val.get("registrar", ""),
         registration_date=events.get("registration", ""),
-        expiry_date=events.get("expiration", ""),
+        expiry_date=exp_date,
         updated_date=events.get("last changed", ""),
         name_servers=whois_val.get("nameservers", []),
-        status=whois_val.get("status", "")
+        status=whois_val.get("status", ""),
+        days_remaining=days_rem
     )
     
     # 2. DNS

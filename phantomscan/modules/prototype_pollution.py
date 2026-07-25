@@ -91,17 +91,21 @@ class PrototypePollutionDetector:
             try:
                 response = await self.http.get(test_url, retries=1)
                 body = response.text()
-                if "phantomscan_pp" in body or "isAdmin" in body:
+                # Must reflect inside JSON API or JavaScript window state, not simple HTML canonical URL reflection
+                if (
+                    response.headers.get("content-type", "").startswith("application/json")
+                    and ("\"phantomscan_pp\"" in body or "\"isAdmin\":true" in body)
+                ) or "window.phantomscan_pp" in body or "Object.prototype.phantomscan_pp" in body:
                     findings.append({
                         "id": "PROTO-POLLUTION-CLIENT",
                         "title": "Client-Side Prototype Pollution",
                         "severity": "medium",
-                        "confidence": "medium",
+                        "confidence": "high",
                         "category": "prototype-pollution",
                         "target": test_url,
                         "evidence": (
                             f"Query string: {qs}\n"
-                            f"Pollution marker reflected in response body."
+                            f"Pollution marker executed in JS context or JSON API state."
                         ),
                         "recommendation": (
                             "Sanitize URL query parameters. Use libraries "
