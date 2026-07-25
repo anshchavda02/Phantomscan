@@ -7,8 +7,6 @@
                 <span class="pill badge-{{ finding.severity|lower }}" style="font-size: 10px;">{{ finding.severity }}</span>
             </h3>
             <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text-muted);">
-                <span>Module: {{ finding.module_group }}</span>
-                <span>•</span>
                 <span>Category: {{ finding.category }}</span>
                 {% if finding.confidence %}
                 <span>•</span>
@@ -22,14 +20,8 @@
     <div class="finding-body hidden" style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px;">
         <div class="grid-2">
             <div>
-                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Description</h4>
-                <p style="margin-bottom: 16px;">{{ finding.description }}</p>
-                
-                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Impact</h4>
-                <p style="margin-bottom: 16px;">{{ finding.impact }}</p>
-                
-                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Remediation</h4>
-                <p style="margin-bottom: 16px;">{{ finding.remediation }}</p>
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Recommendation</h4>
+                <p style="margin-bottom: 16px;">{{ finding.recommendation }}</p>
                 
                 {% if finding.references %}
                 <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">References</h4>

@@ -198,7 +198,9 @@ class ReportGenerator:
 
         findings_grouped = self.group_findings(scan_data.findings)
         chart_data = self.prepare_chart_data(scan_data)
-        d3_data = scan_data.attack_paths.d3_json if scan_data.attack_paths else {}
+        
+        # Build Attack Surface Map (D3 data) dynamically if not provided
+        d3_data = scan_data.attack_paths.d3_json if (scan_data.attack_paths and scan_data.attack_paths.d3_json) else self.build_d3_attack_map(scan_data)
 
         html = template.render(
             scan=scan_data.scan_meta,
@@ -268,9 +270,67 @@ class ReportGenerator:
             },
             'category_radar': {
                 'labels': ['Web', 'Network', 'SSL', 'Email', 'API', 'Auth'],
-                'data': getattr(scan_data.score, 'categories', [0]*6) if hasattr(scan_data.score, 'categories') else [0]*6,
+                'data': self._calculate_radar_scores(scan_data),
             }
         }
+
+    def _calculate_radar_scores(self, scan_data):
+        base_score = scan_data.score.value if scan_data.score.value else 100
+        # Calculate reductions based on findings
+        reductions = {'Web': 0, 'Network': 0, 'SSL': 0, 'Email': 0, 'API': 0, 'Auth': 0}
+        for f in scan_data.findings:
+            cat = str(getattr(f, 'category', '') or (f.get('category') if isinstance(f, dict) else '')).lower()
+            sev = str(getattr(f, 'severity', '') or (f.get('severity') if isinstance(f, dict) else '')).lower()
+            penalty = 20 if sev == 'critical' else 10 if sev == 'high' else 5 if sev == 'medium' else 1
+            if 'web' in cat or 'xss' in cat or 'sqli' in cat: reductions['Web'] += penalty
+            elif 'net' in cat or 'port' in cat: reductions['Network'] += penalty
+            elif 'ssl' in cat or 'tls' in cat: reductions['SSL'] += penalty
+            elif 'mail' in cat or 'spf' in cat: reductions['Email'] += penalty
+            elif 'api' in cat: reductions['API'] += penalty
+            elif 'auth' in cat or 'jwt' in cat: reductions['Auth'] += penalty
+            else: reductions['Web'] += penalty
+        
+        return [
+            max(0, 100 - reductions['Web']),
+            max(0, 100 - reductions['Network']),
+            max(0, 100 - reductions['SSL']),
+            max(0, 100 - reductions['Email']),
+            max(0, 100 - reductions['API']),
+            max(0, 100 - reductions['Auth']),
+        ]
+
+    def build_d3_attack_map(self, scan_data):
+        target = scan_data.scan_meta.target
+        root_node = {"id": target, "group": 1, "radius": 20}
+        nodes = [root_node]
+        links = []
+        
+        # Add IPs
+        for i, ip_info in enumerate(scan_data.intel.ip_info):
+            nodes.append({"id": ip_info.ip, "group": 2, "radius": 15})
+            links.append({"source": target, "target": ip_info.ip, "value": 2})
+            
+            # Add open ports to the first IP (or target if no IPs)
+            if i == 0:
+                for port in scan_data.intel.open_ports:
+                    port_id = f"{ip_info.ip}:{port.port}"
+                    nodes.append({"id": port_id, "group": 3, "radius": 10})
+                    links.append({"source": ip_info.ip, "target": port_id, "value": 1})
+                    
+        # Add subdomains
+        for sub in scan_data.intel.subdomains[:15]:  # limit to 15
+            nodes.append({"id": sub.subdomain, "group": 4, "radius": 12})
+            links.append({"source": target, "target": sub.subdomain, "value": 1})
+            
+        if len(nodes) == 1:
+            nodes.append({"id": "Internet", "group": 2, "radius": 15})
+            links.append({"source": "Internet", "target": target, "value": 2})
+            for port in scan_data.intel.open_ports:
+                port_id = f"Port {port.port}"
+                nodes.append({"id": port_id, "group": 3, "radius": 10})
+                links.append({"source": target, "target": port_id, "value": 1})
+                
+        return {"nodes": nodes, "links": links}
 
     @staticmethod
     def severity_color(severity: str) -> str:

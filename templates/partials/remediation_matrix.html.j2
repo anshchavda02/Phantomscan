@@ -34,7 +34,7 @@
                                 <span class="pill" style="font-size: 10px;">{{ finding.category }}</span>
                             </td>
                             <td style="padding: 12px; vertical-align: top; color: var(--text-muted);">
-                                {{ finding.remediation | truncate_evidence(150) }}
+                                {{ finding.recommendation | truncate_evidence(150) }}
                             </td>
                         </tr>
                         {% endfor %}
