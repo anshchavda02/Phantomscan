@@ -1,0 +1,56 @@
+<!-- Unified Expiry Calendar Section -->
+<section id="expiry-calendar" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent);">📅</div>
+        <h2>UNIFIED EXPIRY CALENDAR</h2>
+        <span class="pill" style="background: rgba(6, 182, 212, 0.1); color: var(--accent); font-size: 11px;">Domain & SSL Timelines</span>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
+            Consolidated timeline of domain WHOIS expirations, SSL certificate validity windows, and subdomain certificate status categorized by urgency.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            {% if intel and intel.whois and intel.whois.expiry_date %}
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">🌐 Domain Expiry</span>
+                    {% if intel.whois.days_remaining <= 30 %}
+                        <span class="pill badge-critical">CRITICAL ({{ intel.whois.days_remaining }}d)</span>
+                    {% elif intel.whois.days_remaining <= 90 %}
+                        <span class="pill badge-medium">WARNING ({{ intel.whois.days_remaining }}d)</span>
+                    {% else %}
+                        <span class="pill badge-low">OK ({{ intel.whois.days_remaining }}d)</span>
+                    {% endif %}
+                </div>
+                <div style="font-size: 13px; color: var(--text-muted);">
+                    <strong>Target:</strong> {{ scan.target }}<br>
+                    <strong>Expiry Date:</strong> {{ intel.whois.expiry_date }}<br>
+                    <strong>Registrar:</strong> {{ intel.whois.registrar or 'N/A' }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if intel and intel.ssl and intel.ssl.expiry_days %}
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">🔒 Primary SSL Expiry</span>
+                    {% if intel.ssl.expiry_days <= 30 %}
+                        <span class="pill badge-critical">EXPIRES SOON ({{ intel.ssl.expiry_days }}d)</span>
+                    {% elif intel.ssl.expiry_days <= 90 %}
+                        <span class="pill badge-medium">WARNING ({{ intel.ssl.expiry_days }}d)</span>
+                    {% else %}
+                        <span class="pill badge-low">VALID ({{ intel.ssl.expiry_days }}d)</span>
+                    {% endif %}
+                </div>
+                <div style="font-size: 13px; color: var(--text-muted);">
+                    <strong>Common Name:</strong> {{ intel.ssl.common_name or scan.target }}<br>
+                    <strong>Issuer:</strong> {{ intel.ssl.issuer or 'N/A' }}<br>
+                    <strong>SSL Grade:</strong> <strong style="color: var(--accent);">{{ intel.ssl.grade or 'A+' }}</strong>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>

@@ -54,4 +54,29 @@
             </div>
         </div>
     </div>
+
+    <!-- v2.1 Score Trend Prediction -->
+    {% if trend_prediction %}
+    <div class="card" style="margin-top: 20px; background: rgba(0, 0, 0, 0.2); border-left: 4px solid {% if trend_prediction.trend_direction == 'declining' %}var(--crit){% elif trend_prediction.trend_direction == 'improving' %}var(--low){% else %}var(--accent){% endif %};">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h4 style="margin: 0 0 4px 0; color: var(--text);">
+                    📈 Score Trend Prediction
+                    <span class="pill" style="font-size: 10px; background: var(--surface);">
+                        {{ trend_prediction.trend_direction | upper }} ({{ trend_prediction.slope_per_day }} pts/day)
+                    </span>
+                </h4>
+                <div style="font-size: 13px; color: var(--text-muted);">
+                    Current Score: <strong>{{ trend_prediction.current_score }}</strong> &nbsp;|&nbsp; 
+                    Projected (30 Days): <strong style="color: {% if trend_prediction.predicted_30_days < 50 %}var(--crit){% else %}var(--low){% endif %};">{{ trend_prediction.predicted_30_days }}/100</strong>
+                </div>
+            </div>
+            {% if trend_prediction.warning_message %}
+            <div style="background: rgba(255, 45, 85, 0.1); border: 1px solid var(--crit); color: var(--crit); padding: 8px 12px; border-radius: 6px; font-size: 12px;">
+                ⚠️ {{ trend_prediction.warning_message }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </section>

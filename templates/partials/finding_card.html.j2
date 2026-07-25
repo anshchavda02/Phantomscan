@@ -31,6 +31,43 @@
                     {% endfor %}
                 </ul>
                 {% endif %}
+
+                <!-- v2.1 Action Toolbar -->
+                <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
+                    <!-- Verify Fix (Module 12) -->
+                    <a href="http://localhost:8420/verify?finding={{ finding.id }}" target="_blank" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; text-decoration: none;">
+                        🔗 Verify Fix
+                    </a>
+
+                    <!-- Ask AI Chat Toggle (Module 14) -->
+                    <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="document.getElementById('chat-panel-{{ index }}').classList.toggle('hidden')">
+                        💬 Ask AI About Finding
+                    </button>
+
+                    {% if finding.badge %}
+                    <span class="pill badge-critical" style="font-size: 10px;">{{ finding.badge }}</span>
+                    {% endif %}
+
+                    {% if finding.gdpr_relevant %}
+                    <span class="pill" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-size: 10px;">GDPR Relevant</span>
+                    {% endif %}
+
+                    {% if finding.found_by %}
+                    <span class="pill" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 10px;">Found by: {{ finding.found_by | join(', ') }}</span>
+                    {% endif %}
+                </div>
+
+                <!-- Embedded AI Chat Panel (Module 14) -->
+                <div id="chat-panel-{{ index }}" class="hidden" style="margin-top: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; padding: 12px;">
+                    <div style="font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 6px;">🤖 Finding Assistant</div>
+                    <div id="chat-output-{{ index }}" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; max-height: 100px; overflow-y: auto;">
+                        Ask a question about this vulnerability (e.g. why is this critical, how to patch).
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="chat-input-{{ index }}" placeholder="Ask about this finding..." style="flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 12px;" onkeypress="if(event.key==='Enter') askFindingQuestion('{{ index }}', '{{ finding.id }}', '{{ finding.title | escape }}')">
+                        <button class="btn btn-primary" style="font-size: 11px; padding: 4px 10px;" onclick="askFindingQuestion('{{ index }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Ask</button>
+                    </div>
+                </div>
             </div>
             
             <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; overflow-x: auto;">

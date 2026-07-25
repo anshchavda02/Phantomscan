@@ -1,0 +1,50 @@
+<!-- Privacy & PII Exposure Section -->
+<section id="privacy" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent);">🔐</div>
+        <h2>PRIVACY & PII EXPOSURE ANALYSIS</h2>
+        <span class="pill" style="background: rgba(16, 185, 129, 0.1); color: var(--info); font-size: 11px;">GDPR / Privacy Compliance</span>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px;">
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
+            Identifies exposed Personally Identifiable Information (PII) such as emails, SSNs, credit cards, phone numbers, AWS keys, and IBANs in HTTP responses. Evidence is safely masked.
+        </p>
+
+        {% set privacy_findings = [] %}
+        {% if findings %}
+            {% for f in findings if f.category == 'privacy' or f.category == 'pii' or f.module == 'privacy_scanner' or f.gdpr_relevant %}
+                {% set _ = privacy_findings.append(f) %}
+            {% endfor %}
+        {% endif %}
+
+        {% if privacy_findings %}
+        <table class="data-table" style="width: 100%; font-size: 13px;">
+            <thead>
+                <tr>
+                    <th>Target Endpoint</th>
+                    <th>Exposure Type</th>
+                    <th>Severity</th>
+                    <th>Sample (Masked)</th>
+                    <th>Compliance Tag</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pf in privacy_findings %}
+                <tr>
+                    <td><code>{{ pf.target }}</code></td>
+                    <td><strong>{{ pf.title }}</strong></td>
+                    <td><span class="pill badge-{{ pf.severity|lower }}">{{ pf.severity }}</span></td>
+                    <td><pre class="evidence" style="margin: 0; font-size: 11px; color: var(--accent2);">{{ pf.evidence }}</pre></td>
+                    <td><span class="pill" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-size: 10px;">GDPR Art. 32</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;">
+            ✅ No sensitive PII exposures detected in analyzed HTTP responses.
+        </div>
+        {% endif %}
+    </div>
+</section>

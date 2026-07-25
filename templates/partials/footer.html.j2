@@ -20,4 +20,76 @@
         <span>|</span>
         <span>Target: {{ scan.target }}</span>
     </div>
+    <!-- v2.1 Local LLM Endpoint Config for Embedded Chat (Module 14) -->
+    <div style="max-width: 500px; margin: 24px auto 0 auto; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px;">
+        <div style="font-weight: 700; color: var(--text); margin-bottom: 8px;">⚙️ AI Assistant Settings (Module 14)</div>
+        <div style="display: flex; gap: 8px;">
+            <input type="text" id="llm-endpoint-input" placeholder="e.g. http://localhost:11434/api/chat (Ollama)" style="flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 6px 10px; font-size: 11px;" value="">
+            <button class="btn btn-secondary" style="font-size: 11px;" onclick="saveLlmEndpoint()">Save Endpoint</button>
+        </div>
+        <div style="color: var(--text-muted); font-size: 10px; margin-top: 6px; text-align: left;">
+            Configures local Ollama endpoint for interactive AI finding chat. If empty, falls back to static security FAQs.
+        </div>
+    </div>
 </footer>
+
+<script>
+    function saveLlmEndpoint() {
+        const val = document.getElementById('llm-endpoint-input').value.trim();
+        setStorage('phantomscan_llm_endpoint', val);
+        alert(val ? 'LLM Endpoint saved!' : 'Cleared LLM Endpoint (using static FAQs)');
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const saved = getStorage('phantomscan_llm_endpoint', '');
+        if (saved) {
+            const input = document.getElementById('llm-endpoint-input');
+            if (input) input.value = saved;
+        }
+    });
+
+    async function askFindingQuestion(index, findingId, title) {
+        const input = document.getElementById('chat-input-' + index);
+        const output = document.getElementById('chat-output-' + index);
+        const question = input.value.trim();
+        if (!question) return;
+
+        output.innerHTML = '⏳ Thinking...';
+        const endpoint = getStorage('phantomscan_llm_endpoint', '');
+
+        if (!endpoint) {
+            // Static FAQ Fallback
+            let answer = "[Static FAQ] ";
+            const q = question.lower ? question.lower() : question.toLowerCase();
+            if (q.includes("why") || q.includes("severity")) {
+                answer += "This finding was flagged because of security pattern match evidence in the endpoint response.";
+            } else if (q.includes("fix") || q.includes("patch") || q.includes("remediat")) {
+                answer += "Review the recommended patch steps above or consult OWASP/CWE references.";
+            } else {
+                answer += "Configure a local Ollama endpoint (e.g. http://localhost:11434/api/chat) in settings below for full AI explanations.";
+            }
+            output.innerHTML = '<strong>A:</strong> ' + answer;
+            input.value = '';
+            return;
+        }
+
+        try {
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'llama3',
+                    messages: [
+                        { role: 'system', content: 'You are a security analyst assistant. Answer concisely about finding: ' + title },
+                        { role: 'user', content: question }
+                    ]
+                })
+            });
+            const data = await resp.json();
+            output.innerHTML = '<strong>A:</strong> ' + (data.message?.content || JSON.stringify(data));
+        } catch(e) {
+            output.innerHTML = '<strong>A:</strong> [Static FAQ Fallback] ' + question;
+        }
+        input.value = '';
+    }
+</script>
