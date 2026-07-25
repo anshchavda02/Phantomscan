@@ -75,7 +75,7 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     
     # 3. Subdomains
     sub_val = obs.get("subdomains") or []
-    subdomains = [Subdomain(subdomain=s, ips=[], status="") for s in sub_val] if isinstance(sub_val, list) else []
+    subdomains = [Subdomain(subdomain=s.get("subdomain", str(s)) if isinstance(s, dict) else str(s), ips=[], status="") for s in sub_val] if isinstance(sub_val, list) else []
     
     # 4. IP Intel (basic extraction from resolved_ips)
     ip_val = obs.get("resolved_ips") or []
