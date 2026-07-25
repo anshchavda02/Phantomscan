@@ -394,7 +394,7 @@ async def scan_one(
                     findings.append(f)
             observations = new_obs
         finally:
-            await client.stop()
+            await client.close()
 
     # ── Post-processing and scoring ───────────────────────────────────────────
     safe_target = target.host.replace("/", "_").replace(":", "_")
