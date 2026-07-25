@@ -57,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser."""
     parser = argparse.ArgumentParser(
         prog="phantomscan", 
-        description="PhantomScan v2 - Advanced Extensible Vulnerability Scanner",
+        description="PhantomScan v2.1 - Advanced Extensible Vulnerability Scanner (34 Modules)",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
@@ -78,18 +78,74 @@ def build_parser() -> argparse.ArgumentParser:
              "  passive    - Safe DNS/email checks & Deep Web without active fuzzing\n"
              "  api        - API-focused HTTP analysis without web crawling\n"
              "  network    - Intensive Go port-scanner focused profile\n"
-             "  advanced   - Run 20 advanced security modules (business logic, IDOR, injection)\n"
+             "  advanced   - Run 34 advanced security modules (Logic, IDOR, Takeover, PII, etc.)\n"
              "  deep       - Full scan + Advanced scan modules combined"
     )
     scan_group.add_argument("--ports", default="top100", help="Ports to scan (e.g., 'top100', 'top1000', or '80,443,8080')")
     scan_group.add_argument("--proxy", help="Start Passive Proxy Mode on HOST:PORT (e.g., 127.0.0.1:8080) to intercept and feed browser traffic to the YAML engine")
-    
-    # Scan Configuration
-    config_group = parser.add_argument_group("Scan Configuration")
+    scan_group.add_argument("--advanced", action="store_true", help="Run all 34 advanced security modules")
+    scan_group.add_argument("--modules", help="Comma-separated list of specific advanced modules to run")
+
+    # Authenticated & Multi-Role Scanning (Module 1)
+    auth_group = parser.add_argument_group("Authenticated & Multi-Role Scanning")
+    auth_group.add_argument("--auth-cookie", help="Authentication cookie string for stateful scanning")
+    auth_group.add_argument("--auth-token", help="Bearer token for API authenticated scanning")
+    auth_group.add_argument("--auth-profile", action="append", help="Path to encrypted AuthProfile file (can specify multiple)")
+    auth_group.add_argument("--multi-role-scan", action="store_true", help="Perform multi-role access control testing across auth profiles")
+
+    # Differential Environment Scanner (Module 2)
+    diff_group = parser.add_argument_group("Differential Environment Scanner")
+    diff_group.add_argument("--diff-env", action="store_true", help="Run differential environment scanner comparing Staging vs Production")
+    diff_group.add_argument("--staging", help="Staging target URL/domain")
+    diff_group.add_argument("--production", help="Production target URL/domain")
+
+    # Mobile App & Dependency Security (Modules 3, 4)
+    mobile_group = parser.add_argument_group("Mobile & Dependency Security")
+    mobile_group.add_argument("--mobile-apk", help="Path to APK binary to decompile and extract backend APIs")
+    mobile_group.add_argument("--mobile-ipa", help="Path to IPA binary to extract backend APIs")
+    mobile_group.add_argument("--extract-apis", action="store_true", help="Extract and test backend APIs from mobile app binaries")
+    mobile_group.add_argument("--check-deps", help="Path to project directory to check for Dependency Confusion risks")
+
+    # Authentication & Protection Testing (Module 7)
+    proto_group = parser.add_argument_group("Login Anti-Automation Testing")
+    proto_group.add_argument("--test-login-protection", action="store_true", help="Test login page anti-automation / rate limiting protection")
+
+    # Workflow & Ticketing Integrations (Module 9)
+    ticket_group = parser.add_argument_group("Ticketing & Alert Integrations")
+    ticket_group.add_argument("--ticket-provider", choices=["jira", "slack", "teams"], help="Ticketing integration provider")
+    ticket_group.add_argument("--jira-url", help="Jira instance URL (e.g. https://company.atlassian.net)")
+    ticket_group.add_argument("--jira-user", help="Jira username/email")
+    ticket_group.add_argument("--jira-token", help="Jira API token")
+    ticket_group.add_argument("--jira-project", default="SEC", help="Jira project key (default: SEC)")
+    ticket_group.add_argument("--slack-webhook", help="Slack Webhook URL for alerting")
+    ticket_group.add_argument("--teams-webhook", help="MS Teams Webhook URL for alerting")
+    ticket_group.add_argument("--auto-ticket", help="Comma-separated severities to auto-ticket (e.g. 'critical,high')")
+
+    # Reporting & Analytics (Modules 6, 10, 11)
+    analytics_group = parser.add_argument_group("Reporting & Analytics")
+    analytics_group.add_argument("--expiry-calendar", action="store_true", help="Generate standalone HTML expiry calendar for targets")
+    analytics_group.add_argument("--targets-file", help="File with list of targets for expiry calendar")
+    analytics_group.add_argument("--video-summary", action="store_true", help="Generate an executive video summary (.mp4) via local TTS")
+    analytics_group.add_argument("--baseline", help="Path to previous JSON report for continuous monitoring diff")
+    analytics_group.add_argument("--webhook", help="URL to send alerts for new findings (Continuous Monitor)")
+
+    # Team Operations & Verification (Modules 12, 13)
+    team_group = parser.add_argument_group("Team Operations & Verification")
+    team_group.add_argument("--merge", nargs="+", help="JSON scan report files to merge and deduplicate")
+    team_group.add_argument("--serve-verify", action="store_true", help="Start local lightweight remediation verification server")
+    team_group.add_argument("--verify-port", type=int, default=8420, help="Port for remediation verification server (default: 8420)")
+
+    # Scan Configuration & Tuning
+    config_group = parser.add_argument_group("Scan Configuration & Tuning")
     config_group.add_argument("--threads", type=int, default=1, help="Number of concurrent threads (default: 1)")
     config_group.add_argument("--depth", type=int, default=1, help="Web crawler depth (default: 1)")
     config_group.add_argument("--silent", action="store_true", help="Suppress rich terminal output (useful for piping)")
     config_group.add_argument("--debug", action="store_true", help="Enable verbose debug logging and pre-scan engine health checks")
+    config_group.add_argument("--confidence", choices=["high", "medium", "low"], default="medium", help="Minimum confidence level to report (default: medium)")
+    config_group.add_argument("--show-medium", action="store_true", help="Include medium-confidence findings in the main output")
+    config_group.add_argument("--show-all", action="store_true", help="Include all findings regardless of confidence")
+    config_group.add_argument("--cve", action="store_true", help="Focus exclusively on CVE detection modules")
+    config_group.add_argument("--cvss-min", type=float, default=4.0, help="Minimum CVSS score to flag (default: 4.0)")
     
     # Output & Reporting
     report_group = parser.add_argument_group("Output & Reporting")
@@ -98,44 +154,6 @@ def build_parser() -> argparse.ArgumentParser:
     report_group.add_argument("--pdf", action="store_true", help="Generate a PDF report (experimental)")
     report_group.add_argument("--pdf-out", help="Path to save the PDF report")
     report_group.add_argument("--log-file", help="Custom path for the debug log file")
-    
-    # Advanced Options
-    adv_group = parser.add_argument_group("Advanced & Tuning")
-    adv_group.add_argument("--confidence", choices=["high", "medium", "low"], default="medium", help="Minimum confidence level to report (default: medium)")
-    adv_group.add_argument("--show-medium", action="store_true", help="Include medium-confidence findings in the main output")
-    adv_group.add_argument("--show-all", action="store_true", help="Include all findings regardless of confidence")
-    adv_group.add_argument("--cve", action="store_true", help="Focus exclusively on CVE detection modules")
-    adv_group.add_argument("--cvss-min", type=float, default=4.0, help="Minimum CVSS score to flag (default: 4.0)")
-    adv_group.add_argument("--advanced", action="store_true", help="Run the 20 advanced security modules")
-    adv_group.add_argument("--modules", help="Comma-separated list of advanced modules to run")
-    adv_group.add_argument("--auth-cookie", help="Authentication cookie string for stateful scanning")
-    adv_group.add_argument("--auth-token", help="Bearer token for API authenticated scanning")
-    adv_group.add_argument("--auth-profile", action="append", help="Path to encrypted AuthProfile file (can specify multiple)")
-    adv_group.add_argument("--multi-role-scan", action="store_true", help="Perform multi-role access control testing across auth profiles")
-    adv_group.add_argument("--diff-env", action="store_true", help="Run differential environment scanner")
-    adv_group.add_argument("--staging", help="Staging target URL/domain for differential environment scan")
-    adv_group.add_argument("--production", help="Production target URL/domain for differential environment scan")
-    adv_group.add_argument("--mobile-apk", help="Path to APK binary to decompile and extract backend APIs")
-    adv_group.add_argument("--mobile-ipa", help="Path to IPA binary to extract backend APIs")
-    adv_group.add_argument("--extract-apis", action="store_true", help="Extract and test backend APIs from mobile app binaries")
-    adv_group.add_argument("--check-deps", help="Path to project directory to check for Dependency Confusion risks")
-    adv_group.add_argument("--test-login-protection", action="store_true", help="Test login page anti-automation / rate limiting protection")
-    adv_group.add_argument("--ticket-provider", choices=["jira", "slack", "teams"], help="Ticketing integration provider")
-    adv_group.add_argument("--jira-url", help="Jira instance URL (e.g. https://company.atlassian.net)")
-    adv_group.add_argument("--jira-user", help="Jira username/email")
-    adv_group.add_argument("--jira-token", help="Jira API token")
-    adv_group.add_argument("--jira-project", default="SEC", help="Jira project key (default: SEC)")
-    adv_group.add_argument("--slack-webhook", help="Slack Webhook URL for alerting")
-    adv_group.add_argument("--teams-webhook", help="MS Teams Webhook URL for alerting")
-    adv_group.add_argument("--auto-ticket", help="Comma-separated severities to auto-ticket (e.g. 'critical,high')")
-    adv_group.add_argument("--expiry-calendar", action="store_true", help="Generate standalone HTML expiry calendar for targets")
-    adv_group.add_argument("--targets-file", help="File with list of targets for expiry calendar")
-    adv_group.add_argument("--video-summary", action="store_true", help="Generate an executive video summary (.mp4) via local TTS")
-    adv_group.add_argument("--merge", nargs="+", help="JSON scan report files to merge and deduplicate")
-    adv_group.add_argument("--serve-verify", action="store_true", help="Start local lightweight remediation verification server")
-    adv_group.add_argument("--verify-port", type=int, default=8420, help="Port for remediation verification server (default: 8420)")
-    adv_group.add_argument("--baseline", help="Path to previous JSON report for continuous monitoring diff")
-    adv_group.add_argument("--webhook", help="URL to send alerts for new findings (Continuous Monitor)")
     
     # Legacy / Unused in v2 (Kept for compatibility)
     legacy_group = parser.add_argument_group("Legacy / Enterprise Options")

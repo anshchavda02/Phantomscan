@@ -96,27 +96,78 @@ while ($true) {
     Write-Title
     Write-Host "Scan options:" -ForegroundColor White
     Write-Host "-------------" -ForegroundColor DarkGray
-    Write-Host "  1. Passive scan      Safe DNS/email checks & Deep Web Analysis"
-    Write-Host "  2. Quick scan        Fast HTTP checks + Top 100 Port Scan + Basic TLS"
-    Write-Host "  3. Full scan         Deep Web + Concurrent Go Portscan + Rust TLS Inspection"
-    Write-Host "  4. API scan          API-focused HTTP analysis without web crawling"
-    Write-Host "  5. Network scan      Intensive Go Portscanner focused profile"
-    Write-Host "  6. Advanced scan     Run 20 advanced security modules (business logic, IDOR, injection)"
-    Write-Host "  7. Deep scan         Full scan + Advanced scan modules combined"
-    Write-Host "  8. Custom profile"
-    Write-Host "  9. Proxy mode        Intercept traffic and feed to YAML Rules Engine"
-    Write-Host " 10. Help"
+    Write-Host "  1. Passive scan        Safe DNS/email checks & Deep Web Analysis"
+    Write-Host "  2. Quick scan          Fast HTTP checks + Top 100 Port Scan + Basic TLS"
+    Write-Host "  3. Full scan           Deep Web + Concurrent Go Portscan + Rust TLS Inspection"
+    Write-Host "  4. API scan            API-focused HTTP analysis without web crawling"
+    Write-Host "  5. Network scan        Intensive Go Portscanner focused profile"
+    Write-Host "  6. Advanced scan       Run 34 advanced security modules (Logic, IDOR, Takeover, PII, etc.)"
+    Write-Host "  7. Deep scan           Full scan + Advanced scan modules combined"
+    Write-Host "  8. Differential scan   Compare Staging vs Production security posture (--diff-env)"
+    Write-Host "  9. Mobile API scan     Extract & test backend APIs from APK or IPA binaries"
+    Write-Host " 10. Dependency check    Check project for Dependency Confusion risks (--check-deps)"
+    Write-Host " 11. Merge scan reports  Deduplicate and merge multiple scan JSON files (--merge)"
+    Write-Host " 12. Verification server Start local one-click remediation verification server (--serve-verify)"
+    Write-Host " 13. Custom profile"
+    Write-Host " 14. Proxy mode          Intercept traffic and feed to YAML Rules Engine"
+    Write-Host " 15. Help"
     Write-Host "  0. Exit"
     Write-Host ""
 
-    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10") "1"
+    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15") "1"
     if ($mode -eq "0") {
         break
     }
-    if ($mode -eq "10") {
+    if ($mode -eq "15") {
         & $Python $Cli --help
         Write-Host ""
         Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "8") {
+        $staging = Read-Host "Staging target URL/domain (e.g. staging.example.com)"
+        $production = Read-Host "Production target URL/domain (e.g. example.com)"
+        & $Python $Cli --diff-env --staging $staging --production $production
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "9") {
+        $path = Read-Host "Path to app.apk or app.ipa"
+        if ($path.EndsWith(".apk")) {
+            & $Python $Cli --mobile-apk $path --extract-apis
+        } else {
+            & $Python $Cli --mobile-ipa $path --extract-apis
+        }
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "10") {
+        $dir = Read-Host "Path to project directory [.]"
+        if ([string]::IsNullOrWhiteSpace($dir)) { $dir = "." }
+        & $Python $Cli --check-deps $dir
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "11") {
+        $files = Read-Host "Enter space-separated JSON report file paths"
+        & $Python $Cli --merge $files.Split(' ')
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "12") {
+        $port = Read-Host "Port for verification server [8420]"
+        if ([string]::IsNullOrWhiteSpace($port)) { $port = "8420" }
+        Write-Host "Starting remediation verification server on http://localhost:$port..." -ForegroundColor Green
+        & $Python $Cli --serve-verify --verify-port $port
         continue
     }
 
@@ -128,8 +179,8 @@ while ($true) {
         "5" { "network" }
         "6" { "advanced" }
         "7" { "deep" }
-        "8" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "monitor") "quick" }
-        "9" { "proxy" }
+        "13" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "monitor") "quick" }
+        "14" { "proxy" }
     }
 
     $target = Read-Host "Target domain, IP, CIDR, or URL"
