@@ -43,6 +43,84 @@ def dict_to_finding(f_dict: dict) -> Any:
     except:
         return f_dict
 
+def parse_intel(observations: list[dict]) -> IntelligenceData:
+    from phantomscan.report_models import (
+        IntelligenceData, WhoisData, DNSRecords, Subdomain, 
+        IPIntel, SSLResult, Technology, EmailSecurityData, PortResult
+    )
+    obs = {o.get("name"): o.get("value") for o in observations}
+    
+    # 1. WHOIS
+    whois_val = obs.get("whois_info") or {}
+    events = whois_val.get("events", {})
+    whois = WhoisData(
+        registrar=whois_val.get("registrar", ""),
+        registration_date=events.get("registration", ""),
+        expiry_date=events.get("expiration", ""),
+        updated_date=events.get("last changed", ""),
+        name_servers=whois_val.get("nameservers", []),
+        status=whois_val.get("status", "")
+    )
+    
+    # 2. DNS
+    dns_val = obs.get("dns_records") or {}
+    dns = DNSRecords(
+        A=dns_val.get("A", []),
+        AAAA=dns_val.get("AAAA", []),
+        MX=dns_val.get("MX", []),
+        NS=dns_val.get("NS", []),
+        TXT=dns_val.get("TXT", []),
+        CNAME=dns_val.get("CNAME", [])
+    )
+    
+    # 3. Subdomains
+    sub_val = obs.get("subdomains") or []
+    subdomains = [Subdomain(subdomain=s, ips=[], status="") for s in sub_val] if isinstance(sub_val, list) else []
+    
+    # 4. IP Intel (basic extraction from resolved_ips)
+    ip_val = obs.get("resolved_ips") or []
+    ips = [IPIntel(ip=ip) for ip in ip_val] if isinstance(ip_val, list) else []
+    
+    # 5. SSL
+    ssl_val = obs.get("tls_inspection") or {}
+    ssl = SSLResult(
+        grade=ssl_val.get("grade", obs.get("ssl_grade", "N/A")),
+        expiry_days=ssl_val.get("days_remaining", 0),
+        common_name=ssl_val.get("cert_subject", ""),
+        sans=ssl_val.get("cert_sans", []),
+        issuer=ssl_val.get("cert_issuer", ""),
+        protocols={ssl_val.get("protocol", "Unknown"): True} if ssl_val.get("protocol") else {}
+    )
+    
+    # 6. Tech
+    tech_val = obs.get("technologies") or []
+    techs = [Technology(name=t.get("name", "Unknown"), category="Server", confidence=t.get("confidence", 0)) for t in tech_val] if isinstance(tech_val, list) else []
+    
+    # 7. Email
+    email = EmailSecurityData(
+        spf={"status": "Found" if obs.get("spf_record") else "Missing", "record": obs.get("spf_record")},
+        dmarc={"status": "Found" if obs.get("dmarc_record") else "Missing", "record": obs.get("dmarc_record")},
+        dkim={"status": "Found" if obs.get("dkim_present") else "Missing"},
+        mx_records=[{"hostname": mx} for mx in obs.get("mx_records", [])],
+        domain=obs.get("email_domain", "")
+    )
+    
+    # 8. Ports
+    ports_val = obs.get("port_scan_results") or []
+    ports = [PortResult(port=p.get("port", 0), service=p.get("service", "unknown"), banner=p.get("banner", ""), risk=p.get("state", "unknown")) for p in ports_val] if isinstance(ports_val, list) else []
+    
+    return IntelligenceData(
+        whois=whois,
+        dns=dns,
+        subdomains=subdomains,
+        ip_info=ips,
+        ssl=ssl,
+        tech_stack=techs,
+        email_security=email,
+        open_ports=ports
+    )
+
+
 def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     """Legacy wrapper to convert payload to ScanData and generate HTML."""
     from phantomscan.report_models import (
@@ -65,9 +143,11 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     findings = [dict_to_finding(f) for f in payload.get("findings", [])]
     suppressed = payload.get("suppressed_findings", [])
     
+    intel_data = parse_intel(payload.get("observations", []))
+    
     scan_data = ScanData(
         scan_meta=scan_meta,
-        intel=IntelligenceData(),
+        intel=intel_data,
         findings=findings,
         chains=[],
         cves=[f for f in findings if getattr(f, 'id', '').startswith("CVE")],
