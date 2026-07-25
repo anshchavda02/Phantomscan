@@ -12,7 +12,7 @@
 
 ---
 
-## 🚀 What is PhantomScan?
+## What is PhantomScan?
 
 PhantomScan is an advanced, automated security assessment platform built for penetration testers, security engineers, and system administrators. 
 
@@ -22,19 +22,19 @@ Whether you are securing a simple blog or a complex API-driven microservice arch
 
 ---
 
-## 🏗️ The Hybrid Architecture
+## The Hybrid Architecture
 
 PhantomScan leverages the strengths of three different programming languages to achieve maximum speed, concurrency, and deep analysis without compromise:
 
-- 🐍 **Python (The Brain)**: Orchestrates the scan, runs the 20 advanced vulnerability modules, handles asynchronous web fuzzing, and generates AI-driven reports.
-- 🐹 **Go (The Muscle)**: Powers a blazing-fast, concurrent TCP SYN port scanner using goroutines to map network boundaries in seconds.
-- 🦀 **Rust (The Inspector)**: Handles low-level, high-performance TLS/SSL cryptographic analysis, extracting certificate metadata and grading connection security safely and natively.
+- **Python (The Brain)**: Orchestrates the scan, runs the 20 advanced vulnerability modules, handles asynchronous web fuzzing, and generates AI-driven reports.
+- **Go (The Muscle)**: Powers a blazing-fast, concurrent TCP SYN port scanner using goroutines to map network boundaries in seconds.
+- **Rust (The Inspector)**: Handles low-level, high-performance TLS/SSL cryptographic analysis, extracting certificate metadata and grading connection security safely and natively.
 
 ---
 
-## ✨ Features Breakdown
+## Features Breakdown
 
-### 🧠 Advanced Vulnerability Detection (20 Specialized Modules)
+### Advanced Vulnerability Detection (20 Specialized Modules)
 PhantomScan goes beyond the basics. It includes 20 bespoke security modules that actively test for complex, modern vulnerabilities:
 
 <details>
@@ -73,7 +73,7 @@ PhantomScan goes beyond the basics. It includes 20 bespoke security modules that
 </ul>
 </details>
 
-### 🌐 Core Infrastructure Reconnaissance
+### Core Infrastructure Reconnaissance
 <details>
 <summary><strong>Deep Network & Web Recon</strong></summary>
 <br>
@@ -86,7 +86,7 @@ PhantomScan goes beyond the basics. It includes 20 bespoke security modules that
 </ul>
 </details>
 
-### 📊 Intelligence & Reporting
+### Intelligence & Reporting
 <details>
 <summary><strong>Actionable Insights & Compliance</strong></summary>
 <br>
@@ -101,21 +101,21 @@ PhantomScan goes beyond the basics. It includes 20 bespoke security modules that
 
 ---
 
-## 🛠️ Installation
+## Installation
 
 PhantomScan supports Windows, macOS, and Linux. For detailed, step-by-step setup instructions for the Python, Go, and Rust components, see the Installation Guide:
 
-**👉 [View Detailed Installation Guide](INSTALL.md)**
+**[View Detailed Installation Guide](INSTALL.md)**
 
 ---
 
-## 🏃 Getting Started
+## Getting Started
 
-### 🖥️ Option 1: The Interactive Launcher (Recommended for Windows)
+### Option 1: The Interactive Launcher (Recommended for Windows)
 Just double-click **`PhantomScan Launcher.bat`**. 
 This launches a beautiful, interactive PowerShell menu where you can configure advanced scans, supply authentication tokens, and choose target profiles without typing a single command.
 
-### 💻 Option 2: Command Line Interface
+### Option 2: Command Line Interface
 Run PhantomScan directly from your terminal for CI/CD automation or quick ad-hoc testing:
 
 ```bash
@@ -134,9 +134,9 @@ python phantomscan.py --target example.com --profile passive --json
 
 ---
 
-## ⚖️ Ethical Use Policy
+## Ethical Use Policy
 
-**⚠️ AUTHORIZED USE ONLY.** 
+**AUTHORIZED USE ONLY.** 
 
 PhantomScan is a powerful tool capable of altering application state (via advanced modules like Race Conditions and Business Logic testing). **You must only run this tool against systems you own or systems you have explicit, written authorization to assess.**
 
