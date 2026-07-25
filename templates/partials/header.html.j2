@@ -142,7 +142,10 @@
             <div class="hero-tagline">Scan Smart. Stay Secure.</div>
             <div style="display: flex; gap: 8px;">
                 <span class="pill" style="background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.3); color: var(--accent-light);">v{{ report_version }}</span>
-                <span class="pill">{{ scan.modules_executed | length }} modules executed</span>
+                <button onclick="document.getElementById('modules-modal').style.display='flex'" class="pill" style="cursor: pointer; background: rgba(6, 182, 212, 0.12); border-color: var(--accent); color: var(--accent-light); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s ease;" title="Click to view all executed modules">
+                    <span>⚙️ {{ scan.modules_executed | length }} modules executed</span>
+                    <span style="font-size: 10px; opacity: 0.8; font-weight: 400;">(View)</span>
+                </button>
             </div>
         </div>
 
@@ -182,15 +185,46 @@
         ⚠ CONFIDENTIAL — AUTHORIZED SECURITY ASSESSMENT
     </div>
     {% endif %}
-
-    <div class="module-strip">
-        {% for mod in scan.modules_executed %}
-            <span class="pill" style="border-color: {% if mod.status == 'completed' %}var(--low-border){% elif mod.status == 'failed' %}var(--crit-border){% else %}var(--med-border){% endif %};" title="{{ mod.engine }} / Duration: {{ mod.duration | round(1) }}s / Findings: {{ mod.findings }}">
-                {{ mod.name }} 
-                {% if mod.status == 'completed' %}✅
-                {% elif mod.status == 'failed' %}❌
-                {% else %}⚠️{% endif %}
-            </span>
-        {% endfor %}
-    </div>
 </section>
+
+<!-- Executed Modules Modal -->
+<div id="modules-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px); align-items: center; justify-content: center; padding: 24px;" onclick="if(event.target===this) this.style.display='none';">
+    <div style="background: #0d0d1f; border: 1px solid var(--border-light, #1e1e3f); border-radius: 16px; width: 100%; max-width: 760px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.8); overflow: hidden; animation: fadeIn 0.2s ease;">
+        <!-- Modal Header -->
+        <div style="padding: 20px 24px; border-bottom: 1px solid var(--border, #1e1e3f); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 22px;">⚙️</span>
+                <div>
+                    <h3 style="margin: 0; font-size: 18px; color: var(--text);">Executed Scanner Modules</h3>
+                    <div style="font-size: 12px; color: var(--text-muted);">Total {{ scan.modules_executed | length }} security modules executed in this scan profile</div>
+                </div>
+            </div>
+            <button onclick="document.getElementById('modules-modal').style.display='none'" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;" title="Close Modal">✕</button>
+        </div>
+        
+        <!-- Modal Body (Grid of Modules) -->
+        <div style="padding: 24px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; max-height: 60vh;">
+            {% for mod in scan.modules_executed %}
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 16px;">
+                        {% if mod.status == 'completed' %}✅{% elif mod.status == 'failed' %}❌{% else %}⚠️{% endif %}
+                    </span>
+                    <div>
+                        <div style="font-weight: 600; font-size: 13px; color: var(--text);">{{ mod.name }}</div>
+                        <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Engine: {{ mod.engine | default('Python') }}</div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <span class="pill" style="font-size: 10px; background: rgba(6, 182, 212, 0.1); color: var(--accent-light); border-color: rgba(6, 182, 212, 0.2);">{{ mod.duration | default(0.5) | round(1) }}s</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 16px 24px; border-top: 1px solid var(--border, #1e1e3f); text-align: right; background: rgba(0,0,0,0.3);">
+            <button onclick="document.getElementById('modules-modal').style.display='none'" class="pill" style="cursor: pointer; background: var(--accent); color: white; border: none; padding: 8px 20px; font-weight: 600;">Close</button>
+        </div>
+    </div>
+</div>
