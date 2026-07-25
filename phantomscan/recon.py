@@ -287,19 +287,19 @@ async def enumerate_subdomains(
     if target.target_type != "domain":
         return [Observation("subdomains", [], "subdomain-enum")]
 
-    domain = target.host
+    base_domain = root_domain(target.host)
     all_names: set[str] = set()
 
     # Layer 1: crt.sh Certificate Transparency ────────────────────────────────
     try:
-        ct_names = await _query_crtsh(domain, log)
+        ct_names = await _query_crtsh(base_domain, log)
         all_names.update(ct_names)
-        log.info("crt.sh found %d subdomains for %s", len(ct_names), domain)
+        log.info("crt.sh found %d subdomains for %s", len(ct_names), base_domain)
     except Exception as exc:
         log.warning("crt.sh query failed: %s", exc)
 
     # Layer 2: DNS brute-force ─────────────────────────────────────────────────
-    brute_candidates = [f"{w}.{domain}" for w in _BRUTE_WORDLIST]
+    brute_candidates = [f"{w}.{base_domain}" for w in _BRUTE_WORDLIST]
     brute_found = await _dns_brute(brute_candidates, log)
     new_from_brute = brute_found - all_names
     all_names.update(brute_found)
