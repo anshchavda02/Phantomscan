@@ -28,15 +28,59 @@ PhantomScan is built with a hybrid architecture for maximum performance and reli
 
 ## Features
 
-- **Advanced Vulnerability Modules**: Includes 20 specialized modules for detecting complex vulnerabilities like Business Logic Flaws, IDOR/BOLA, JWT bypasses, Blind/OOB vulnerabilities, Race Conditions, HTTP Request Smuggling, and Server-Side Request Forgery (SSRF).
-- **Vulnerability Chain Engine & Attack Paths**: Automatically correlates isolated findings (e.g., CORS + XSS) into high-impact exploit chains, generating visual Mermaid.js attack path diagrams.
-- **Deep Web Analysis**: Automatically probes for missing security headers, insecure cookies, wildcard CORS policies, and exposed sensitive paths (e.g., `.git/HEAD`, `.env`, `robots.txt`).
-- **Concurrent TCP Port Scanning**: Leverages Go for blazing-fast SYN/TCP port checks on the most common ports.
-- **TLS/SSL Inspection**: Uses Rust to evaluate certificate transparency, validity periods, Subject Alternative Names (SANs), and issues TLS grades (A-F) based on configuration strength.
-- **Email Security Auditing**: Verifies the presence and strictness of SPF, DMARC, and MX records.
-- **Subdomain Enumeration**: Queries `crt.sh` and performs asynchronous DNS brute-forcing.
-- **Compliance Mapping**: Automatically maps findings to OWASP Top 10 (2021), PCI DSS v4.0, and NIST 800-53 controls.
-- **Rich Reporting & AI Narratives**: Outputs highly detailed JSON, CSV, and aesthetic HTML reports. Uses rule-based Natural Language Generation (NLG) to create executive summaries and remediation narratives without requiring external API keys.
+<details>
+<summary><strong>Advanced Vulnerability Modules</strong></summary>
+<br>
+Includes 20 specialized modules for detecting complex vulnerabilities like Business Logic Flaws, IDOR/BOLA, JWT bypasses, Blind/OOB vulnerabilities, Race Conditions, HTTP Request Smuggling, and Server-Side Request Forgery (SSRF).
+</details>
+
+<details>
+<summary><strong>Vulnerability Chain Engine & Attack Paths</strong></summary>
+<br>
+Automatically correlates isolated findings (e.g., CORS + XSS) into high-impact exploit chains, generating visual Mermaid.js attack path diagrams.
+</details>
+
+<details>
+<summary><strong>Deep Web Analysis</strong></summary>
+<br>
+Automatically probes for missing security headers, insecure cookies, wildcard CORS policies, and exposed sensitive paths (e.g., <code>.git/HEAD</code>, <code>.env</code>, <code>robots.txt</code>).
+</details>
+
+<details>
+<summary><strong>Concurrent TCP Port Scanning</strong></summary>
+<br>
+Leverages Go for blazing-fast SYN/TCP port checks on the most common ports.
+</details>
+
+<details>
+<summary><strong>TLS/SSL Inspection</strong></summary>
+<br>
+Uses Rust to evaluate certificate transparency, validity periods, Subject Alternative Names (SANs), and issues TLS grades (A-F) based on configuration strength.
+</details>
+
+<details>
+<summary><strong>Email Security Auditing</strong></summary>
+<br>
+Verifies the presence and strictness of SPF, DMARC, and MX records.
+</details>
+
+<details>
+<summary><strong>Subdomain Enumeration</strong></summary>
+<br>
+Queries <code>crt.sh</code> and performs asynchronous DNS brute-forcing.
+</details>
+
+<details>
+<summary><strong>Compliance Mapping</strong></summary>
+<br>
+Automatically maps findings to OWASP Top 10 (2021), PCI DSS v4.0, and NIST 800-53 controls.
+</details>
+
+<details>
+<summary><strong>Rich Reporting & AI Narratives</strong></summary>
+<br>
+Outputs highly detailed JSON, CSV, and aesthetic HTML reports. Uses rule-based Natural Language Generation (NLG) to create executive summaries and remediation narratives without requiring external API keys.
+</details>
 
 ---
 
