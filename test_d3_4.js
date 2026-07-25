@@ -1,1 +1,0 @@
-const d3 = require('d3'); try { console.log(d3.symbol().type(d3.symbolTriangle).size(150)()); } catch(e) { console.error('TYPE SIZE ERROR:', e); } try { console.log(d3.symbol(d3.symbolTriangle, 150)()); } catch(e) { console.error('DIRECT ERROR:', e); }

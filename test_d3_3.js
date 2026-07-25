@@ -1,1 +1,0 @@
-const d3 = require('d3'); console.log('Triangle:', typeof d3.symbolTriangle); console.log('Star:', typeof d3.symbolStar); console.log('Circle:', typeof d3.symbolCircle);
