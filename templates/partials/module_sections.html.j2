@@ -1,0 +1,179 @@
+<!-- Module Sections & Detailed Findings -->
+<style>
+    .filter-controls {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+        background: rgba(12, 12, 26, 0.6);
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+    
+    .light-mode .filter-controls {
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .filter-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: 20px;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .filter-btn.active {
+        background: var(--accent2);
+        color: white;
+        border-color: var(--accent2);
+    }
+    
+    .filter-btn[data-filter="critical"].active { background: var(--crit); border-color: var(--crit); }
+    .filter-btn[data-filter="high"].active { background: var(--high); border-color: var(--high); }
+    .filter-btn[data-filter="medium"].active { background: var(--med); border-color: var(--med); }
+    .filter-btn[data-filter="low"].active { background: var(--low); border-color: var(--low); }
+
+    .search-box {
+        flex: 1;
+        position: relative;
+    }
+
+    .search-box input {
+        width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 8px 16px 8px 36px;
+        border-radius: 8px;
+        color: var(--text);
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    
+    .search-box input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+    
+    .search-box::before {
+        content: "🔍";
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 14px;
+        opacity: 0.5;
+    }
+</style>
+
+<section id="findings" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent);">🔬</div>
+        <h2>DETAILED FINDINGS</h2>
+    </div>
+    
+    <div class="filter-controls">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="critical">Critical</button>
+        <button class="filter-btn" data-filter="high">High</button>
+        <button class="filter-btn" data-filter="medium">Medium</button>
+        <button class="filter-btn" data-filter="low">Low/Info</button>
+        
+        <div class="search-box">
+            <input type="text" id="finding-search" placeholder="Search findings, descriptions, endpoints (Press '/' to focus)...">
+        </div>
+        
+        <button class="collapse-btn" id="expand-all-btn" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 16px; cursor: pointer; color: var(--text);">Expand All</button>
+    </div>
+
+    <div id="findings-container">
+        {% for group_name, group_findings in findings_grouped.items() %}
+        <div class="module-group" style="margin-bottom: 48px;">
+            <h3 style="margin-bottom: 16px; border-bottom: 1px solid var(--border-light); padding-bottom: 8px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                <span>{{ group_name | upper }}</span>
+                <span class="pill">{{ group_findings|length }} Findings</span>
+            </h3>
+            
+            {% for finding in group_findings %}
+                {% set index = loop.index %}
+                {% include 'partials/finding_card.html.j2' %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<script>
+    // Filtering and Search Logic
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const searchInput = document.getElementById('finding-search');
+    const expandAllBtn = document.getElementById('expand-all-btn');
+    const findingsContainer = document.getElementById('findings-container');
+    const allCards = findingsContainer?.querySelectorAll('.finding-card');
+    const moduleGroups = findingsContainer?.querySelectorAll('.module-group');
+
+    let allExpanded = false;
+
+    if (expandAllBtn) {
+        expandAllBtn.addEventListener('click', () => {
+            allExpanded = !allExpanded;
+            expandAllBtn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+            
+            allCards?.forEach(card => {
+                const body = card.querySelector('.finding-body');
+                if (allExpanded) {
+                    body.classList.remove('hidden');
+                } else {
+                    body.classList.add('hidden');
+                }
+            });
+        });
+    }
+
+    function applyFilters() {
+        if(!allCards) return;
+        
+        const query = state.searchQuery.toLowerCase();
+        const severityFilter = state.currentFilter;
+        
+        allCards.forEach(card => {
+            const severity = card.dataset.severity;
+            const textContent = card.textContent.toLowerCase();
+            
+            let severityMatch = severityFilter === 'all' || 
+                               severity === severityFilter || 
+                               (severityFilter === 'low' && severity === 'info');
+                               
+            let searchMatch = query === '' || textContent.includes(query);
+            
+            if (severityMatch && searchMatch) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        // Hide empty module groups
+        moduleGroups?.forEach(group => {
+            const visibleCards = Array.from(group.querySelectorAll('.finding-card')).filter(card => card.style.display !== 'none');
+            group.style.display = visibleCards.length > 0 ? 'block' : 'none';
+        });
+    }
+
+    filterBtns?.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            state.currentFilter = e.target.dataset.filter;
+            applyFilters();
+        });
+    });
+
+    searchInput?.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value;
+        applyFilters();
+    });
+</script>

@@ -33,7 +33,6 @@ from phantomscan.rules_engine import run_yaml_rules
 from phantomscan.reporting import write_html_report, write_json_report, write_csv_report
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target, root_domain
-from phantomscan.proxy import start_proxy
 from phantomscan.advanced_scan import run_advanced_modules
 from phantomscan.http_client import RobustHTTPClient
 
@@ -72,13 +71,15 @@ def build_parser() -> argparse.ArgumentParser:
     scan_group.add_argument(
         "--profile",
         default="quick",
-        choices=["quick", "full", "passive", "owasp", "bug-bounty", "api", "network"],
+        choices=["quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep"],
         help="Scan profile to execute:\n"
              "  quick      - Fast HTTP checks, top 100 ports, basic TLS\n"
              "  full       - Deep web analysis, full TLS, concurrent port scan, YAML engine\n"
              "  passive    - Safe DNS/email checks & Deep Web without active fuzzing\n"
              "  api        - API-focused HTTP analysis without web crawling\n"
-             "  network    - Intensive Go port-scanner focused profile"
+             "  network    - Intensive Go port-scanner focused profile\n"
+             "  advanced   - Run 20 advanced security modules (business logic, IDOR, injection)\n"
+             "  deep       - Full scan + Advanced scan modules combined"
     )
     scan_group.add_argument("--ports", default="top100", help="Ports to scan (e.g., 'top100', 'top1000', or '80,443,8080')")
     scan_group.add_argument("--proxy", help="Start Passive Proxy Mode on HOST:PORT (e.g., 127.0.0.1:8080) to intercept and feed browser traffic to the YAML engine")
@@ -524,6 +525,7 @@ def main() -> int:
             print("Proxy argument must be in format HOST:PORT (e.g., 127.0.0.1:8080)")
             sys.exit(1)
         host, port_str = args.proxy.split(":", 1)
+        from phantomscan.proxy import start_proxy
         start_proxy(host, int(port_str), target_scope=args.target or "localhost")
         return 0
 

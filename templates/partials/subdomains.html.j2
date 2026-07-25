@@ -1,0 +1,34 @@
+<!-- Subdomains Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--accent2);">
+    <div class="intel-card-header" style="color: var(--accent2);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>🔍 SUBDOMAINS</span>
+        <span style="margin-left: auto;" class="pill">{{ intel.subdomains|length }} Total</span>
+    </div>
+    <div class="intel-card-content">
+        {% set resolved = intel.subdomains | selectattr('ips') | list %}
+        {% set interesting = intel.subdomains | selectattr('interesting') | list %}
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700;">{{ resolved|length }}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Resolved</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700; color: var(--crit);">{{ interesting|length }}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Interesting</div>
+            </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto;">
+            {% for sub in intel.subdomains[:5] %}
+            <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px; background: rgba(255,255,255,0.02); border-radius: 4px;">
+                <code>{{ sub.subdomain }}</code>
+                {% if sub.interesting %}<span title="Interesting" style="font-size: 10px;">🚨</span>{% endif %}
+            </div>
+            {% endfor %}
+            {% if intel.subdomains|length > 5 %}
+            <div class="text-center" style="font-size: 11px; color: var(--accent2); margin-top: 4px;">+ {{ intel.subdomains|length - 5 }} more</div>
+            {% endif %}
+        </div>
+    </div>
+</div>

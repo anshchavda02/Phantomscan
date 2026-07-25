@@ -1,2 +1,196 @@
-<header class="hero">{{ target }}</header>
+<!-- Hero Header Section -->
+<style>
+    .hero-section {
+        min-height: 280px;
+        position: relative;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.15) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.1) 0%, transparent 60%),
+                    linear-gradient(180deg, #0a0a18 0%, #070710 100%);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .light-mode .hero-section {
+        background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.05) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.05) 0%, transparent 60%),
+                    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
 
+    .hero-grid {
+        position: absolute;
+        inset: 0;
+        background-image: 
+            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .scanline {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, transparent, rgba(6, 182, 212, 0.1) 50%, transparent);
+        height: 100%;
+        animation: scanline 8s linear infinite;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 10;
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        padding: 48px 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
+        align-items: center;
+    }
+
+    @media (max-width: 768px) {
+        .hero-content { grid-template-columns: 1fr; }
+    }
+
+    .hero-title-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .hero-title {
+        font-size: 48px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        margin-bottom: 8px;
+    }
+
+    .hero-tagline {
+        font-size: 14px;
+        color: var(--text-muted);
+        font-style: italic;
+        margin-bottom: 24px;
+    }
+
+    .hero-info-card {
+        background: rgba(12, 12, 26, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--border-light);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    
+    .light-mode .hero-info-card {
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .target-url {
+        font-size: 20px;
+        font-weight: 700;
+        word-break: break-all;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .meta-strip {
+        border-top: 1px solid var(--border);
+        background: rgba(7, 7, 16, 0.5);
+        padding: 12px 24px;
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        font-size: 12px;
+        color: var(--text-muted);
+        position: relative;
+        z-index: 10;
+    }
+
+    .module-strip {
+        padding: 8px 24px;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        white-space: nowrap;
+        background: rgba(0,0,0,0.2);
+        border-top: 1px solid var(--border);
+        position: relative;
+        z-index: 10;
+    }
+    
+    .module-strip::-webkit-scrollbar {
+        height: 4px;
+    }
+</style>
+
+<section id="header" class="hero-section section visible">
+    <div class="hero-grid"></div>
+    <div class="scanline"></div>
+
+    <div class="hero-content">
+        <div class="hero-title-group fade-in-up">
+            <div class="hero-title">
+                <span style="color: var(--text);">PHANTOM</span><span style="color: var(--accent-light);">SCAN</span>
+            </div>
+            <div class="hero-tagline">Scan Smart. Stay Secure.</div>
+            <div style="display: flex; gap: 8px;">
+                <span class="pill" style="background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.3); color: var(--accent-light);">v{{ report_version }}</span>
+                <span class="pill">{{ scan.modules_executed | length }} modules executed</span>
+            </div>
+        </div>
+
+        <div class="hero-info-card fade-in-up" style="animation-delay: 0.1s;">
+            <div class="target-url">
+                {{ scan.target }}
+                <button class="copy-btn" data-copy="{{ scan.target }}" style="padding: 4px; background: transparent; border: none; font-size: 16px;" title="Copy Target URL">📋</button>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Scan Type</div>
+                    <div style="font-weight: 600;">
+                        <span class="pill" style="background: var(--info-bg); color: var(--info); border-color: var(--info-border); margin-top: 4px;">{{ scan.profile | upper }} SCAN</span>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Duration</div>
+                    <div style="font-weight: 600; margin-top: 4px;">{{ scan.duration_seconds | round(1) }}s</div>
+                </div>
+            </div>
+            
+            <div style="font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px;">
+                Started: {{ scan.timestamp | format_date }} &nbsp;|&nbsp; ID: <code>{{ scan.scan_id }}</code>
+            </div>
+        </div>
+    </div>
+
+    {% if engagement.client %}
+    <div class="meta-strip">
+        <span><strong>Client:</strong> {{ engagement.client }}</span>
+        <span><strong>Assessor:</strong> {{ engagement.assessor }}</span>
+        <span><strong>Type:</strong> {{ engagement.engagement_type }}</span>
+        <span><strong>Ref:</strong> {{ engagement.reference }}</span>
+    </div>
+    <div style="background: #dc2626; color: white; text-align: center; font-weight: 700; padding: 6px; font-size: 12px; position: relative; z-index: 10;">
+        ⚠ CONFIDENTIAL — AUTHORIZED SECURITY ASSESSMENT
+    </div>
+    {% endif %}
+
+    <div class="module-strip">
+        {% for mod in scan.modules_executed %}
+            <span class="pill" style="border-color: {% if mod.status == 'completed' %}var(--low-border){% elif mod.status == 'failed' %}var(--crit-border){% else %}var(--med-border){% endif %};" title="{{ mod.engine }} / Duration: {{ mod.duration | round(1) }}s / Findings: {{ mod.findings }}">
+                {{ mod.name }} 
+                {% if mod.status == 'completed' %}✅
+                {% elif mod.status == 'failed' %}❌
+                {% else %}⚠️{% endif %}
+            </span>
+        {% endfor %}
+    </div>
+</section>

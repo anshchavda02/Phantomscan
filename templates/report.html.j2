@@ -1,9 +1,534 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>PhantomScan Report</title></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhantomScan Security Report - {{ scan.target }}</title>
+    <meta name="description" content="PhantomScan Authorized Security Assessment Report">
+    <meta name="version" content="{{ report_version }}">
+    <meta name="generator" content="PhantomScan">
+    
+    <!-- Dependencies with SRI -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js" integrity="sha512-ElRFoEQdI5Ht6kZvyzXhYG9NqjtkmlkfYkOwl195okL14k7Yh3/Ocmq19n1jF5A58bE4C9/F54P5w5O5G6U2Yw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" integrity="sha512-M7nHCiNUOwFt6Us3r8alutZRo99A5sEogexhaVFsZcyvSqXgw4ILy+OQWbI2N9qN3l751L7e+U4m0b1Lq9qJvw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Backgrounds */
+            --bg:            #070710;
+            --surface:       #0c0c1a;
+            --card:          #111124;
+            --card-hover:    #161630;
+            --card-raised:   #1a1a38;
+
+            /* Borders */
+            --border:        #1e1e3f;
+            --border-light:  #2a2a55;
+            --border-glow:   #3a3a7a;
+
+            /* Brand colors */
+            --accent:        #7c3aed;
+            --accent-light:  #a855f7;
+            --accent-glow:   rgba(124,58,237,0.3);
+            --accent2:       #06b6d4;
+            --accent2-glow:  rgba(6,182,212,0.3);
+            --accent3:       #f43f5e;
+            --accent3-glow:  rgba(244,63,94,0.3);
+
+            /* Text */
+            --text:          #e2e2f8;
+            --text-muted:    #7070a0;
+            --text-dim:      #3a3a60;
+
+            /* Severity colors */
+            --crit:          #ff2d55;
+            --crit-bg:       rgba(255,45,85,0.07);
+            --crit-border:   rgba(255,45,85,0.3);
+            --crit-glow:     rgba(255,45,85,0.15);
+
+            --high:          #ff6b00;
+            --high-bg:       rgba(255,107,0,0.07);
+            --high-border:   rgba(255,107,0,0.3);
+            --high-glow:     rgba(255,107,0,0.15);
+
+            --med:           #f59e0b;
+            --med-bg:        rgba(245,158,11,0.07);
+            --med-border:    rgba(245,158,11,0.3);
+            --med-glow:      rgba(245,158,11,0.15);
+
+            --low:           #10b981;
+            --low-bg:        rgba(16,185,129,0.07);
+            --low-border:    rgba(16,185,129,0.3);
+            --low-glow:      rgba(16,185,129,0.15);
+
+            --info:          #3b82f6;
+            --info-bg:       rgba(59,130,246,0.07);
+            --info-border:   rgba(59,130,246,0.3);
+            --info-glow:     rgba(59,130,246,0.15);
+
+            /* Module theme colors */
+            --mod-recon:     #06b6d4;
+            --mod-web:       #8b5cf6;
+            --mod-network:   #f97316;
+            --mod-ssl:       #10b981;
+            --mod-cve:       #ef4444;
+            --mod-api:       #3b82f6;
+            --mod-chain:     #dc2626;
+            --mod-jwt:       #7c3aed;
+            --mod-ssrf:      #ea580c;
+            --mod-sqli:      #b91c1c;
+            --mod-xss:       #d97706;
+            --mod-cloud:     #0284c7;
+            --mod-supply:    #15803d;
+            --mod-logic:     #9333ea;
+            --mod-idor:      #c2410c;
+            --mod-race:      #0891b2;
+            --mod-ws:        #7e22ce;
+            --mod-graphql:   #e11d48;
+            --mod-proto:     #047857;
+            --mod-smuggle:   #92400e;
+            --mod-oob:       #1d4ed8;
+            --mod-intel:     #065f46;
+        }
+
+        :root.light-mode {
+            --bg:            #f8fafc;
+            --surface:       #f1f5f9;
+            --card:          #ffffff;
+            --card-hover:    #f8fafc;
+            --card-raised:   #ffffff;
+            --border:        #e2e8f0;
+            --border-light:  #cbd5e1;
+            --text:          #0f172a;
+            --text-muted:    #64748b;
+            --text-dim:      #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        code, .evidence {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        a {
+            color: var(--accent-light);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--accent2);
+        }
+
+        ::selection {
+            background: var(--accent-glow);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--surface);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-glow);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-light);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px var(--crit-glow); }
+            50% { box-shadow: 0 0 20px var(--crit-glow); }
+        }
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Base Components */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s ease;
+        }
+        .card:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .badge-critical {
+            background: var(--crit-bg);
+            border: 1px solid var(--crit-border);
+            color: var(--crit);
+            animation: glow 2s infinite;
+        }
+        
+        .badge-high { background: var(--high-bg); border: 1px solid var(--high-border); color: var(--high); }
+        .badge-medium { background: var(--med-bg); border: 1px solid var(--med-border); color: var(--med); }
+        .badge-low { background: var(--low-bg); border: 1px solid var(--low-border); color: var(--low); }
+        .badge-info { background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info); }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .section {
+            margin-bottom: 64px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        
+        .section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        
+        button {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            background: var(--card-raised);
+            border-color: var(--border-light);
+        }
+
+        /* Layout Grid */
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+
+        @media (max-width: 1200px) {
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .card { padding: 16px; }
+        }
+        
+        /* Print Styles */
+        @media print {
+            body { background: white !important; color: black !important; font-size: 12pt; }
+            .card { border: 1px solid #ccc; box-shadow: none !important; break-inside: avoid; }
+            nav, .sidebar, .scroll-progress, .copy-btn, .export-btn, .filter-controls, .collapse-btn { display: none !important; }
+            .collapsible-content, .finding-body { display: block !important; }
+            .section { page-break-before: always; }
+            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+            
+            body::after {
+                content: "CONFIDENTIAL";
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-45deg);
+                font-size: 80pt;
+                color: rgba(255, 0, 0, 0.05);
+                pointer-events: none;
+                z-index: 9999;
+            }
+        }
+        
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .mt-2 { margin-top: 8px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-4 { margin-bottom: 16px; }
+    </style>
+</head>
 <body>
-<h1>PhantomScan Report for {{ target }}</h1>
-<p>Authorized assessment only.</p>
+    
+    <!-- Data Bridge for JS -->
+    <script id="chart-data-json" type="application/json">
+        {{ chart_data | safe }}
+    </script>
+    <script id="d3-data-json" type="application/json">
+        {{ d3_data | safe }}
+    </script>
+
+    {% include 'partials/nav.html.j2' ignore missing %}
+    
+    {% include 'partials/header.html.j2' ignore missing %}
+    
+    <div class="container" style="margin-top: 48px;">
+        {% include 'partials/intel_panel.html.j2' ignore missing %}
+        
+        {% include 'partials/exec_summary.html.j2' ignore missing %}
+        
+        {% include 'partials/score_dashboard.html.j2' ignore missing %}
+        
+        {% include 'partials/diff_summary.html.j2' ignore missing %}
+        
+        {% include 'partials/compliance.html.j2' ignore missing %}
+        
+        {% include 'partials/attack_chains.html.j2' ignore missing %}
+        
+        {% include 'partials/remediation_matrix.html.j2' ignore missing %}
+        
+        {% include 'partials/module_sections.html.j2' ignore missing %}
+        
+        {% include 'partials/cve_section.html.j2' ignore missing %}
+        
+        {% include 'partials/api_section.html.j2' ignore missing %}
+        
+        {% include 'partials/attack_path.html.j2' ignore missing %}
+        
+        {% include 'partials/checklist.html.j2' ignore missing %}
+        
+        {% include 'partials/screenshots.html.j2' ignore missing %}
+        
+        {% include 'partials/fp_log.html.j2' ignore missing %}
+        
+        {% include 'partials/metadata.html.j2' ignore missing %}
+    </div>
+
+    {% include 'partials/footer.html.j2' ignore missing %}
+
+    <script>
+        // Global State & Elements
+        const state = {
+            theme: localStorage.getItem('phantomscan_theme') || 'dark',
+            currentFilter: 'all',
+            searchQuery: '',
+            chartData: JSON.parse(document.getElementById('chart-data-json').textContent),
+            d3Data: JSON.parse(document.getElementById('d3-data-json').textContent)
+        };
+
+        // Scroll Progress
+        const progressBar = document.createElement('div');
+        progressBar.className = 'scroll-progress';
+        progressBar.style.cssText = 'position:fixed;top:52px;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));z-index:100;width:0%;transition:width 0.1s;';
+        document.body.appendChild(progressBar);
+
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            progressBar.style.width = (winScroll / height) * 100 + "%";
+        });
+
+        // Intersection Observer for Sections
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    // Update sidebar if exists
+                    const id = entry.target.id;
+                    document.querySelectorAll('.sidebar-dot').forEach(d => {
+                        d.classList.toggle('active', d.dataset.target === id);
+                    });
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.section').forEach(sec => observer.observe(sec));
+
+        // Copy functionality
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const text = btn.dataset.copy;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '✅ Copied!';
+                    setTimeout(() => btn.innerHTML = original, 2000);
+                } catch (err) {
+                    console.error('Failed to copy', err);
+                }
+            });
+        });
+
+        // Dark/Light Toggle
+        const toggleTheme = () => {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            if (state.theme === 'light') {
+                document.documentElement.classList.add('light-mode');
+            } else {
+                document.documentElement.classList.remove('light-mode');
+            }
+            localStorage.setItem('phantomscan_theme', state.theme);
+        };
+        
+        if (state.theme === 'light') document.documentElement.classList.add('light-mode');
+        
+        const themeBtn = document.getElementById('theme-toggle');
+        if(themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+        // Chart.js Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            // Severity Donut
+            const donutCtx = document.getElementById('severityDonutChart');
+            if (donutCtx && state.chartData.severity_donut) {
+                new Chart(donutCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: state.chartData.severity_donut.labels,
+                        datasets: [{
+                            data: state.chartData.severity_donut.data,
+                            backgroundColor: state.chartData.severity_donut.colors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        cutout: '75%',
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#e2e2f8' } }
+                        }
+                    }
+                });
+            }
+
+            // Radar Chart
+            const radarCtx = document.getElementById('categoryRadarChart');
+            if (radarCtx && state.chartData.category_radar) {
+                new Chart(radarCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: state.chartData.category_radar.labels,
+                        datasets: [{
+                            label: 'Score',
+                            data: state.chartData.category_radar.data,
+                            backgroundColor: 'rgba(6, 182, 212, 0.2)',
+                            borderColor: '#06b6d4',
+                            pointBackgroundColor: '#06b6d4'
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            r: {
+                                angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                pointLabels: { color: '#e2e2f8' },
+                                min: 0, max: 100
+                            }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+            
+            // Score animation
+            const scoreVal = parseInt(document.getElementById('final-score-val')?.textContent || '0');
+            let current = 0;
+            const scoreEl = document.getElementById('animated-score');
+            if(scoreEl) {
+                const interval = setInterval(() => {
+                    if(current >= scoreVal) {
+                        clearInterval(interval);
+                        scoreEl.textContent = scoreVal;
+                    } else {
+                        current += Math.ceil((scoreVal - current) / 10) || 1;
+                        scoreEl.textContent = current;
+                    }
+                }, 40);
+            }
+        });
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', e => {
+            if (e.key === '/') {
+                const searchInput = document.getElementById('finding-search');
+                if (searchInput && document.activeElement !== searchInput) {
+                    e.preventDefault();
+                    searchInput.focus();
+                }
+            }
+            if (e.key === 'p' && e.ctrlKey) {
+                // let browser handle print
+            }
+        });
+        
+        // Export Functions
+        window.exportJSON = () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                version: "2.0.0",
+                timestamp: new Date().toISOString()
+            }, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = "phantomscan_report.json";
+            a.click();
+        };
+
+    </script>
 </body>
 </html>
-

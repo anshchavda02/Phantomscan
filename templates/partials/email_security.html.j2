@@ -1,0 +1,31 @@
+<!-- Email Security Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--accent3);">
+    <div class="intel-card-header" style="color: var(--accent3);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>✉️ EMAIL SECURITY</span>
+        <span style="margin-left: auto;" class="pill">Score {{ intel.email_security.score }}/10</span>
+    </div>
+    <div class="intel-card-content">
+        <div class="intel-row">
+            <span class="intel-label">Provider</span>
+            <span class="intel-value">{{ intel.email_security.provider or 'Unknown' }}</span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center; border-bottom: 2px solid {% if intel.email_security.spf %}var(--low){% else %}var(--crit){% endif %};">
+                <div style="font-weight: 700; font-size: 12px; color: {% if intel.email_security.spf %}var(--low){% else %}var(--crit){% endif %};">SPF</div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">{{ 'Pass' if intel.email_security.spf else 'Fail/Missing' }}</div>
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center; border-bottom: 2px solid {% if intel.email_security.dmarc %}var(--low){% else %}var(--crit){% endif %};">
+                <div style="font-weight: 700; font-size: 12px; color: {% if intel.email_security.dmarc %}var(--low){% else %}var(--crit){% endif %};">DMARC</div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">{{ 'Pass' if intel.email_security.dmarc else 'Fail/Missing' }}</div>
+            </div>
+        </div>
+        
+        {% if intel.email_security.domain %}
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 8px; text-align: center;">
+            Checked root domain: {{ intel.email_security.domain }}
+        </div>
+        {% endif %}
+    </div>
+</div>

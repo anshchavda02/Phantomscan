@@ -1,0 +1,121 @@
+<!-- Target Intelligence Panel -->
+<style>
+    .intel-section {
+        background: linear-gradient(180deg, #070d14 0%, #080e18 100%);
+        border-top: 2px solid var(--accent2);
+        padding: 48px 24px;
+        margin: 0 -24px 64px -24px;
+    }
+    
+    .light-mode .intel-section {
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .intel-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .intel-title {
+        font-size: 24px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--accent2);
+        margin: 0;
+    }
+
+    .intel-subtitle {
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+
+    .intel-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+        .intel-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+        .intel-grid { grid-template-columns: 1fr; }
+    }
+
+    .intel-card {
+        background: rgba(12, 12, 26, 0.4);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        transition: all 0.3s;
+    }
+    .light-mode .intel-card {
+        background: rgba(255, 255, 255, 0.6);
+    }
+    
+    .intel-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    
+    .intel-card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .intel-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        font-size: 13px;
+    }
+    .intel-row:last-child {
+        border-bottom: none;
+    }
+    .intel-label {
+        color: var(--text-muted);
+    }
+    .intel-value {
+        font-weight: 500;
+        text-align: right;
+    }
+</style>
+
+<div id="intel" class="intel-section section">
+    <div class="intel-header">
+        <div style="font-size: 32px;">🎯</div>
+        <div>
+            <h2 class="intel-title">TARGET INTELLIGENCE</h2>
+            <div class="intel-subtitle">
+                Domain registered {% if intel.whois.registration_date %}{{ intel.whois.registration_date[:4] }}{% else %}Unknown{% endif %} &middot; 
+                Hosted in {{ intel.ip_info[0].country if intel.ip_info else 'Unknown' }} &middot; 
+                {{ intel.tech_stack|length }} technologies &middot; 
+                {{ intel.subdomains|length }} subdomains &middot; 
+                SSL Grade {{ intel.ssl.grade if intel.ssl.grade else 'N/A' }}
+            </div>
+        </div>
+    </div>
+    
+    <div class="intel-grid">
+        {% include 'partials/whois.html.j2' ignore missing %}
+        {% include 'partials/dns.html.j2' ignore missing %}
+        {% include 'partials/subdomains.html.j2' ignore missing %}
+        {% include 'partials/ip_intel.html.j2' ignore missing %}
+        {% include 'partials/ssl.html.j2' ignore missing %}
+        {% include 'partials/tech_stack.html.j2' ignore missing %}
+        {% include 'partials/email_security.html.j2' ignore missing %}
+        {% include 'partials/ports.html.j2' ignore missing %}
+    </div>
+    
+    {% include 'partials/attack_map.html.j2' ignore missing %}
+</div>

@@ -1,0 +1,34 @@
+<!-- False Positives / Suppressed Section -->
+{% if fp_log %}
+<section id="suppressed" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--text-muted);">👻</div>
+        <h2>SUPPRESSED FINDINGS (FALSE POSITIVES)</h2>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--text-muted); opacity: 0.8;">
+        <p style="color: var(--text-muted); margin-bottom: 16px;">The following items were identified during the scan but have been suppressed based on rules or manual analyst override.</p>
+        
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border-light); color: var(--text-muted);">
+                    <th style="padding: 8px;">Finding Title</th>
+                    <th style="padding: 8px;">Original Severity</th>
+                    <th style="padding: 8px;">Reason for Suppression</th>
+                    <th style="padding: 8px;">Suppressed By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fp in fp_log %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 8px; font-weight: 600;">{{ fp.title }}</td>
+                    <td style="padding: 8px;">{{ fp.severity }}</td>
+                    <td style="padding: 8px; color: var(--accent2);">{{ fp.reason }}</td>
+                    <td style="padding: 8px;">{{ fp.author or 'System Rule' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}

@@ -1,0 +1,51 @@
+<!-- Attack Chains Section -->
+{% if chains %}
+<section id="chains" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--mod-chain);">⛓️</div>
+        <h2>ATTACK CHAINS & ESCALATION PATHS</h2>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        {% for chain in chains %}
+        <div class="card" style="border-left: 4px solid var(--mod-chain); background: linear-gradient(90deg, rgba(220, 38, 38, 0.05) 0%, transparent 100%);">
+            <h3 style="color: var(--mod-chain); margin-bottom: 16px;">{{ chain.name }}</h3>
+            
+            <p style="color: var(--text-muted); margin-bottom: 24px;">{{ chain.description }}</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px; position: relative;">
+                <!-- Vertical connection line -->
+                <div style="position: absolute; left: 15px; top: 20px; bottom: 20px; width: 2px; background: var(--border-glow); z-index: 0;"></div>
+                
+                {% for step in chain.steps %}
+                <div style="display: flex; gap: 16px; position: relative; z-index: 1;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 2px solid {% if loop.last %}var(--crit){% else %}var(--accent){% endif %}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
+                        {{ loop.index }}
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; flex: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <div style="font-weight: 600; font-size: 16px;">{{ step.title }}</div>
+                            <span class="pill" style="font-size: 10px;">{{ step.module }}</span>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin: 0;">{{ step.description }}</p>
+                        {% if step.finding_id %}
+                        <div style="margin-top: 8px; font-size: 11px;">
+                            <a href="#finding-{{ step.finding_id }}" style="display: flex; align-items: center; gap: 4px;">
+                                <span>🔗 View Finding Details</span>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div style="margin-top: 24px; padding: 16px; background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); border-radius: 8px;">
+                <h4 style="color: var(--mod-chain); margin: 0 0 8px 0;">Impact</h4>
+                <p style="margin: 0; font-size: 13px;">{{ chain.impact }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}

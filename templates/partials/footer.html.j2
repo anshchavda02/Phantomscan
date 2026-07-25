@@ -1,0 +1,23 @@
+<!-- Footer Section -->
+<footer style="margin-top: 64px; padding: 48px 24px; border-top: 1px solid var(--border); background: var(--surface); text-align: center; color: var(--text-muted);">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 16px;">
+        <div style="width: 20px; height: 20px; border-radius: 4px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; color: white;">PS</div>
+        <div style="font-weight: 800; letter-spacing: 0.05em; font-size: 14px;">
+            PHANTOMSCAN
+        </div>
+    </div>
+    
+    <p style="font-size: 12px; max-width: 600px; margin: 0 auto 24px auto; line-height: 1.6;">
+        This report contains confidential information intended only for the authorized recipient. 
+        The findings represented here are a point-in-time snapshot of the target's security posture 
+        and may not reflect current conditions.
+    </p>
+    
+    <div style="font-size: 11px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;">
+        <span>Generated: {{ scan.timestamp | format_date }}</span>
+        <span>|</span>
+        <span>Version: {{ report_version }}</span>
+        <span>|</span>
+        <span>Target: {{ scan.target }}</span>
+    </div>
+</footer>

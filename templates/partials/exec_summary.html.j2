@@ -1,0 +1,47 @@
+<!-- Executive Summary Section -->
+<section id="summary" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent);">📋</div>
+        <h2>EXECUTIVE SUMMARY</h2>
+    </div>
+
+    <div class="grid-2">
+        <div class="card" style="display: flex; flex-direction: column; gap: 16px;">
+            <p>
+                PhantomScan performed an automated {{ scan.profile }} security assessment against <strong>{{ scan.target }}</strong> on {{ scan.timestamp | format_date }}.
+                The assessment took {{ scan.duration_seconds | round(1) }} seconds and executed {{ scan.modules_executed|length }} distinct security modules.
+            </p>
+            
+            <div style="padding: 16px; background: rgba(0,0,0,0.2); border-left: 4px solid {% if score.value >= 80 %}var(--low){% elif score.value >= 60 %}var(--med){% else %}var(--crit){% endif %}; border-radius: 4px;">
+                <h4 style="margin: 0 0 8px 0; color: var(--text);">Risk Conclusion</h4>
+                <p style="margin: 0; color: var(--text-muted);">
+                    {% if score.value >= 80 %}
+                        The overall security posture is <strong>strong</strong>. Only minor issues were identified.
+                    {% elif score.value >= 60 %}
+                        The overall security posture is <strong>moderate</strong>. Several vulnerabilities were identified that should be addressed.
+                    {% else %}
+                        The overall security posture is <strong>weak</strong>. Critical vulnerabilities were identified requiring immediate remediation.
+                    {% endif %}
+                </p>
+            </div>
+            
+            {% if engagement.business_impact %}
+            <div>
+                <h4 style="margin-bottom: 8px;">Business Impact</h4>
+                <p style="color: var(--text-muted); font-style: italic;">{{ engagement.business_impact }}</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
+            <h3 style="text-align: center; margin-bottom: 24px;">Finding Severity Distribution</h3>
+            <div style="height: 250px; position: relative;">
+                <canvas id="severityDonutChart"></canvas>
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                    <div style="font-size: 32px; font-weight: 800; font-family: 'JetBrains Mono', monospace;">{{ findings|length }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

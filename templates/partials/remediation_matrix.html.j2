@@ -1,0 +1,47 @@
+<!-- Remediation Matrix Section -->
+{% if findings %}
+<section id="remediation" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--low);">🛠️</div>
+        <h2>REMEDIATION MATRIX</h2>
+    </div>
+
+    <div class="card">
+        <p style="color: var(--text-muted); margin-bottom: 24px;">Prioritized list of actionable remediation steps based on finding severity and exploitability.</p>
+        
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted);">
+                        <th style="padding: 12px; font-weight: 600;">Priority</th>
+                        <th style="padding: 12px; font-weight: 600;">Finding</th>
+                        <th style="padding: 12px; font-weight: 600;">Category</th>
+                        <th style="padding: 12px; font-weight: 600;">Remediation Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Sort findings by severity (naive sort, usually you'd want a custom filter for exact crit->high->med->low order) -->
+                    {% for severity in ['Critical', 'High', 'Medium', 'Low', 'Info'] %}
+                        {% for finding in findings if finding.severity|lower == severity|lower %}
+                        <tr style="border-bottom: 1px solid var(--border-light); transition: background 0.2s;">
+                            <td style="padding: 12px; vertical-align: top;">
+                                <span class="pill badge-{{ finding.severity|lower }}">{{ finding.severity }}</span>
+                            </td>
+                            <td style="padding: 12px; vertical-align: top; max-width: 250px;">
+                                <a href="#finding-{{ loop.index }}-{{ finding.severity|lower }}" style="font-weight: 600; color: var(--text); text-decoration: underline; text-decoration-color: var(--border-glow);">{{ finding.title }}</a>
+                            </td>
+                            <td style="padding: 12px; vertical-align: top;">
+                                <span class="pill" style="font-size: 10px;">{{ finding.category }}</span>
+                            </td>
+                            <td style="padding: 12px; vertical-align: top; color: var(--text-muted);">
+                                {{ finding.remediation | truncate_evidence(150) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endif %}

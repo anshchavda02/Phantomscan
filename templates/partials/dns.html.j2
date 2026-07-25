@@ -1,0 +1,46 @@
+<!-- DNS Records Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--mod-recon);">
+    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>📋 DNS RECORDS</span>
+        <span style="margin-left: auto;" class="pill">{{ (intel.dns.A|length) + (intel.dns.MX|length) + (intel.dns.TXT|length) }}</span>
+    </div>
+    <div class="intel-card-content">
+        {% if intel.dns.A %}
+        <div class="intel-row" style="flex-direction: column; align-items: flex-start;">
+            <span class="intel-label" style="margin-bottom: 4px;">A Records</span>
+            <code style="word-break: break-all;">{{ intel.dns.A | join(', ') }}</code>
+        </div>
+        {% endif %}
+        
+        {% if intel.dns.MX %}
+        <div class="intel-row" style="flex-direction: column; align-items: flex-start;">
+            <span class="intel-label" style="margin-bottom: 4px;">MX Records</span>
+            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+                {% for mx in intel.dns.MX[:3] %}
+                <code>{{ mx }}</code>
+                {% endfor %}
+                {% if intel.dns.MX|length > 3 %}
+                <span class="intel-label" style="font-size: 11px;">+ {{ intel.dns.MX|length - 3 }} more</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if intel.dns.TXT %}
+        <div class="intel-row" style="flex-direction: column; align-items: flex-start;">
+            <span class="intel-label" style="margin-bottom: 4px;">TXT Records</span>
+            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; max-height: 100px; overflow-y: auto;">
+                {% for txt in intel.dns.TXT %}
+                <code style="font-size: 11px; padding: 4px; background: rgba(255,255,255,0.05); border-radius: 4px;">{{ txt }}</code>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if not intel.dns.A and not intel.dns.MX and not intel.dns.TXT %}
+        <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+            No records resolved
+        </div>
+        {% endif %}
+    </div>
+</div>

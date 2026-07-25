@@ -1,0 +1,59 @@
+<!-- Finding Card Partial -->
+<div id="finding-{{ index }}-{{ finding.severity|lower }}" class="card finding-card" style="margin-bottom: 24px; border-left: 4px solid {{ finding.severity | severity_color }};" data-severity="{{ finding.severity|lower }}">
+    <div class="finding-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; cursor: pointer;" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <div>
+            <h3 style="margin: 0 0 8px 0; color: var(--text); display: flex; align-items: center; gap: 12px;">
+                {{ finding.title }}
+                <span class="pill badge-{{ finding.severity|lower }}" style="font-size: 10px;">{{ finding.severity }}</span>
+            </h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text-muted);">
+                <span>Module: {{ finding.module_group }}</span>
+                <span>•</span>
+                <span>Category: {{ finding.category }}</span>
+                {% if finding.confidence %}
+                <span>•</span>
+                <span>Confidence: {{ finding.confidence }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div style="color: var(--text-muted);">▼</div>
+    </div>
+    
+    <div class="finding-body hidden" style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px;">
+        <div class="grid-2">
+            <div>
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Description</h4>
+                <p style="margin-bottom: 16px;">{{ finding.description }}</p>
+                
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Impact</h4>
+                <p style="margin-bottom: 16px;">{{ finding.impact }}</p>
+                
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Remediation</h4>
+                <p style="margin-bottom: 16px;">{{ finding.remediation }}</p>
+                
+                {% if finding.references %}
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">References</h4>
+                <ul style="padding-left: 20px; margin-bottom: 16px;">
+                    {% for ref in finding.references %}
+                    <li><a href="{{ ref }}" target="_blank" rel="noopener noreferrer">{{ ref }}</a></li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; overflow-x: auto;">
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Evidence & Details</h4>
+                <pre class="evidence" style="margin: 0; font-size: 12px; color: var(--accent2);">{{ finding.evidence }}</pre>
+                
+                {% if finding.cwe %}
+                <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
+                    <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Tags</h4>
+                    <div style="display: flex; gap: 8px;">
+                        <a href="{{ finding.cwe | cwe_link }}" target="_blank" class="pill" style="background: var(--surface); color: var(--text);">{{ finding.cwe }}</a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

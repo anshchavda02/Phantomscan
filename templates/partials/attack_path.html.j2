@@ -1,0 +1,33 @@
+<!-- Attack Path Mapping Section -->
+{% if attack_paths and attack_paths.paths %}
+<section id="paths" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--crit);">🗺️</div>
+        <h2>ATTACK PATH MAPPING</h2>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--crit);">
+        <p style="color: var(--text-muted); margin-bottom: 24px;">Identified paths that an attacker could take to compromise critical assets.</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+            {% for path in attack_paths.paths %}
+            <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px;">
+                <h3 style="margin-bottom: 12px; font-size: 16px;">Target: <span style="color: var(--crit);">{{ path.target_asset }}</span></h3>
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px;">Complexity: <span style="color: white; font-weight: 600;">{{ path.complexity }}</span></div>
+                
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                    {% for step in path.steps %}
+                    <div style="background: var(--surface); border: 1px solid var(--border-light); padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                        {{ step }}
+                    </div>
+                    {% if not loop.last %}
+                    <div style="color: var(--accent); font-weight: 800;">➔</div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}

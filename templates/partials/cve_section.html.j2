@@ -1,0 +1,33 @@
+<!-- CVE Section -->
+{% if cves %}
+<section id="cves" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--mod-cve);">🔥</div>
+        <h2>KNOWN VULNERABILITIES (CVES)</h2>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--mod-cve);">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            {% for cve in cves %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div>
+                    <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">
+                        <a href="https://nvd.nist.gov/vuln/detail/{{ cve.id }}" target="_blank">{{ cve.id }}</a>
+                        {% if cve.epss and cve.epss > 0.5 %}
+                        <span class="pill badge-critical" style="margin-left: 8px; font-size: 10px;">High EPSS: {{ (cve.epss * 100) | round(1) }}%</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted);">CVSS: {{ cve.cvss }} | Component: {{ cve.component }}</div>
+                </div>
+                <div style="text-align: right;">
+                    <span class="pill badge-{{ cve.severity|lower }}">{{ cve.severity }}</span>
+                    {% if cve.exploitable %}
+                    <div style="margin-top: 4px; font-size: 11px; color: var(--crit); font-weight: 600;">⚠️ Known Exploit</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}

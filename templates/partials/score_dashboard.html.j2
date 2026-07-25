@@ -1,0 +1,57 @@
+<!-- Security Score Dashboard Section -->
+<section id="score" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent2);">📊</div>
+        <h2>SECURITY SCORE & METRICS</h2>
+    </div>
+
+    <div class="grid-3">
+        <!-- Main Score -->
+        <div class="card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; overflow: hidden;">
+            <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, {% if score.value >= 80 %}rgba(16,185,129,0.1){% elif score.value >= 60 %}rgba(245,158,11,0.1){% else %}rgba(255,45,85,0.1){% endif %} 0%, transparent 70%); pointer-events: none;"></div>
+            
+            <h3 style="color: var(--text-muted); margin-bottom: 8px; font-size: 14px; text-transform: uppercase;">Overall Grade</h3>
+            <div style="font-size: 96px; font-weight: 800; line-height: 1; color: {% if score.value >= 80 %}var(--low){% elif score.value >= 60 %}var(--med){% else %}var(--crit){% endif %}; text-shadow: 0 0 20px {% if score.value >= 80 %}var(--low-glow){% elif score.value >= 60 %}var(--med-glow){% else %}var(--crit-glow){% endif %};">
+                {{ score.grade }}
+            </div>
+            <div style="font-size: 24px; font-weight: 700; margin-top: -10px; font-family: 'JetBrains Mono', monospace;">
+                <span id="animated-score">0</span><span style="color: var(--text-muted);">/100</span>
+                <span id="final-score-val" class="hidden">{{ score.value }}</span>
+            </div>
+            
+            {% if score.trend != 'none' %}
+            <div class="mt-4 pill" style="background: rgba(0,0,0,0.2); border-color: {% if score.trend == 'up' %}var(--low){% else %}var(--crit){% endif %}; color: {% if score.trend == 'up' %}var(--low){% else %}var(--crit){% endif %};">
+                {{ '📈 Improved' if score.trend == 'up' else '📉 Declined' }} since last scan
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Radar Chart -->
+        <div class="card">
+            <h3 style="text-align: center; margin-bottom: 16px; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Category Breakdown</h3>
+            <div style="height: 250px;">
+                <canvas id="categoryRadarChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="card" style="display: flex; flex-direction: column; justify-content: center; gap: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+                <span style="color: var(--text-muted);">Critical Findings</span>
+                <span class="pill badge-critical">{{ findings | selectattr('severity', 'equalto', 'critical') | list | length }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+                <span style="color: var(--text-muted);">High Findings</span>
+                <span class="pill badge-high">{{ findings | selectattr('severity', 'equalto', 'high') | list | length }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+                <span style="color: var(--text-muted);">Medium Findings</span>
+                <span class="pill badge-medium">{{ findings | selectattr('severity', 'equalto', 'medium') | list | length }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--text-muted);">Low/Info Findings</span>
+                <span class="pill badge-low">{{ (findings | selectattr('severity', 'equalto', 'low') | list | length) + (findings | selectattr('severity', 'equalto', 'info') | list | length) }}</span>
+            </div>
+        </div>
+    </div>
+</section>

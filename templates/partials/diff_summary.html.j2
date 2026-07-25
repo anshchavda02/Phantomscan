@@ -1,0 +1,48 @@
+<!-- Diff Summary Section -->
+{% if diff and (diff.new_findings or diff.resolved_findings) %}
+<section id="diff" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent3);">🔄</div>
+        <h2>CHANGE LOG</h2>
+    </div>
+
+    <div class="grid-2">
+        {% if diff.new_findings %}
+        <div class="card" style="border-top: 4px solid var(--crit);">
+            <h3 style="color: var(--crit); display: flex; align-items: center; gap: 8px;">
+                <span>⚠️ New Findings</span>
+                <span class="pill" style="background: var(--crit-bg); color: var(--crit); margin-left: auto;">+{{ diff.new_findings|length }}</span>
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+                {% for finding in diff.new_findings %}
+                <div style="padding: 12px; background: rgba(0,0,0,0.2); border-left: 2px solid {{ finding.severity | severity_color }}; border-radius: 4px;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">{{ finding.title }}</div>
+                    <div style="display: flex; gap: 8px;">
+                        <span class="pill" style="background: {{ finding.severity | severity_bg }}; color: {{ finding.severity | severity_color }}; font-size: 10px;">{{ finding.severity }}</span>
+                        <span style="font-size: 11px; color: var(--text-muted);">{{ finding.category }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if diff.resolved_findings %}
+        <div class="card" style="border-top: 4px solid var(--low);">
+            <h3 style="color: var(--low); display: flex; align-items: center; gap: 8px;">
+                <span>✅ Resolved Findings</span>
+                <span class="pill" style="background: var(--low-bg); color: var(--low); margin-left: auto;">-{{ diff.resolved_findings|length }}</span>
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+                {% for finding in diff.resolved_findings %}
+                <div style="padding: 12px; background: rgba(0,0,0,0.2); border-left: 2px solid var(--low); border-radius: 4px; opacity: 0.8;">
+                    <div style="font-weight: 600; margin-bottom: 4px; text-decoration: line-through;">{{ finding.title }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Resolved since last scan</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}

@@ -1,0 +1,29 @@
+<!-- Screenshots Section -->
+{% if screenshots %}
+<section id="screenshots" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent2);">📸</div>
+        <h2>EVIDENCE & SCREENSHOTS</h2>
+    </div>
+
+    <div class="grid-3">
+        {% for ss in screenshots %}
+        <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="height: 200px; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                <img src="{{ ss.data_uri }}" alt="{{ ss.description }}" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.open(this.src, '_blank')">
+            </div>
+            <div style="padding: 16px;">
+                <h4 style="margin: 0 0 8px 0; font-size: 14px;">{{ ss.title }}</h4>
+                <p style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-muted);">{{ ss.description }}</p>
+                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span class="pill" style="font-family: 'JetBrains Mono', monospace;">{{ ss.timestamp | format_date }}</span>
+                    {% if ss.related_finding_id %}
+                    <a href="#finding-{{ ss.related_finding_id }}" style="color: var(--accent2);">🔗 View Finding</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}

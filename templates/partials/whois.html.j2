@@ -1,0 +1,27 @@
+<!-- WHOIS Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--mod-recon);">
+    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>🌐 WHOIS</span>
+        <span style="margin-left: auto;">{{ intel.whois.country | flag_emoji }}</span>
+    </div>
+    <div class="intel-card-content">
+        <div class="intel-row">
+            <span class="intel-label">Registrar</span>
+            <span class="intel-value">{{ intel.whois.registrar or 'N/A' }}</span>
+        </div>
+        <div class="intel-row">
+            <span class="intel-label">Registered</span>
+            <span class="intel-value">{{ intel.whois.registration_date[:10] if intel.whois.registration_date else 'N/A' }}</span>
+        </div>
+        <div class="intel-row">
+            <span class="intel-label">Expires</span>
+            <span class="intel-value" style="color: {% if intel.whois.days_remaining > 180 %}var(--low){% elif intel.whois.days_remaining > 90 %}var(--med){% else %}var(--crit){% endif %};">
+                {{ intel.whois.expiry_date[:10] if intel.whois.expiry_date else 'N/A' }} ({{ intel.whois.days_remaining }}d)
+            </span>
+        </div>
+        <div class="intel-row">
+            <span class="intel-label">DNSSEC</span>
+            <span class="intel-value">{{ '✅ Enabled' if intel.whois.dnssec else '❌ Disabled' }}</span>
+        </div>
+    </div>
+</div>

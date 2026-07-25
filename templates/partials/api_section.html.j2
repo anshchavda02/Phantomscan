@@ -1,0 +1,45 @@
+<!-- API Security Section -->
+{% if api_data and (api_data.endpoints or api_data.auth_issues) %}
+<section id="api" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--mod-api);">🔌</div>
+        <h2>API SECURITY</h2>
+    </div>
+
+    <div class="grid-2">
+        <div class="card" style="border-left: 4px solid var(--mod-api);">
+            <h3 style="color: var(--mod-api); margin-bottom: 16px;">API Endpoints Discovered</h3>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
+                {% for ep in api_data.endpoints %}
+                <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+                    <div>
+                        <span style="color: {% if ep.method == 'GET' %}var(--info){% elif ep.method == 'POST' %}var(--low){% elif ep.method in ['PUT','PATCH'] %}var(--med){% elif ep.method == 'DELETE' %}var(--crit){% else %}var(--text-muted){% endif %}; font-weight: 700; width: 50px; display: inline-block;">{{ ep.method }}</span>
+                        <span>{{ ep.path }}</span>
+                    </div>
+                    {% if not ep.authenticated %}
+                    <span style="color: var(--crit);" title="Unauthenticated">🔓</span>
+                    {% else %}
+                    <span style="color: var(--low);" title="Authenticated">🔒</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        {% if api_data.auth_issues %}
+        <div class="card" style="border-left: 4px solid var(--crit);">
+            <h3 style="color: var(--crit); margin-bottom: 16px;">Authentication Issues (BOLA/BFLA)</h3>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                {% for issue in api_data.auth_issues %}
+                <div style="padding: 12px; background: var(--crit-bg); border: 1px solid var(--crit-border); border-radius: 4px;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">{{ issue.title }}</div>
+                    <code style="font-size: 11px; color: var(--text-muted);">{{ issue.endpoint }}</code>
+                    <p style="margin: 8px 0 0 0; font-size: 12px;">{{ issue.description }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
