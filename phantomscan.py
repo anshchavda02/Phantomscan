@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 import sys
 import time
@@ -456,20 +457,25 @@ async def scan_one(
     final_grade = grade(final_score)
     finished = utc_now()
 
+    # Calculate elapsed scan duration in seconds
+    start_dt = datetime.fromisoformat(started)
+    finish_dt = datetime.fromisoformat(finished)
+    duration_sec = max(0.1, round((finish_dt - start_dt).total_seconds(), 2))
+
     for item in final_findings:
         db.save_finding(scan_id, item)
     db.finish_scan(scan_id, finished, final_score)
     db.close()
 
     logger.info(
-        "Scan complete: %d findings, %d suppressed, score=%d",
-        len(final_findings), len(suppressed_findings), final_score,
+        "Scan complete: %d findings, %d suppressed, score=%d, duration=%.1fs",
+        len(final_findings), len(suppressed_findings), final_score, duration_sec
     )
     if not args.silent:
         color = "green" if final_score >= 80 else "yellow" if final_score >= 60 else "red"
         cprint(
             f"[+] Scan complete: {len(final_findings)} findings, "
-            f"score {final_score}/100 ({final_grade})",
+            f"score {final_score}/100 ({final_grade}) in {duration_sec}s",
             color,
         )
 
@@ -479,6 +485,7 @@ async def scan_one(
         "profile": args.profile,
         "started_at": started,
         "finished_at": finished,
+        "duration": duration_sec,
         "score": final_score,
         "grade": final_grade,
         "findings": final_findings,
