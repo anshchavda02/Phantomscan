@@ -437,53 +437,57 @@
             // Severity Donut
             const donutCtx = document.getElementById('severityDonutChart');
             if (donutCtx && state.chartData.severity_donut) {
-                new Chart(donutCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: state.chartData.severity_donut.labels,
-                        datasets: [{
-                            data: state.chartData.severity_donut.data,
-                            backgroundColor: state.chartData.severity_donut.colors,
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        cutout: '75%',
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#e2e2f8' } }
+                try {
+                    new Chart(donutCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: state.chartData.severity_donut.labels,
+                            datasets: [{
+                                data: state.chartData.severity_donut.data,
+                                backgroundColor: state.chartData.severity_donut.colors,
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            cutout: '75%',
+                            plugins: {
+                                legend: { position: 'right', labels: { color: '#e2e2f8' } }
+                            }
                         }
-                    }
-                });
+                    });
+                } catch (e) { console.error('Chart.js donut failed:', e); }
             }
 
             // Radar Chart
             const radarCtx = document.getElementById('categoryRadarChart');
             if (radarCtx && state.chartData.category_radar) {
-                new Chart(radarCtx, {
-                    type: 'radar',
-                    data: {
-                        labels: state.chartData.category_radar.labels,
-                        datasets: [{
-                            label: 'Score',
-                            data: state.chartData.category_radar.data,
-                            backgroundColor: 'rgba(6, 182, 212, 0.2)',
-                            borderColor: '#06b6d4',
-                            pointBackgroundColor: '#06b6d4'
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            r: {
-                                angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                pointLabels: { color: '#e2e2f8' },
-                                min: 0, max: 100
-                            }
+                try {
+                    new Chart(radarCtx, {
+                        type: 'radar',
+                        data: {
+                            labels: state.chartData.category_radar.labels,
+                            datasets: [{
+                                label: 'Score',
+                                data: state.chartData.category_radar.data,
+                                backgroundColor: 'rgba(6, 182, 212, 0.2)',
+                                borderColor: '#06b6d4',
+                                pointBackgroundColor: '#06b6d4'
+                            }]
                         },
-                        plugins: { legend: { display: false } }
-                    }
-                });
+                        options: {
+                            scales: {
+                                r: {
+                                    angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    pointLabels: { color: '#e2e2f8' },
+                                    min: 0, max: 100
+                                }
+                            },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                } catch(e) { console.error('Chart.js radar failed:', e); }
             }
             
             // Score animation

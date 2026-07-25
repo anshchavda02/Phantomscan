@@ -107,10 +107,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('attack-map-wrapper');
     const width = container.clientWidth;
     const height = container.clientHeight;
-    const svg = d3.select("#attack-map-svg")
-        .attr("viewBox", [0, 0, width, height]);
-        
-    const g = svg.append("g");
+    
+    try {
+        const svg = d3.select("#attack-map-svg")
+            .attr("viewBox", [0, 0, width, height]);
+            
+        const g = svg.append("g");
     
     // Zoom behavior
     const zoom = d3.zoom()
@@ -245,6 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .on("start", dragstarted)
             .on("drag", dragged)
             .on("end", dragended);
+    }
+    
+    } catch (e) {
+        console.error("D3 Attack Map generation failed:", e);
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--crit);text-align:center;padding:20px;">Failed to render Attack Map.<br>Check console for errors (D3.js might be blocked by browser extensions).</div>';
     }
 });
 </script>

@@ -301,33 +301,33 @@ class ReportGenerator:
 
     def build_d3_attack_map(self, scan_data):
         target = scan_data.scan_meta.target
-        root_node = {"id": target, "group": 1, "radius": 20}
+        root_node = {"id": target, "name": target, "group": 1, "radius": 20, "type": "target"}
         nodes = [root_node]
         links = []
         
         # Add IPs
         for i, ip_info in enumerate(scan_data.intel.ip_info):
-            nodes.append({"id": ip_info.ip, "group": 2, "radius": 15})
+            nodes.append({"id": ip_info.ip, "name": ip_info.ip, "group": 2, "radius": 15, "type": "ip"})
             links.append({"source": target, "target": ip_info.ip, "value": 2})
             
             # Add open ports to the first IP (or target if no IPs)
             if i == 0:
                 for port in scan_data.intel.open_ports:
                     port_id = f"{ip_info.ip}:{port.port}"
-                    nodes.append({"id": port_id, "group": 3, "radius": 10})
+                    nodes.append({"id": port_id, "name": f"Port {port.port}", "group": 3, "radius": 10, "type": "service"})
                     links.append({"source": ip_info.ip, "target": port_id, "value": 1})
                     
         # Add subdomains
         for sub in scan_data.intel.subdomains[:15]:  # limit to 15
-            nodes.append({"id": sub.subdomain, "group": 4, "radius": 12})
+            nodes.append({"id": sub.subdomain, "name": sub.subdomain, "group": 4, "radius": 12, "type": "subdomain"})
             links.append({"source": target, "target": sub.subdomain, "value": 1})
             
         if len(nodes) == 1:
-            nodes.append({"id": "Internet", "group": 2, "radius": 15})
+            nodes.append({"id": "Internet", "name": "Internet", "group": 2, "radius": 15, "type": "ip"})
             links.append({"source": "Internet", "target": target, "value": 2})
             for port in scan_data.intel.open_ports:
                 port_id = f"Port {port.port}"
-                nodes.append({"id": port_id, "group": 3, "radius": 10})
+                nodes.append({"id": port_id, "name": f"Port {port.port}", "group": 3, "radius": 10, "type": "service"})
                 links.append({"source": target, "target": port_id, "value": 1})
                 
         return {"nodes": nodes, "links": links}
