@@ -363,9 +363,19 @@
     {% include 'partials/footer.html.j2' ignore missing %}
 
     <script>
+        // Safe LocalStorage wrapper
+        function getStorage(key, defaultVal) {
+            try { return localStorage.getItem(key) || defaultVal; }
+            catch(e) { return defaultVal; }
+        }
+        function setStorage(key, val) {
+            try { localStorage.setItem(key, val); }
+            catch(e) {}
+        }
+
         // Global State & Elements
         const state = {
-            theme: localStorage.getItem('phantomscan_theme') || 'dark',
+            theme: getStorage('phantomscan_theme', 'dark'),
             currentFilter: 'all',
             searchQuery: '',
             chartData: JSON.parse(document.getElementById('chart-data-json').textContent),
@@ -424,7 +434,7 @@
             } else {
                 document.documentElement.classList.remove('light-mode');
             }
-            localStorage.setItem('phantomscan_theme', state.theme);
+            setStorage('phantomscan_theme', state.theme);
         };
         
         if (state.theme === 'light') document.documentElement.classList.add('light-mode');
