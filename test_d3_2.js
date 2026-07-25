@@ -1,0 +1,1 @@
+const d3 = require('d3'); console.log(typeof d3.symbol().type); console.log(typeof d3.symbolTriangle);

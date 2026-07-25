@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhantomScan Security Report - https://hackthissite.org</title>
+    <meta name="description" content="PhantomScan Authorized Security Assessment Report">
+    <meta name="version" content="2.0.0">
+    <meta name="generator" content="PhantomScan">
+    
+    <!-- Dependencies with SRI -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js" integrity="sha512-ElRFoEQdI5Ht6kZvyzXhYG9NqjtkmlkfYkOwl195okL14k7Yh3/Ocmq19n1jF5A58bE4C9/F54P5w5O5G6U2Yw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" integrity="sha512-M7nHCiNUOwFt6Us3r8alutZRo99A5sEogexhaVFsZcyvSqXgw4ILy+OQWbI2N9qN3l751L7e+U4m0b1Lq9qJvw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Backgrounds */
+            --bg:            #070710;
+            --surface:       #0c0c1a;
+            --card:          #111124;
+            --card-hover:    #161630;
+            --card-raised:   #1a1a38;
+
+            /* Borders */
+            --border:        #1e1e3f;
+            --border-light:  #2a2a55;
+            --border-glow:   #3a3a7a;
+
+            /* Brand colors */
+            --accent:        #7c3aed;
+            --accent-light:  #a855f7;
+            --accent-glow:   rgba(124,58,237,0.3);
+            --accent2:       #06b6d4;
+            --accent2-glow:  rgba(6,182,212,0.3);
+            --accent3:       #f43f5e;
+            --accent3-glow:  rgba(244,63,94,0.3);
+
+            /* Text */
+            --text:          #e2e2f8;
+            --text-muted:    #7070a0;
+            --text-dim:      #3a3a60;
+
+            /* Severity colors */
+            --crit:          #ff2d55;
+            --crit-bg:       rgba(255,45,85,0.07);
+            --crit-border:   rgba(255,45,85,0.3);
+            --crit-glow:     rgba(255,45,85,0.15);
+
+            --high:          #ff6b00;
+            --high-bg:       rgba(255,107,0,0.07);
+            --high-border:   rgba(255,107,0,0.3);
+            --high-glow:     rgba(255,107,0,0.15);
+
+            --med:           #f59e0b;
+            --med-bg:        rgba(245,158,11,0.07);
+            --med-border:    rgba(245,158,11,0.3);
+            --med-glow:      rgba(245,158,11,0.15);
+
+            --low:           #10b981;
+            --low-bg:        rgba(16,185,129,0.07);
+            --low-border:    rgba(16,185,129,0.3);
+            --low-glow:      rgba(16,185,129,0.15);
+
+            --info:          #3b82f6;
+            --info-bg:       rgba(59,130,246,0.07);
+            --info-border:   rgba(59,130,246,0.3);
+            --info-glow:     rgba(59,130,246,0.15);
+
+            /* Module theme colors */
+            --mod-recon:     #06b6d4;
+            --mod-web:       #8b5cf6;
+            --mod-network:   #f97316;
+            --mod-ssl:       #10b981;
+            --mod-cve:       #ef4444;
+            --mod-api:       #3b82f6;
+            --mod-chain:     #dc2626;
+            --mod-jwt:       #7c3aed;
+            --mod-ssrf:      #ea580c;
+            --mod-sqli:      #b91c1c;
+            --mod-xss:       #d97706;
+            --mod-cloud:     #0284c7;
+            --mod-supply:    #15803d;
+            --mod-logic:     #9333ea;
+            --mod-idor:      #c2410c;
+            --mod-race:      #0891b2;
+            --mod-ws:        #7e22ce;
+            --mod-graphql:   #e11d48;
+            --mod-proto:     #047857;
+            --mod-smuggle:   #92400e;
+            --mod-oob:       #1d4ed8;
+            --mod-intel:     #065f46;
+        }
+
+        :root.light-mode {
+            --bg:            #f8fafc;
+            --surface:       #f1f5f9;
+            --card:          #ffffff;
+            --card-hover:    #f8fafc;
+            --card-raised:   #ffffff;
+            --border:        #e2e8f0;
+            --border-light:  #cbd5e1;
+            --text:          #0f172a;
+            --text-muted:    #64748b;
+            --text-dim:      #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        code, .evidence {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        a {
+            color: var(--accent-light);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--accent2);
+        }
+
+        ::selection {
+            background: var(--accent-glow);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--surface);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-glow);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-light);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px var(--crit-glow); }
+            50% { box-shadow: 0 0 20px var(--crit-glow); }
+        }
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Base Components */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s ease;
+        }
+        .card:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .badge-critical {
+            background: var(--crit-bg);
+            border: 1px solid var(--crit-border);
+            color: var(--crit);
+            animation: glow 2s infinite;
+        }
+        
+        .badge-high { background: var(--high-bg); border: 1px solid var(--high-border); color: var(--high); }
+        .badge-medium { background: var(--med-bg); border: 1px solid var(--med-border); color: var(--med); }
+        .badge-low { background: var(--low-bg); border: 1px solid var(--low-border); color: var(--low); }
+        .badge-info { background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info); }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .section {
+            margin-bottom: 64px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        
+        .section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        
+        button {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            background: var(--card-raised);
+            border-color: var(--border-light);
+        }
+
+        /* Layout Grid */
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+
+        @media (max-width: 1200px) {
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .card { padding: 16px; }
+        }
+        
+        /* Print Styles */
+        @media print {
+            body { background: white !important; color: black !important; font-size: 12pt; }
+            .card { border: 1px solid #ccc; box-shadow: none !important; break-inside: avoid; }
+            nav, .sidebar, .scroll-progress, .copy-btn, .export-btn, .filter-controls, .collapse-btn { display: none !important; }
+            .collapsible-content, .finding-body { display: block !important; }
+            .section { page-break-before: always; }
+            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+            
+            body::after {
+                content: "CONFIDENTIAL";
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-45deg);
+                font-size: 80pt;
+                color: rgba(255, 0, 0, 0.05);
+                pointer-events: none;
+                z-index: 9999;
+            }
+        }
+        
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .mt-2 { margin-top: 8px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-4 { margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    
+    <!-- Data Bridge for JS -->
+    <script id="chart-data-json" type="application/json">
+        {"severity_donut": {"labels": ["Critical", "High", "Medium", "Low", "Info"], "data": [0, 1, 0, 0, 0], "colors": ["#ff2d55", "#ff6b00", "#f59e0b", "#10b981", "#3b82f6"]}, "module_bar": {"labels": ["Web"], "data": [1]}, "score_history": {"labels": [], "data": []}, "category_radar": {"labels": ["Web", "Network", "SSL", "Email", "API", "Auth"], "data": [0, 0, 0, 0, 0, 0]}}
+    </script>
+    <script id="d3-data-json" type="application/json">
+        {}
+    </script>
+
+<!-- Sticky Navigation Bar -->
+<div style="position: sticky; top: 0; z-index: 50; height: 52px; background: rgba(7,7,16,0.95); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; border-radius: 4px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: white;">PS</div>
+        <div style="font-weight: 800; letter-spacing: 0.05em; font-size: 16px;">
+            <span style="color: var(--accent-light);">PHANTOM</span><span style="color: var(--text);">SCAN</span>
+        </div>
+    </div>
+    
+    <div style="display: none;" class="desktop-nav">
+        <!-- Add pill tabs here for desktop -->
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="pill" style="background: var(--surface); color: var(--low); border-color: currentColor;">
+            Score: 85/100 (A)
+        </div>
+        <button id="theme-toggle" title="Toggle Dark/Light Mode">🌓</button>
+        <button onclick="window.print()" title="Print Report">🖨️</button>
+        <button onclick="window.exportJSON()" title="Export JSON">📊</button>
+    </div>
+</div>
+
+<!-- Floating Right Sidebar (Desktop only) -->
+<style>
+    @media (min-width: 1200px) {
+        .desktop-nav { display: flex !important; gap: 8px; }
+        .sidebar { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 40; display: flex; flex-direction: column; gap: 12px; }
+        .sidebar-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; position: relative; }
+        .sidebar-dot:hover, .sidebar-dot.active { background: var(--accent2); border-color: var(--accent2); box-shadow: 0 0 10px var(--accent2-glow); }
+        .sidebar-dot::after { content: attr(title); position: absolute; right: 16px; top: 50%; transform: translateY(-50%); background: var(--surface); padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 1px solid var(--border); }
+        .sidebar-dot:hover::after { opacity: 1; }
+    }
+    @media (max-width: 1199px) {
+        .sidebar { display: none; }
+    }
+</style>
+
+<div class="sidebar">
+    <a href="#header" class="sidebar-dot" title="Header" data-target="header"></a>
+    <a href="#intel" class="sidebar-dot" title="Target Intelligence" data-target="intel"></a>
+    <a href="#summary" class="sidebar-dot" title="Executive Summary" data-target="summary"></a>
+    <a href="#score" class="sidebar-dot" title="Security Score" data-target="score"></a>
+    <a href="#findings" class="sidebar-dot" title="All Findings" data-target="findings"></a>
+</div>    
+<!-- Hero Header Section -->
+<style>
+    .hero-section {
+        min-height: 280px;
+        position: relative;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.15) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.1) 0%, transparent 60%),
+                    linear-gradient(180deg, #0a0a18 0%, #070710 100%);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .light-mode .hero-section {
+        background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.05) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.05) 0%, transparent 60%),
+                    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .hero-grid {
+        position: absolute;
+        inset: 0;
+        background-image: 
+            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .scanline {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, transparent, rgba(6, 182, 212, 0.1) 50%, transparent);
+        height: 100%;
+        animation: scanline 8s linear infinite;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 10;
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        padding: 48px 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
+        align-items: center;
+    }
+
+    @media (max-width: 768px) {
+        .hero-content { grid-template-columns: 1fr; }
+    }
+
+    .hero-title-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .hero-title {
+        font-size: 48px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        margin-bottom: 8px;
+    }
+
+    .hero-tagline {
+        font-size: 14px;
+        color: var(--text-muted);
+        font-style: italic;
+        margin-bottom: 24px;
+    }
+
+    .hero-info-card {
+        background: rgba(12, 12, 26, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--border-light);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    
+    .light-mode .hero-info-card {
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .target-url {
+        font-size: 20px;
+        font-weight: 700;
+        word-break: break-all;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .meta-strip {
+        border-top: 1px solid var(--border);
+        background: rgba(7, 7, 16, 0.5);
+        padding: 12px 24px;
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        font-size: 12px;
+        color: var(--text-muted);
+        position: relative;
+        z-index: 10;
+    }
+
+    .module-strip {
+        padding: 8px 24px;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        white-space: nowrap;
+        background: rgba(0,0,0,0.2);
+        border-top: 1px solid var(--border);
+        position: relative;
+        z-index: 10;
+    }
+    
+    .module-strip::-webkit-scrollbar {
+        height: 4px;
+    }
+</style>
+
+<section id="header" class="hero-section section visible">
+    <div class="hero-grid"></div>
+    <div class="scanline"></div>
+
+    <div class="hero-content">
+        <div class="hero-title-group fade-in-up">
+            <div class="hero-title">
+                <span style="color: var(--text);">PHANTOM</span><span style="color: var(--accent-light);">SCAN</span>
+            </div>
+            <div class="hero-tagline">Scan Smart. Stay Secure.</div>
+            <div style="display: flex; gap: 8px;">
+                <span class="pill" style="background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.3); color: var(--accent-light);">v2.0.0</span>
+                <span class="pill">0 modules executed</span>
+            </div>
+        </div>
+
+        <div class="hero-info-card fade-in-up" style="animation-delay: 0.1s;">
+            <div class="target-url">
+                https://hackthissite.org
+                <button class="copy-btn" data-copy="https://hackthissite.org" style="padding: 4px; background: transparent; border: none; font-size: 16px;" title="Copy Target URL">📋</button>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Scan Type</div>
+                    <div style="font-weight: 600;">
+                        <span class="pill" style="background: var(--info-bg); color: var(--info); border-color: var(--info-border); margin-top: 4px;">FULL SCAN</span>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Duration</div>
+                    <div style="font-weight: 600; margin-top: 4px;">42.5s</div>
+                </div>
+            </div>
+            
+            <div style="font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px;">
+                Started: 2026-07-25T07:41:12.529179 &nbsp;|&nbsp; ID: <code>local</code>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="module-strip">
+    </div>
+</section>    
+    <div class="container" style="margin-top: 48px;">
+<!-- Target Intelligence Panel -->
+<style>
+    .intel-section {
+        background: linear-gradient(180deg, #070d14 0%, #080e18 100%);
+        border-top: 2px solid var(--accent2);
+        padding: 48px 24px;
+        margin: 0 -24px 64px -24px;
+    }
+    
+    .light-mode .intel-section {
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .intel-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .intel-title {
+        font-size: 24px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--accent2);
+        margin: 0;
+    }
+
+    .intel-subtitle {
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+
+    .intel-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+        .intel-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+        .intel-grid { grid-template-columns: 1fr; }
+    }
+
+    .intel-card {
+        background: rgba(12, 12, 26, 0.4);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        transition: all 0.3s;
+    }
+    .light-mode .intel-card {
+        background: rgba(255, 255, 255, 0.6);
+    }
+    
+    .intel-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    
+    .intel-card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .intel-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        font-size: 13px;
+    }
+    .intel-row:last-child {
+        border-bottom: none;
+    }
+    .intel-label {
+        color: var(--text-muted);
+    }
+    .intel-value {
+        font-weight: 500;
+        text-align: right;
+    }
+</style>
+
+<div id="intel" class="intel-section section">
+    <div class="intel-header">
+        <div style="font-size: 32px;">🎯</div>
+        <div>
+            <h2 class="intel-title">TARGET INTELLIGENCE</h2>
+            <div class="intel-subtitle">
+                Domain registered Unknown &middot; 
+                Hosted in Unknown &middot; 
+                0 technologies &middot; 
+                0 subdomains &middot; 
+                SSL Grade N/A
+            </div>
+        </div>
+    </div>
+    
+    <div class="intel-grid">
+<!-- WHOIS Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--mod-recon);">
+    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>🌐 WHOIS</span>
+        <span style="margin-left: auto;">🌐</span>
+    </div>
+    <div class="intel-card-content">
+        <div class="intel-row">
+            <span class="intel-label">Registrar</span>
+            <span class="intel-value">N/A</span>
+        </div>
+        <div class="intel-row">
+            <span class="intel-label">Registered</span>
+            <span class="intel-value">N/A</span>
+        </div>
+        <div class="intel-row">
+            <span class="intel-label">Expires</span>
+            <span class="intel-value" style="color: var(--crit);">
+                N/A (0d)
+            </span>
+        </div>
+        <div class="intel-row">
+            <span class="intel-label">DNSSEC</span>
+            <span class="intel-value">❌ Disabled</span>
+        </div>
+    </div>
+</div><!-- DNS Records Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--mod-recon);">
+    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>📋 DNS RECORDS</span>
+        <span style="margin-left: auto;" class="pill">0</span>
+    </div>
+    <div class="intel-card-content">
+        
+        
+        
+        <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+            No records resolved
+        </div>
+    </div>
+</div><!-- Subdomains Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--accent2);">
+    <div class="intel-card-header" style="color: var(--accent2);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>🔍 SUBDOMAINS</span>
+        <span style="margin-left: auto;" class="pill">0 Total</span>
+    </div>
+    <div class="intel-card-content">
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700;">0</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Resolved</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700; color: var(--crit);">0</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Interesting</div>
+            </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto;">
+        </div>
+    </div>
+</div><!-- IP Intelligence Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--mod-network);">
+    <div class="intel-card-header" style="color: var(--mod-network);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>🌍 IP INTELLIGENCE</span>
+        <span style="margin-left: auto;" class="pill">0 IPs</span>
+    </div>
+    <div class="intel-card-content">
+            <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+                No IP data available
+            </div>
+    </div>
+</div><!-- SSL/TLS Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--border);">
+    <div class="intel-card-header" style="color: var(--text);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>🔒 SSL / TLS</span>
+        <span style="margin-left: auto;" class="pill">Grade N/A</span>
+    </div>
+    <div class="intel-card-content">
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
+            <div style="width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800;
+                background: rgba(255,255,255,0.05);
+                color: var(--text);
+                border: 2px solid var(--border);">
+                ?
+            </div>
+            <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Expires In</span>
+                <span style="font-size: 20px; font-weight: 700; color: var(--crit);">
+                    0 days
+                </span>
+            </div>
+        </div>
+        
+        <div class="intel-row">
+            <span class="intel-label">Issuer</span>
+            <span class="intel-value">Unknown</span>
+        </div>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;">
+        </div>
+    </div>
+</div><!-- Technology Stack Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--mod-web);">
+    <div class="intel-card-header" style="color: var(--mod-web);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>⚡ TECHNOLOGY STACK</span>
+        <span style="margin-left: auto;" class="pill">0 detected</span>
+    </div>
+    <div class="intel-card-content">
+            <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+                No technologies identified
+            </div>
+    </div>
+</div><!-- Email Security Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--accent3);">
+    <div class="intel-card-header" style="color: var(--accent3);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>✉️ EMAIL SECURITY</span>
+        <span style="margin-left: auto;" class="pill">Score 0/10</span>
+    </div>
+    <div class="intel-card-content">
+        <div class="intel-row">
+            <span class="intel-label">Provider</span>
+            <span class="intel-value">Unknown</span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center; border-bottom: 2px solid var(--crit);">
+                <div style="font-weight: 700; font-size: 12px; color: var(--crit);">SPF</div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Fail/Missing</div>
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center; border-bottom: 2px solid var(--crit);">
+                <div style="font-weight: 700; font-size: 12px; color: var(--crit);">DMARC</div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Fail/Missing</div>
+            </div>
+        </div>
+        
+    </div>
+</div><!-- Open Ports Panel -->
+<div class="intel-card" style="border-left: 3px solid var(--mod-network);">
+    <div class="intel-card-header" style="color: var(--mod-network);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span>🔌 OPEN PORTS</span>
+        <span style="margin-left: auto;" class="pill">0 Open</span>
+    </div>
+    <div class="intel-card-content">
+            <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+                No open ports detected
+            </div>
+    </div>
+</div>    </div>
+    
+<!-- Attack Surface Map -->
+<style>
+    .attack-map-container {
+        margin-top: 24px;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        height: 400px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .light-mode .attack-map-container {
+        background: rgba(255, 255, 255, 0.4);
+    }
+    
+    #attack-map-svg {
+        width: 100%;
+        height: 100%;
+    }
+    
+    .map-tooltip {
+        position: absolute;
+        background: rgba(12, 12, 26, 0.9);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-glow);
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 10;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    
+    .light-mode .map-tooltip {
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+    }
+    
+    .map-legend {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        background: rgba(12, 12, 26, 0.8);
+        backdrop-filter: blur(4px);
+        border: 1px solid var(--border);
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        pointer-events: none;
+    }
+    
+    .light-mode .map-legend {
+        background: rgba(255, 255, 255, 0.8);
+    }
+    
+    .map-controls {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        display: flex;
+        gap: 8px;
+    }
+    
+    .map-controls button {
+        padding: 4px 8px;
+        font-size: 12px;
+        background: rgba(12, 12, 26, 0.8);
+        border: 1px solid var(--border);
+    }
+    .light-mode .map-controls button {
+        background: rgba(255, 255, 255, 0.8);
+    }
+</style>
+
+<div class="attack-map-container" id="attack-map-wrapper">
+    <div class="map-tooltip" id="map-tooltip"></div>
+    <svg id="attack-map-svg"></svg>
+    <div class="map-legend">
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent);"></div> <span>Target</span></div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent2);"></div> <span>Subdomain</span></div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 10px; height: 10px; border-radius: 50%; background: var(--mod-network);"></div> <span>IP Address</span></div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 8px; height: 8px; border-radius: 50%; background: var(--info);"></div> <span>Service</span></div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 10px; height: 10px; background: var(--crit); transform: rotate(45deg);"></div> <span>Vulnerability</span></div>
+    </div>
+    <div class="map-controls">
+        <button id="map-zoom-in">+</button>
+        <button id="map-zoom-out">-</button>
+        <button id="map-reset">Reset</button>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Basic D3.js Force Directed Graph initialization
+    // The actual data is loaded from state.d3Data
+    if (!state.d3Data || !state.d3Data.nodes || state.d3Data.nodes.length === 0) {
+        document.getElementById('attack-map-wrapper').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">Attack surface map data not available</div>';
+        return;
+    }
+
+    const container = document.getElementById('attack-map-wrapper');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const svg = d3.select("#attack-map-svg")
+        .attr("viewBox", [0, 0, width, height]);
+        
+    const g = svg.append("g");
+    
+    // Zoom behavior
+    const zoom = d3.zoom()
+        .scaleExtent([0.1, 4])
+        .on("zoom", (event) => g.attr("transform", event.transform));
+    svg.call(zoom);
+    
+    // Controls
+    document.getElementById('map-zoom-in').addEventListener('click', () => svg.transition().call(zoom.scaleBy, 1.3));
+    document.getElementById('map-zoom-out').addEventListener('click', () => svg.transition().call(zoom.scaleBy, 0.7));
+    document.getElementById('map-reset').addEventListener('click', () => svg.transition().call(zoom.transform, d3.zoomIdentity.translate(width/2, height/2).scale(1)));
+    
+    const nodes = state.d3Data.nodes;
+    const links = state.d3Data.links;
+    
+    // Simulation
+    const simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(60))
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide().radius(20));
+
+    // Links
+    const link = g.append("g")
+        .attr("stroke", "var(--border-light)")
+        .attr("stroke-opacity", 0.6)
+        .selectAll("line")
+        .data(links)
+        .join("line")
+        .attr("stroke-width", d => Math.sqrt(d.value || 1));
+
+    // Nodes
+    const tooltip = document.getElementById('map-tooltip');
+    
+    const node = g.append("g")
+        .selectAll("path")
+        .data(nodes)
+        .join("path")
+        .attr("d", d => {
+            // Different shapes based on type
+            if (d.type === 'vulnerability') {
+                return d3.symbol().type(d3.symbolTriangle).size(150)();
+            } else if (d.type === 'chain') {
+                return d3.symbol().type(d3.symbolStar).size(200)();
+            }
+            return d3.symbol().type(d3.symbolCircle).size(d.type === 'target' ? 400 : 100)();
+        })
+        .attr("fill", d => {
+            if (d.type === 'target') return "var(--accent)";
+            if (d.type === 'subdomain') return "var(--accent2)";
+            if (d.type === 'ip') return "var(--mod-network)";
+            if (d.type === 'vulnerability') return "var(--crit)";
+            if (d.type === 'chain') return "var(--crit)";
+            return "var(--info)";
+        })
+        .attr("stroke", "var(--bg)")
+        .attr("stroke-width", 1.5)
+        .call(drag(simulation));
+
+    // Labels
+    const label = g.append("g")
+        .selectAll("text")
+        .data(nodes)
+        .join("text")
+        .attr("dy", 12)
+        .attr("dx", 0)
+        .attr("text-anchor", "middle")
+        .text(d => d.name)
+        .style("font-size", "10px")
+        .style("fill", "var(--text)")
+        .style("pointer-events", "none")
+        .style("opacity", d => d.type === 'target' ? 1 : 0.7);
+
+    // Hover effects
+    node.on("mouseover", (event, d) => {
+        tooltip.innerHTML = `<strong>${d.name}</strong><br><span style="color:var(--text-muted);font-size:10px;">Type: ${d.type}</span>`;
+        tooltip.style.opacity = 1;
+        tooltip.style.left = (event.pageX + 15) + "px";
+        tooltip.style.top = (event.pageY - 15) + "px";
+        
+        // Highlight connected
+        const connected = new Set();
+        connected.add(d.id);
+        link.style("stroke", l => {
+            if (l.source.id === d.id || l.target.id === d.id) {
+                connected.add(l.source.id);
+                connected.add(l.target.id);
+                return "var(--accent-light)";
+            }
+            return "var(--border)";
+        });
+        node.style("opacity", n => connected.has(n.id) ? 1 : 0.2);
+        label.style("opacity", n => connected.has(n.id) ? 1 : 0);
+    })
+    .on("mouseout", () => {
+        tooltip.style.opacity = 0;
+        link.style("stroke", "var(--border-light)");
+        node.style("opacity", 1);
+        label.style("opacity", d => d.type === 'target' ? 1 : 0.7);
+    });
+
+    simulation.on("tick", () => {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node.attr("transform", d => `translate(${d.x},${d.y})`);
+        label.attr("x", d => d.x).attr("y", d => d.y + 12);
+    });
+    
+    // Initial center zoom
+    svg.call(zoom.transform, d3.zoomIdentity.translate(width/2, height/2).scale(1));
+
+    function drag(simulation) {
+        function dragstarted(event) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
+        }
+        function dragged(event) {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+        function dragended(event) {
+            if (!event.active) simulation.alphaTarget(0);
+            event.subject.fx = null;
+            event.subject.fy = null;
+        }
+        return d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended);
+    }
+});
+</script></div>        
+<!-- Executive Summary Section -->
+<section id="summary" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent);">📋</div>
+        <h2>EXECUTIVE SUMMARY</h2>
+    </div>
+
+    <div class="grid-2">
+        <div class="card" style="display: flex; flex-direction: column; gap: 16px;">
+            <p>
+                PhantomScan performed an automated full security assessment against <strong>https://hackthissite.org</strong> on 2026-07-25T07:41:12.529179.
+                The assessment took 42.5 seconds and executed 0 distinct security modules.
+            </p>
+            
+            <div style="padding: 16px; background: rgba(0,0,0,0.2); border-left: 4px solid var(--low); border-radius: 4px;">
+                <h4 style="margin: 0 0 8px 0; color: var(--text);">Risk Conclusion</h4>
+                <p style="margin: 0; color: var(--text-muted);">
+                        The overall security posture is <strong>strong</strong>. Only minor issues were identified.
+                </p>
+            </div>
+            
+        </div>
+        
+        <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
+            <h3 style="text-align: center; margin-bottom: 24px;">Finding Severity Distribution</h3>
+            <div style="height: 250px; position: relative;">
+                <canvas id="severityDonutChart"></canvas>
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                    <div style="font-size: 32px; font-weight: 800; font-family: 'JetBrains Mono', monospace;">1</div>
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>        
+<!-- Security Score Dashboard Section -->
+<section id="score" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent2);">📊</div>
+        <h2>SECURITY SCORE & METRICS</h2>
+    </div>
+
+    <div class="grid-3">
+        <!-- Main Score -->
+        <div class="card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; overflow: hidden;">
+            <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(16,185,129,0.1) 0%, transparent 70%); pointer-events: none;"></div>
+            
+            <h3 style="color: var(--text-muted); margin-bottom: 8px; font-size: 14px; text-transform: uppercase;">Overall Grade</h3>
+            <div style="font-size: 96px; font-weight: 800; line-height: 1; color: var(--low); text-shadow: 0 0 20px var(--low-glow);">
+                A
+            </div>
+            <div style="font-size: 24px; font-weight: 700; margin-top: -10px; font-family: 'JetBrains Mono', monospace;">
+                <span id="animated-score">0</span><span style="color: var(--text-muted);">/100</span>
+                <span id="final-score-val" class="hidden">85</span>
+            </div>
+            
+            <div class="mt-4 pill" style="background: rgba(0,0,0,0.2); border-color: var(--crit); color: var(--crit);">
+                📉 Declined since last scan
+            </div>
+        </div>
+
+        <!-- Radar Chart -->
+        <div class="card">
+            <h3 style="text-align: center; margin-bottom: 16px; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Category Breakdown</h3>
+            <div style="height: 250px;">
+                <canvas id="categoryRadarChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="card" style="display: flex; flex-direction: column; justify-content: center; gap: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+                <span style="color: var(--text-muted);">Critical Findings</span>
+                <span class="pill badge-critical">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+                <span style="color: var(--text-muted);">High Findings</span>
+                <span class="pill badge-high">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+                <span style="color: var(--text-muted);">Medium Findings</span>
+                <span class="pill badge-medium">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--text-muted);">Low/Info Findings</span>
+                <span class="pill badge-low">0</span>
+            </div>
+        </div>
+    </div>
+</section>        
+<!-- Diff Summary Section -->
+        
+<!-- Compliance Section -->
+        
+<!-- Attack Chains Section -->
+        
+<!-- Remediation Matrix Section -->
+<section id="remediation" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--low);">🛠️</div>
+        <h2>REMEDIATION MATRIX</h2>
+    </div>
+
+    <div class="card">
+        <p style="color: var(--text-muted); margin-bottom: 24px;">Prioritized list of actionable remediation steps based on finding severity and exploitability.</p>
+        
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted);">
+                        <th style="padding: 12px; font-weight: 600;">Priority</th>
+                        <th style="padding: 12px; font-weight: 600;">Finding</th>
+                        <th style="padding: 12px; font-weight: 600;">Category</th>
+                        <th style="padding: 12px; font-weight: 600;">Remediation Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Sort findings by severity (naive sort, usually you'd want a custom filter for exact crit->high->med->low order) -->
+                        <tr style="border-bottom: 1px solid var(--border-light); transition: background 0.2s;">
+                            <td style="padding: 12px; vertical-align: top;">
+                                <span class="pill badge-high">High</span>
+                            </td>
+                            <td style="padding: 12px; vertical-align: top; max-width: 250px;">
+                                <a href="#finding-1-high" style="font-weight: 600; color: var(--text); text-decoration: underline; text-decoration-color: var(--border-glow);">Test Finding</a>
+                            </td>
+                            <td style="padding: 12px; vertical-align: top;">
+                                <span class="pill" style="font-size: 10px;">Web</span>
+                            </td>
+                            <td style="padding: 12px; vertical-align: top; color: var(--text-muted);">
+                                Fix it
+                            </td>
+                        </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+        
+<!-- Module Sections & Detailed Findings -->
+<style>
+    .filter-controls {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+        background: rgba(12, 12, 26, 0.6);
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+    
+    .light-mode .filter-controls {
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .filter-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: 20px;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .filter-btn.active {
+        background: var(--accent2);
+        color: white;
+        border-color: var(--accent2);
+    }
+    
+    .filter-btn[data-filter="critical"].active { background: var(--crit); border-color: var(--crit); }
+    .filter-btn[data-filter="high"].active { background: var(--high); border-color: var(--high); }
+    .filter-btn[data-filter="medium"].active { background: var(--med); border-color: var(--med); }
+    .filter-btn[data-filter="low"].active { background: var(--low); border-color: var(--low); }
+
+    .search-box {
+        flex: 1;
+        position: relative;
+    }
+
+    .search-box input {
+        width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 8px 16px 8px 36px;
+        border-radius: 8px;
+        color: var(--text);
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    
+    .search-box input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+    
+    .search-box::before {
+        content: "🔍";
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 14px;
+        opacity: 0.5;
+    }
+</style>
+
+<section id="findings" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--accent);">🔬</div>
+        <h2>DETAILED FINDINGS</h2>
+    </div>
+    
+    <div class="filter-controls">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="critical">Critical</button>
+        <button class="filter-btn" data-filter="high">High</button>
+        <button class="filter-btn" data-filter="medium">Medium</button>
+        <button class="filter-btn" data-filter="low">Low/Info</button>
+        
+        <div class="search-box">
+            <input type="text" id="finding-search" placeholder="Search findings, descriptions, endpoints (Press '/' to focus)...">
+        </div>
+        
+        <button class="collapse-btn" id="expand-all-btn" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 16px; cursor: pointer; color: var(--text);">Expand All</button>
+    </div>
+
+    <div id="findings-container">
+        <div class="module-group" style="margin-bottom: 48px;">
+            <h3 style="margin-bottom: 16px; border-bottom: 1px solid var(--border-light); padding-bottom: 8px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+                <span>WEB</span>
+                <span class="pill">1 Findings</span>
+            </h3>
+            
+<!-- Finding Card Partial -->
+<div id="finding-1-high" class="card finding-card" style="margin-bottom: 24px; border-left: 4px solid var(--high);" data-severity="high">
+    <div class="finding-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; cursor: pointer;" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <div>
+            <h3 style="margin: 0 0 8px 0; color: var(--text); display: flex; align-items: center; gap: 12px;">
+                Test Finding
+                <span class="pill badge-high" style="font-size: 10px;">High</span>
+            </h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text-muted);">
+                <span>Module: Web</span>
+                <span>•</span>
+                <span>Category: Web</span>
+            </div>
+        </div>
+        <div style="color: var(--text-muted);">▼</div>
+    </div>
+    
+    <div class="finding-body hidden" style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px;">
+        <div class="grid-2">
+            <div>
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Description</h4>
+                <p style="margin-bottom: 16px;">Test description</p>
+                
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Impact</h4>
+                <p style="margin-bottom: 16px;">Bad</p>
+                
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Remediation</h4>
+                <p style="margin-bottom: 16px;">Fix it</p>
+                
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; overflow-x: auto;">
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Evidence & Details</h4>
+                <pre class="evidence" style="margin: 0; font-size: 12px; color: var(--accent2);">Request: GET /</pre>
+                
+            </div>
+        </div>
+    </div>
+</div>        </div>
+    </div>
+</section>
+
+<script>
+    // Filtering and Search Logic
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const searchInput = document.getElementById('finding-search');
+    const expandAllBtn = document.getElementById('expand-all-btn');
+    const findingsContainer = document.getElementById('findings-container');
+    const allCards = findingsContainer?.querySelectorAll('.finding-card');
+    const moduleGroups = findingsContainer?.querySelectorAll('.module-group');
+
+    let allExpanded = false;
+
+    if (expandAllBtn) {
+        expandAllBtn.addEventListener('click', () => {
+            allExpanded = !allExpanded;
+            expandAllBtn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+            
+            allCards?.forEach(card => {
+                const body = card.querySelector('.finding-body');
+                if (allExpanded) {
+                    body.classList.remove('hidden');
+                } else {
+                    body.classList.add('hidden');
+                }
+            });
+        });
+    }
+
+    function applyFilters() {
+        if(!allCards) return;
+        
+        const query = state.searchQuery.toLowerCase();
+        const severityFilter = state.currentFilter;
+        
+        allCards.forEach(card => {
+            const severity = card.dataset.severity;
+            const textContent = card.textContent.toLowerCase();
+            
+            let severityMatch = severityFilter === 'all' || 
+                               severity === severityFilter || 
+                               (severityFilter === 'low' && severity === 'info');
+                               
+            let searchMatch = query === '' || textContent.includes(query);
+            
+            if (severityMatch && searchMatch) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        // Hide empty module groups
+        moduleGroups?.forEach(group => {
+            const visibleCards = Array.from(group.querySelectorAll('.finding-card')).filter(card => card.style.display !== 'none');
+            group.style.display = visibleCards.length > 0 ? 'block' : 'none';
+        });
+    }
+
+    filterBtns?.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            state.currentFilter = e.target.dataset.filter;
+            applyFilters();
+        });
+    });
+
+    searchInput?.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value;
+        applyFilters();
+    });
+</script>        
+<!-- CVE Section -->
+        
+<!-- API Security Section -->
+        
+<!-- Attack Path Mapping Section -->
+        
+<!-- Manual Verification Checklist Section -->
+        
+<!-- Screenshots Section -->
+        
+<!-- False Positives / Suppressed Section -->
+        
+<!-- Scan Metadata & Engine Logs Section -->
+<section id="metadata" class="section">
+    <div class="section-header">
+        <div style="font-size: 24px; color: var(--text-muted);">⚙️</div>
+        <h2>SCAN METADATA</h2>
+    </div>
+
+    <div class="card">
+        <div class="grid-2">
+            <div>
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Scan Configuration</h4>
+                <div class="intel-row"><span class="intel-label">Profile</span><span class="intel-value">full</span></div>
+                <div class="intel-row"><span class="intel-label">Report Version</span><span class="intel-value">2.0.0</span></div>
+                <div class="intel-row"><span class="intel-label">Scan ID</span><span class="intel-value" style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">local</span></div>
+                <div class="intel-row"><span class="intel-label">Total Duration</span><span class="intel-value">42.5s</span></div>
+            </div>
+            
+            <div>
+                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Engine Diagnostics</h4>
+                <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); max-height: 150px; overflow-y: auto;">
+                </div>
+            </div>
+        </div>
+    </div>
+</section>    </div>
+
+<!-- Footer Section -->
+<footer style="margin-top: 64px; padding: 48px 24px; border-top: 1px solid var(--border); background: var(--surface); text-align: center; color: var(--text-muted);">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 16px;">
+        <div style="width: 20px; height: 20px; border-radius: 4px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; color: white;">PS</div>
+        <div style="font-weight: 800; letter-spacing: 0.05em; font-size: 14px;">
+            PHANTOMSCAN
+        </div>
+    </div>
+    
+    <p style="font-size: 12px; max-width: 600px; margin: 0 auto 24px auto; line-height: 1.6;">
+        This report contains confidential information intended only for the authorized recipient. 
+        The findings represented here are a point-in-time snapshot of the target's security posture 
+        and may not reflect current conditions.
+    </p>
+    
+    <div style="font-size: 11px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;">
+        <span>Generated: 2026-07-25T07:41:12.529179</span>
+        <span>|</span>
+        <span>Version: 2.0.0</span>
+        <span>|</span>
+        <span>Target: https://hackthissite.org</span>
+    </div>
+</footer>
+    <script>
+        // Global State & Elements
+        const state = {
+            theme: localStorage.getItem('phantomscan_theme') || 'dark',
+            currentFilter: 'all',
+            searchQuery: '',
+            chartData: JSON.parse(document.getElementById('chart-data-json').textContent),
+            d3Data: JSON.parse(document.getElementById('d3-data-json').textContent)
+        };
+
+        // Scroll Progress
+        const progressBar = document.createElement('div');
+        progressBar.className = 'scroll-progress';
+        progressBar.style.cssText = 'position:fixed;top:52px;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));z-index:100;width:0%;transition:width 0.1s;';
+        document.body.appendChild(progressBar);
+
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            progressBar.style.width = (winScroll / height) * 100 + "%";
+        });
+
+        // Intersection Observer for Sections
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    // Update sidebar if exists
+                    const id = entry.target.id;
+                    document.querySelectorAll('.sidebar-dot').forEach(d => {
+                        d.classList.toggle('active', d.dataset.target === id);
+                    });
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.section').forEach(sec => observer.observe(sec));
+
+        // Copy functionality
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const text = btn.dataset.copy;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '✅ Copied!';
+                    setTimeout(() => btn.innerHTML = original, 2000);
+                } catch (err) {
+                    console.error('Failed to copy', err);
+                }
+            });
+        });
+
+        // Dark/Light Toggle
+        const toggleTheme = () => {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            if (state.theme === 'light') {
+                document.documentElement.classList.add('light-mode');
+            } else {
+                document.documentElement.classList.remove('light-mode');
+            }
+            localStorage.setItem('phantomscan_theme', state.theme);
+        };
+        
+        if (state.theme === 'light') document.documentElement.classList.add('light-mode');
+        
+        const themeBtn = document.getElementById('theme-toggle');
+        if(themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+        // Chart.js Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            // Severity Donut
+            const donutCtx = document.getElementById('severityDonutChart');
+            if (donutCtx && state.chartData.severity_donut) {
+                new Chart(donutCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: state.chartData.severity_donut.labels,
+                        datasets: [{
+                            data: state.chartData.severity_donut.data,
+                            backgroundColor: state.chartData.severity_donut.colors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        cutout: '75%',
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#e2e2f8' } }
+                        }
+                    }
+                });
+            }
+
+            // Radar Chart
+            const radarCtx = document.getElementById('categoryRadarChart');
+            if (radarCtx && state.chartData.category_radar) {
+                new Chart(radarCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: state.chartData.category_radar.labels,
+                        datasets: [{
+                            label: 'Score',
+                            data: state.chartData.category_radar.data,
+                            backgroundColor: 'rgba(6, 182, 212, 0.2)',
+                            borderColor: '#06b6d4',
+                            pointBackgroundColor: '#06b6d4'
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            r: {
+                                angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                pointLabels: { color: '#e2e2f8' },
+                                min: 0, max: 100
+                            }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+            
+            // Score animation
+            const scoreVal = parseInt(document.getElementById('final-score-val')?.textContent || '0');
+            let current = 0;
+            const scoreEl = document.getElementById('animated-score');
+            if(scoreEl) {
+                const interval = setInterval(() => {
+                    if(current >= scoreVal) {
+                        clearInterval(interval);
+                        scoreEl.textContent = scoreVal;
+                    } else {
+                        current += Math.ceil((scoreVal - current) / 10) || 1;
+                        scoreEl.textContent = current;
+                    }
+                }, 40);
+            }
+        });
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', e => {
+            if (e.key === '/') {
+                const searchInput = document.getElementById('finding-search');
+                if (searchInput && document.activeElement !== searchInput) {
+                    e.preventDefault();
+                    searchInput.focus();
+                }
+            }
+            if (e.key === 'p' && e.ctrlKey) {
+                // let browser handle print
+            }
+        });
+        
+        // Export Functions
+        window.exportJSON = () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                version: "2.0.0",
+                timestamp: new Date().toISOString()
+            }, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = "phantomscan_report.json";
+            a.click();
+        };
+
+    </script>
+</body>
+</html>
