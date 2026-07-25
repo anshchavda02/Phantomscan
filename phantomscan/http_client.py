@@ -169,6 +169,134 @@ class RobustHTTPClient:
                 last_exc = exc
         raise ScanError(f"Cannot reach {host} over HTTPS or HTTP") from last_exc
 
+    async def request(
+        self,
+        method: str,
+        url: str,
+        retries: int = 2,
+        allow_redirects: bool = True,
+        timeout: aiohttp.ClientTimeout | None = None,
+        **kwargs: Any,
+    ) -> HTTPResult:
+        """Send an HTTP request with the given *method*, retry, and backoff.
+
+        This is the generic verb method used by :meth:`post`, :meth:`put`,
+        :meth:`delete`, and :meth:`patch`.
+        """
+        if self.session is None:
+            raise RuntimeError("RobustHTTPClient must be started with start() first")
+        effective_timeout = timeout or self._timeout
+        last_exc: Exception = RuntimeError("no attempts were made")
+
+        for attempt in range(retries):
+            try:
+                t0 = time.perf_counter()
+                async with self.session.request(
+                    method,
+                    url,
+                    timeout=effective_timeout,
+                    allow_redirects=allow_redirects,
+                    max_redirects=10,
+                    ssl=False,
+                    **kwargs,
+                ) as response:
+                    body = await response.read()
+                    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+                    raw_set_cookies = response.headers.getall("Set-Cookie", [])
+                    return HTTPResult(
+                        url=str(response.url),
+                        status=response.status,
+                        headers={k.lower(): v for k, v in response.headers.items()},
+                        cookies={k: v.value for k, v in response.cookies.items()},
+                        body=body[:100_000],
+                        raw_set_cookies=raw_set_cookies,
+                        redirect_chain=[str(r.url) for r in response.history],
+                        response_time_ms=elapsed_ms,
+                        content_type=response.content_type or "",
+                    )
+            except asyncio.TimeoutError as exc:
+                last_exc = exc
+                logger.warning("Timeout on %s %s (attempt %d/%d)", method, url, attempt + 1, retries)
+            except aiohttp.ClientError as exc:
+                last_exc = exc
+                logger.warning("HTTP error on %s %s: %s", method, url, exc)
+
+            if attempt < retries - 1:
+                await asyncio.sleep(2**attempt)
+
+        raise last_exc
+
+    async def post(self, url: str, **kwargs: Any) -> HTTPResult:
+        """POST *url* with retry."""
+        return await self.request("POST", url, **kwargs)
+
+    async def put(self, url: str, **kwargs: Any) -> HTTPResult:
+        """PUT *url* with retry."""
+        return await self.request("PUT", url, **kwargs)
+
+    async def delete(self, url: str, **kwargs: Any) -> HTTPResult:
+        """DELETE *url* with retry."""
+        return await self.request("DELETE", url, **kwargs)
+
+    async def patch(self, url: str, **kwargs: Any) -> HTTPResult:
+        """PATCH *url* with retry."""
+        return await self.request("PATCH", url, **kwargs)
+
+    async def send_raw(
+        self,
+        host: str,
+        payload: bytes | str,
+        port: int = 80,
+        timeout: float = 10.0,
+    ) -> HTTPResult:
+        """Send a raw TCP payload and return the response.
+
+        Used for HTTP request smuggling detection where precise byte-level
+        control over the wire format is required.
+        """
+        raw = payload.encode("utf-8") if isinstance(payload, str) else payload
+
+        def _blocking() -> tuple[bytes, float]:
+            import socket as _socket
+            t0 = time.perf_counter()
+            with _socket.create_connection((host, port), timeout=timeout) as sock:
+                sock.sendall(raw)
+                sock.settimeout(timeout)
+                chunks: list[bytes] = []
+                try:
+                    while True:
+                        chunk = sock.recv(4096)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                except (_socket.timeout, TimeoutError):
+                    pass
+            elapsed = time.perf_counter() - t0
+            return b"".join(chunks), elapsed
+
+        response_bytes, elapsed = await asyncio.to_thread(_blocking)
+        elapsed_ms = int(elapsed * 1000)
+        text = response_bytes.decode("utf-8", errors="ignore")
+
+        # Parse a rudimentary status code from the raw HTTP response
+        status = 0
+        if text.startswith("HTTP/"):
+            parts = text.split(" ", 2)
+            if len(parts) >= 2 and parts[1].isdigit():
+                status = int(parts[1])
+
+        return HTTPResult(
+            url=f"raw://{host}:{port}",
+            status=status,
+            headers={},
+            cookies={},
+            body=response_bytes[:100_000],
+            raw_set_cookies=[],
+            redirect_chain=[],
+            response_time_ms=elapsed_ms,
+            content_type="",
+        )
+
 
 # ── Context manager ───────────────────────────────────────────────────────────
 

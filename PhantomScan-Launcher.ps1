@@ -101,17 +101,19 @@ while ($true) {
     Write-Host "  3. Full scan         Deep Web + Concurrent Go Portscan + Rust TLS Inspection"
     Write-Host "  4. API scan          API-focused HTTP analysis without web crawling"
     Write-Host "  5. Network scan      Intensive Go Portscanner focused profile"
-    Write-Host "  6. Custom profile"
-    Write-Host "  8. Proxy mode        Intercept traffic and feed to YAML Rules Engine"
-    Write-Host "  7. Help"
+    Write-Host "  6. Advanced scan     Run 20 advanced security modules (business logic, IDOR, injection)"
+    Write-Host "  7. Deep scan         Full scan + Advanced scan modules combined"
+    Write-Host "  8. Custom profile"
+    Write-Host "  9. Proxy mode        Intercept traffic and feed to YAML Rules Engine"
+    Write-Host " 10. Help"
     Write-Host "  0. Exit"
     Write-Host ""
 
-    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8") "1"
+    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10") "1"
     if ($mode -eq "0") {
         break
     }
-    if ($mode -eq "7") {
+    if ($mode -eq "10") {
         & $Python $Cli --help
         Write-Host ""
         Read-Host "Press Enter to return to the menu"
@@ -124,8 +126,10 @@ while ($true) {
         "3" { "full" }
         "4" { "api" }
         "5" { "network" }
-        "6" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network") "quick" }
-        "8" { "proxy" }
+        "6" { "advanced" }
+        "7" { "deep" }
+        "8" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "monitor") "quick" }
+        "9" { "proxy" }
     }
 
     $target = Read-Host "Target domain, IP, CIDR, or URL"
@@ -166,6 +170,34 @@ while ($true) {
         $scanArgs += $profile
         $scanArgs += "--ports"
         $scanArgs += $ports
+        
+        # Options specific to advanced/deep profiles
+        if ($profile -eq "advanced" -or $profile -eq "deep" -or $profile -eq "monitor") {
+            $runAllAdvanced = Read-YesNo "Run all 20 advanced modules (y) or select specific ones (n)" $true
+            if ($runAllAdvanced) {
+                $scanArgs += "--advanced"
+            } else {
+                $modules = Read-Host "Enter comma-separated modules (e.g. business_logic,idor,graphql)"
+                if (-not [string]::IsNullOrWhiteSpace($modules)) {
+                    $scanArgs += "--modules"
+                    $scanArgs += $modules
+                }
+            }
+            
+            $provideAuth = Read-YesNo "Provide authentication for stateful/authenticated scanning" $false
+            if ($provideAuth) {
+                $authCookie = Read-Host "Enter Auth Cookie (e.g. session=abc123...)"
+                if (-not [string]::IsNullOrWhiteSpace($authCookie)) {
+                    $scanArgs += "--auth-cookie"
+                    $scanArgs += "`"$authCookie`""
+                }
+                $authToken = Read-Host "Enter Auth Token (e.g. eyJhbGci...)"
+                if (-not [string]::IsNullOrWhiteSpace($authToken)) {
+                    $scanArgs += "--auth-token"
+                    $scanArgs += "`"$authToken`""
+                }
+            }
+        }
     }
     if ($showJsonInWindow) {
         $scanArgs += "--json"
@@ -189,6 +221,10 @@ while ($true) {
         Write-Host "    - Go Concurrent TCP Port Scanner" -ForegroundColor Cyan
         Write-Host "    - Email Security (SPF/DMARC) & DNS Brute-forcing" -ForegroundColor Cyan
         Write-Host "    Note: Full scans may take 1-5 minutes depending on the target." -ForegroundColor Yellow
+    } elseif ($profile -eq "advanced" -or $profile -eq "deep") {
+        Write-Host "[*] Advanced Scan Activated:" -ForegroundColor Cyan
+        Write-Host "    - Will execute advanced modules (Logic, IDOR, Injection, Chain Engine, etc.)" -ForegroundColor Cyan
+        Write-Host "    - Deep testing may take additional time to complete." -ForegroundColor Yellow
     } elseif ($profile -ne "passive") {
         Write-Host "Real network scanning is enabled. Scans can take 1-3 minutes depending on target and ports." -ForegroundColor Yellow
     }

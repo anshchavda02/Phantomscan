@@ -28,12 +28,15 @@ PhantomScan is built with a hybrid architecture for maximum performance and reli
 
 ## Features
 
-- **Deep Web Analysis**: Automatically probes for missing security headers (HSTS, CSP, X-Frame-Options), insecure cookies (missing HttpOnly/Secure flags), wildcard CORS policies, and exposed sensitive paths (e.g., `.git/HEAD`, `.env`, `robots.txt`).
+- **Advanced Vulnerability Modules**: Includes 20 specialized modules for detecting complex vulnerabilities like Business Logic Flaws, IDOR/BOLA, JWT bypasses, Blind/OOB vulnerabilities, Race Conditions, HTTP Request Smuggling, and Server-Side Request Forgery (SSRF).
+- **Vulnerability Chain Engine & Attack Paths**: Automatically correlates isolated findings (e.g., CORS + XSS) into high-impact exploit chains, generating visual Mermaid.js attack path diagrams.
+- **Deep Web Analysis**: Automatically probes for missing security headers, insecure cookies, wildcard CORS policies, and exposed sensitive paths (e.g., `.git/HEAD`, `.env`, `robots.txt`).
 - **Concurrent TCP Port Scanning**: Leverages Go for blazing-fast SYN/TCP port checks on the most common ports.
 - **TLS/SSL Inspection**: Uses Rust to evaluate certificate transparency, validity periods, Subject Alternative Names (SANs), and issues TLS grades (A-F) based on configuration strength.
 - **Email Security Auditing**: Verifies the presence and strictness of SPF, DMARC, and MX records.
 - **Subdomain Enumeration**: Queries `crt.sh` and performs asynchronous DNS brute-forcing.
-- **Rich Reporting**: Outputs highly detailed JSON, CSV, and aesthetic HTML reports containing specific evidence (e.g., exact missing headers) for every vulnerability found.
+- **Compliance Mapping**: Automatically maps findings to OWASP Top 10 (2021), PCI DSS v4.0, and NIST 800-53 controls.
+- **Rich Reporting & AI Narratives**: Outputs highly detailed JSON, CSV, and aesthetic HTML reports. Uses rule-based Natural Language Generation (NLG) to create executive summaries and remediation narratives without requiring external API keys.
 
 ---
 
@@ -65,14 +68,22 @@ python phantomscan.py --target example.com --profile quick
 # Full Scan (Includes full TCP port scan)
 python phantomscan.py --target example.com --profile full
 
+# Advanced Scan (Includes all 20 advanced modules like IDOR, SSRF, Logic Flaws)
+python phantomscan.py --target example.com --advanced
+
+# Stateful Authenticated Scan
+python phantomscan.py --target example.com --advanced --auth-cookie "session=abc123"
+
 # Save output to JSON directly in the terminal
 python phantomscan.py --target example.com --profile passive --json
 ```
 
-**Profiles:**
+**Profiles & Flags:**
 - `passive`: Safe HTTP/DNS/email checks only.
 - `quick`: Real HTTP/DNS + TCP/TLS checks on common ports.
 - `full`: Complete TCP port scan + deep TLS inspection.
+- `--advanced`: Runs the 20 advanced vulnerability modules.
+- `--modules`: Comma-separated list of specific advanced modules to run (e.g., `business_logic,idor`).
 
 ---
 

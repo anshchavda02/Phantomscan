@@ -34,6 +34,8 @@ from phantomscan.reporting import write_html_report, write_json_report, write_cs
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target, root_domain
 from phantomscan.proxy import start_proxy
+from phantomscan.advanced_scan import run_advanced_modules
+from phantomscan.http_client import RobustHTTPClient
 
 WARNING = """
 PhantomScan 2.0.0 - Scan Smart. Stay Secure.
@@ -103,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     adv_group.add_argument("--show-all", action="store_true", help="Include all findings regardless of confidence")
     adv_group.add_argument("--cve", action="store_true", help="Focus exclusively on CVE detection modules")
     adv_group.add_argument("--cvss-min", type=float, default=4.0, help="Minimum CVSS score to flag (default: 4.0)")
+    adv_group.add_argument("--advanced", action="store_true", help="Run the 20 advanced security modules")
+    adv_group.add_argument("--modules", help="Comma-separated list of advanced modules to run")
+    adv_group.add_argument("--auth-cookie", help="Authentication cookie string for stateful scanning")
+    adv_group.add_argument("--auth-token", help="Bearer token for API authenticated scanning")
+    adv_group.add_argument("--baseline", help="Path to previous JSON report for continuous monitoring diff")
+    adv_group.add_argument("--webhook", help="URL to send alerts for new findings (Continuous Monitor)")
     
     # Legacy / Unused in v2 (Kept for compatibility)
     legacy_group = parser.add_argument_group("Legacy / Enterprise Options")
@@ -354,6 +362,38 @@ async def scan_one(
                 logger.warning("%s warning: %s", name, warning)
                 if not args.silent:
                     cprint(f"[!] {name}: {warning}", "yellow")
+
+    # ── Advanced modules phase ────────────────────────────────────────────────
+    if args.advanced or args.modules or args.profile in ("advanced", "deep", "monitor"):
+        client = RobustHTTPClient()
+        await client.start()
+        try:
+            adv_profile = args.modules if args.modules else args.profile
+            if args.advanced and adv_profile not in ("advanced", "deep", "monitor") and not args.modules:
+                adv_profile = "advanced"
+
+            adv_findings, new_obs = await timed_step(
+                "Running advanced modules", logger, observations, args.silent,
+                run_advanced_modules,
+                target.host,
+                effective_url,
+                client,
+                observations,
+                findings,
+                adv_profile,
+                args.auth_cookie,
+                args.auth_token,
+                args.baseline,
+                args.webhook,
+            )
+            # Find the actual new findings by checking against the old list
+            old_ids = {id(f) for f in findings}
+            for f in adv_findings:
+                if id(f) not in old_ids:
+                    findings.append(f)
+            observations = new_obs
+        finally:
+            await client.stop()
 
     # ── Post-processing and scoring ───────────────────────────────────────────
     safe_target = target.host.replace("/", "_").replace(":", "_")

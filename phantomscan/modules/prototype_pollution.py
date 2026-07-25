@@ -1,0 +1,135 @@
+"""Module 9 — Prototype Pollution Detector.
+
+Detects server-side prototype pollution via __proto__ / constructor.prototype
+injection in JSON APIs, and client-side pollution via query parameters.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from typing import Any
+
+from phantomscan.http_client import RobustHTTPClient
+
+logger = logging.getLogger(__name__)
+
+_SERVER_PAYLOADS = [
+    {"__proto__": {"phantomscan_pp": "detected"}},
+    {"constructor": {"prototype": {"phantomscan_pp": "detected"}}},
+    {"__proto__": {"isAdmin": True}},
+    {"__proto__": {"status": 200}},
+]
+
+_CLIENT_QS_PAYLOADS = [
+    "__proto__[phantomscan_pp]=detected",
+    "__proto__.phantomscan_pp=detected",
+    "constructor.prototype.phantomscan_pp=detected",
+    "__proto__[isAdmin]=true",
+]
+
+
+class PrototypePollutionDetector:
+    """Detect server-side and client-side prototype pollution."""
+
+    def __init__(self, http: RobustHTTPClient) -> None:
+        self.http = http
+
+    async def run(
+        self,
+        base_url: str,
+        observations: list[dict[str, Any]],
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
+        target = base_url.rstrip("/")
+
+        endpoints = self._find_json_endpoints(target, observations)
+
+        for url in endpoints[:15]:
+            # Server-side test
+            for payload in _SERVER_PAYLOADS:
+                try:
+                    response = await self.http.post(
+                        url, json=payload, retries=1,
+                    )
+                    body = response.text()
+                    if (
+                        "phantomscan_pp" in body
+                        or response.status == 500
+                        or ("isAdmin" in body and "true" in body.lower())
+                    ):
+                        findings.append({
+                            "id": "PROTO-POLLUTION-SERVER",
+                            "title": "Server-Side Prototype Pollution",
+                            "severity": "high",
+                            "confidence": "high" if "phantomscan_pp" in body else "medium",
+                            "category": "prototype-pollution",
+                            "target": url,
+                            "evidence": (
+                                f"Payload: {json.dumps(payload)}\n"
+                                f"Response: HTTP {response.status}\n"
+                                f"Body preview: {body[:300]}"
+                            ),
+                            "recommendation": (
+                                "Sanitize JSON input to reject __proto__ and "
+                                "constructor.prototype keys. Use Object.create(null) "
+                                "for lookup objects. Freeze Object.prototype in "
+                                "Node.js. CWE-1321."
+                            ),
+                            "references": [
+                                "https://cwe.mitre.org/data/definitions/1321.html",
+                            ],
+                        })
+                        break  # one finding per endpoint
+                except Exception:
+                    continue
+
+        # Client-side test via query string
+        for qs in _CLIENT_QS_PAYLOADS:
+            test_url = f"{target}/?{qs}"
+            try:
+                response = await self.http.get(test_url, retries=1)
+                body = response.text()
+                if "phantomscan_pp" in body or "isAdmin" in body:
+                    findings.append({
+                        "id": "PROTO-POLLUTION-CLIENT",
+                        "title": "Client-Side Prototype Pollution",
+                        "severity": "medium",
+                        "confidence": "medium",
+                        "category": "prototype-pollution",
+                        "target": test_url,
+                        "evidence": (
+                            f"Query string: {qs}\n"
+                            f"Pollution marker reflected in response body."
+                        ),
+                        "recommendation": (
+                            "Sanitize URL query parameters. Use libraries "
+                            "that safely parse query strings without polluting "
+                            "Object.prototype. CWE-1321."
+                        ),
+                        "references": [
+                            "https://cwe.mitre.org/data/definitions/1321.html",
+                        ],
+                    })
+                    break
+            except Exception:
+                continue
+
+        return findings
+
+    def _find_json_endpoints(
+        self, target: str, observations: list[dict[str, Any]]
+    ) -> list[str]:
+        endpoints: set[str] = set()
+        for obs in observations:
+            val = str(obs.get("value", ""))
+            if "/api" in val or "json" in val.lower():
+                url = val if val.startswith("http") else f"{target}{val}"
+                endpoints.add(url)
+
+        # Fallback common API paths
+        for path in ("/api/users", "/api/settings", "/api/config",
+                     "/api/account", "/api/profile", "/api/v1/data"):
+            endpoints.add(f"{target}{path}")
+        return list(endpoints)
