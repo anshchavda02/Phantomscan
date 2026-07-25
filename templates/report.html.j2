@@ -491,23 +491,49 @@
                             datasets: [{
                                 label: 'Score',
                                 data: state.chartData.category_radar.data,
-                                backgroundColor: 'rgba(6, 182, 212, 0.2)',
+                                backgroundColor: 'rgba(6, 182, 212, 0.25)',
                                 borderColor: '#06b6d4',
-                                pointBackgroundColor: '#06b6d4'
+                                borderWidth: 2,
+                                pointBackgroundColor: '#06b6d4',
+                                pointBorderColor: '#ffffff',
+                                pointHoverBackgroundColor: '#ffffff',
+                                pointHoverBorderColor: '#06b6d4',
+                                pointRadius: 4,
+                                pointHoverRadius: 6
                             }]
                         },
                         options: {
+                            devicePixelRatio: window.devicePixelRatio || 2,
                             responsive: true,
                             maintainAspectRatio: false,
                             scales: {
                                 r: {
-                                    angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                    pointLabels: { color: '#e2e2f8' },
-                                    min: 0, max: 100
+                                    angleLines: { color: 'rgba(255, 255, 255, 0.15)', lineWidth: 1 },
+                                    grid: { color: 'rgba(255, 255, 255, 0.15)', lineWidth: 1 },
+                                    pointLabels: {
+                                        color: '#e2e2f8',
+                                        font: { size: 12, weight: '600', family: "'Inter', system-ui, sans-serif" }
+                                    },
+                                    ticks: {
+                                        color: '#7070a0',
+                                        backdropColor: 'transparent',
+                                        font: { size: 10, family: "'JetBrains Mono', monospace" },
+                                        stepSize: 20
+                                    },
+                                    min: 0,
+                                    max: 100
                                 }
                             },
-                            plugins: { legend: { display: false } }
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#111124',
+                                    titleColor: '#06b6d4',
+                                    bodyColor: '#e2e2f8',
+                                    borderColor: '#1e1e3f',
+                                    borderWidth: 1
+                                }
+                            }
                         }
                     });
                 } catch(e) { console.error('Chart.js radar failed:', e); }
