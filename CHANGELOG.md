@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.2.0
+
+- Added dedicated **AI & Vibe-Coded Web Application Security Scanner** (`ai_app_security`) containing 7 sub-scanners:
+  - `AISecretScanner`: Client-side LLM API key regex scanning (OpenAI, Anthropic, Gemini, Groq, Replicate, HuggingFace, Perplexity, xAI, Cohere, Mistral, ElevenLabs, Stripe, Twilio), BaaS configuration (Supabase service_role vs anon JWT decoding, Firebase), source maps, and platform marker detection (Lovable, Bolt.new, v0, Replit, Base44, Create.xyz, Softr, Framer AI, Windsurf).
+  - `RLSAuditor`: Supabase PostgREST and Firebase Realtime DB Row Level Security auditing (unauthenticated read/write, sensitive columns).
+  - `ServerlessAbuseDetector`: Unauthenticated AI proxy endpoint and cost-abuse risk detection across 18 common path candidates.
+  - `SystemPromptLeakDetector`: System prompt & internal business rule leakage detection via prompt injection probes.
+  - `CRUDOwnershipChecker`: Auto-generated CRUD endpoint ownership (BOLA/IDOR) validation.
+  - `EnvDebugScanner`: Exposed `.env`, `.git`, build artifact, and debug route detection.
+  - `DefaultCredChecker`: Default/example admin credential checker.
+- Updated `PhantomScan-Launcher.ps1` with dedicated AI App Security scan option (Option 8).
+- Updated CLI parser and help options across `phantomscan.py`.
+- Added unit test suite in `tests/python/test_ai_app_security.py` (27 test cases).
+
 ## 2.1.0
 
 - Massive update introducing 20 advanced vulnerability modules (Logic Flaws, IDOR, OOB, Prototype Pollution, Request Smuggling, etc.).

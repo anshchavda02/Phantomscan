@@ -26,7 +26,7 @@ Whether you are securing a simple blog or a complex API-driven microservice arch
 
 PhantomScan leverages the strengths of three different programming languages to achieve maximum speed, concurrency, and deep analysis without compromise:
 
-- **Python (The Brain)**: Orchestrates the scan, runs the 20 advanced vulnerability modules, handles asynchronous web fuzzing, and generates AI-driven reports.
+- **Python (The Brain)**: Orchestrates the scan, runs the 35 advanced vulnerability modules, handles asynchronous web fuzzing, and generates AI-driven reports.
 - **Go (The Muscle)**: Powers a blazing-fast, concurrent TCP SYN port scanner using goroutines to map network boundaries in seconds.
 - **Rust (The Inspector)**: Handles low-level, high-performance TLS/SSL cryptographic analysis, extracting certificate metadata and grading connection security safely and natively.
 
@@ -34,8 +34,8 @@ PhantomScan leverages the strengths of three different programming languages to 
 
 ## Features Breakdown
 
-### Advanced Vulnerability Detection (20 Specialized Modules)
-PhantomScan goes beyond the basics. It includes 20 bespoke security modules that actively test for complex, modern vulnerabilities:
+### Advanced Vulnerability Detection (35 Specialized Modules)
+PhantomScan goes beyond the basics. It includes 35 bespoke security modules that actively test for complex, modern vulnerabilities:
 
 <details>
 <summary><strong>1. Business Logic & Authentication Flaws</strong></summary>
@@ -50,7 +50,21 @@ PhantomScan goes beyond the basics. It includes 20 bespoke security modules that
 </details>
 
 <details>
-<summary><strong>2. Injection & Memory Corruption</strong></summary>
+<summary><strong>2. AI & Vibe-Coded Web Application Security</strong></summary>
+<br>
+<ul>
+  <li><strong>AI Secret Scanner:</strong> Scans client JS bundles & source maps for exposed LLM API keys (OpenAI, Anthropic, Gemini, Groq, Replicate, HuggingFace, Perplexity, xAI, Cohere, Mistral, ElevenLabs, Stripe, Twilio) and BaaS configurations (Supabase service_role vs anon JWTs, Firebase). Detects platform markers (Lovable, Bolt.new, v0, Replit, Base44, Create.xyz, Softr, Framer AI, Windsurf).</li>
+  <li><strong>Supabase / Firebase RLS Auditor:</strong> Audits PostgREST schemas (`/rest/v1/`) and Firebase DB (`/.json`) with public anon keys for missing/misconfigured Row Level Security, sensitive column exposure, and unauthenticated writes.</li>
+  <li><strong>Serverless AI Proxy Abuse Detector:</strong> Probes serverless AI proxy paths (`/api/chat`, `/api/generate`, `/api/llm`, etc.) for missing authentication and rate-limiting headers.</li>
+  <li><strong>System Prompt Leak Detector:</strong> Probes AI endpoints for system prompt and internal business rule leakage.</li>
+  <li><strong>Auto-Generated CRUD Ownership Checker:</strong> Identifies unverified resource ownership on auto-generated REST APIs.</li>
+  <li><strong>Environment & Debug Route Exposure:</strong> Scans for exposed <code>.env</code> files, <code>.git</code> directories, build configs, and production debug endpoints.</li>
+  <li><strong>Default Credential Checker:</strong> Tests common endpoints for default admin/demo credentials.</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>3. Injection & Memory Corruption</strong></summary>
 <br>
 <ul>
   <li><strong>Prototype Pollution:</strong> Injects <code>__proto__</code> payloads to detect client/server-side JS pollution.</li>
@@ -60,7 +74,7 @@ PhantomScan goes beyond the basics. It includes 20 bespoke security modules that
 </details>
 
 <details>
-<summary><strong>3. Advanced Web & Cloud Attacks</strong></summary>
+<summary><strong>4. Advanced Web & Cloud Attacks</strong></summary>
 <br>
 <ul>
   <li><strong>Blind / OOB Detector:</strong> Uses Out-Of-Band callbacks to catch asynchronous vulnerabilities like Log4Shell or Blind SSRF.</li>

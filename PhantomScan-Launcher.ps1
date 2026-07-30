@@ -101,24 +101,25 @@ while ($true) {
     Write-Host "  3. Full scan           Deep Web + Concurrent Go Portscan + Rust TLS Inspection"
     Write-Host "  4. API scan            API-focused HTTP analysis without web crawling"
     Write-Host "  5. Network scan        Intensive Go Portscanner focused profile"
-    Write-Host "  6. Advanced scan       Run 34 advanced security modules (Logic, IDOR, Takeover, PII, etc.)"
+    Write-Host "  6. Advanced scan       Run 35 advanced security modules (Logic, IDOR, AI Security, Takeover, PII, etc.)"
     Write-Host "  7. Deep scan           Full scan + Advanced scan modules combined"
-    Write-Host "  8. Differential scan   Compare Staging vs Production security posture (--diff-env)"
-    Write-Host "  9. Mobile API scan     Extract & test backend APIs from APK or IPA binaries"
-    Write-Host " 10. Dependency check    Check project for Dependency Confusion risks (--check-deps)"
-    Write-Host " 11. Merge scan reports  Deduplicate and merge multiple scan JSON files (--merge)"
-    Write-Host " 12. Verification server Start local one-click remediation verification server (--serve-verify)"
-    Write-Host " 13. Custom profile"
-    Write-Host " 14. Proxy mode          Intercept traffic and feed to YAML Rules Engine"
-    Write-Host " 15. Help"
+    Write-Host "  8. AI App Security     Target AI-generated / vibe-coded web app vulns (Keys, RLS, Prompts, CRUD, .env)"
+    Write-Host "  9. Differential scan   Compare Staging vs Production security posture (--diff-env)"
+    Write-Host " 10. Mobile API scan     Extract & test backend APIs from APK or IPA binaries"
+    Write-Host " 11. Dependency check    Check project for Dependency Confusion risks (--check-deps)"
+    Write-Host " 12. Merge scan reports  Deduplicate and merge multiple scan JSON files (--merge)"
+    Write-Host " 13. Verification server Start local one-click remediation verification server (--serve-verify)"
+    Write-Host " 14. Custom profile"
+    Write-Host " 15. Proxy mode          Intercept traffic and feed to YAML Rules Engine"
+    Write-Host " 16. Help"
     Write-Host "  0. Exit"
     Write-Host ""
 
-    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15") "1"
+    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16") "1"
     if ($mode -eq "0") {
         break
     }
-    if ($mode -eq "15") {
+    if ($mode -eq "16") {
         & $Python $Cli --help
         Write-Host ""
         Read-Host "Press Enter to return to the menu"
@@ -126,6 +127,18 @@ while ($true) {
     }
 
     if ($mode -eq "8") {
+        $target = Read-Host "Target domain or URL (e.g. https://myvibeapp.lovable.app)"
+        if (-not [string]::IsNullOrWhiteSpace($target)) {
+            & $Python $Cli --target $target --modules ai_app_security
+        } else {
+            Write-Host "No target entered." -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "9") {
         $staging = Read-Host "Staging target URL/domain (e.g. staging.example.com)"
         $production = Read-Host "Production target URL/domain (e.g. example.com)"
         & $Python $Cli --diff-env --staging $staging --production $production
@@ -134,7 +147,7 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "9") {
+    if ($mode -eq "10") {
         $path = Read-Host "Path to app.apk or app.ipa"
         if ($path.EndsWith(".apk")) {
             & $Python $Cli --mobile-apk $path --extract-apis
@@ -146,7 +159,7 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "10") {
+    if ($mode -eq "11") {
         $dir = Read-Host "Path to project directory [.]"
         if ([string]::IsNullOrWhiteSpace($dir)) { $dir = "." }
         & $Python $Cli --check-deps $dir
@@ -155,7 +168,7 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "11") {
+    if ($mode -eq "12") {
         $files = Read-Host "Enter space-separated JSON report file paths"
         & $Python $Cli --merge $files.Split(' ')
         Write-Host ""
@@ -163,7 +176,7 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "12") {
+    if ($mode -eq "13") {
         $port = Read-Host "Port for verification server [8420]"
         if ([string]::IsNullOrWhiteSpace($port)) { $port = "8420" }
         Write-Host "Starting remediation verification server on http://localhost:$port..." -ForegroundColor Green
@@ -179,8 +192,8 @@ while ($true) {
         "5" { "network" }
         "6" { "advanced" }
         "7" { "deep" }
-        "13" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "monitor") "quick" }
-        "14" { "proxy" }
+        "14" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "monitor") "quick" }
+        "15" { "proxy" }
     }
 
     $target = Read-Host "Target domain, IP, CIDR, or URL"

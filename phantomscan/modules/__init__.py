@@ -48,6 +48,8 @@ MODULE_REGISTRY: dict[str, str] = {
     "remediation_verifier": ".remediation_verifier.RemediationVerifier",
     "scan_merger":          ".scan_merger.TeamScanMerger",
     "finding_chat":         ".finding_chat.FindingChatAssistant",
+    # AI / Vibe-Coded Web App Security
+    "ai_app_security":      ".ai_app_security.AIAppSecurityScanner",
 }
 
 

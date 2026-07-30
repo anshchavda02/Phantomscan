@@ -58,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser."""
     parser = argparse.ArgumentParser(
         prog="phantomscan", 
-        description="PhantomScan v2.1 - Advanced Extensible Vulnerability Scanner (34 Modules)",
+        description="PhantomScan v2.1 - Advanced Extensible Vulnerability Scanner (35 Modules)",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
@@ -79,13 +79,13 @@ def build_parser() -> argparse.ArgumentParser:
              "  passive    - Safe DNS/email checks & Deep Web without active fuzzing\n"
              "  api        - API-focused HTTP analysis without web crawling\n"
              "  network    - Intensive Go port-scanner focused profile\n"
-             "  advanced   - Run 34 advanced security modules (Logic, IDOR, Takeover, PII, etc.)\n"
+             "  advanced   - Run 35 advanced security modules (Logic, IDOR, AI/Vibe-Coded, Takeover, PII, etc.)\n"
              "  deep       - Full scan + Advanced scan modules combined"
     )
     scan_group.add_argument("--ports", default="top100", help="Ports to scan (e.g., 'top100', 'top1000', or '80,443,8080')")
     scan_group.add_argument("--proxy", help="Start Passive Proxy Mode on HOST:PORT (e.g., 127.0.0.1:8080) to intercept and feed browser traffic to the YAML engine")
-    scan_group.add_argument("--advanced", action="store_true", help="Run all 34 advanced security modules")
-    scan_group.add_argument("--modules", help="Comma-separated list of specific advanced modules to run")
+    scan_group.add_argument("--advanced", action="store_true", help="Run all 35 advanced security modules")
+    scan_group.add_argument("--modules", help="Comma-separated list of specific advanced modules to run (e.g., 'ai_app_security,idor')")
 
     # Authenticated & Multi-Role Scanning (Module 1)
     auth_group = parser.add_argument_group("Authenticated & Multi-Role Scanning")
