@@ -47,7 +47,6 @@ def _calculate_days_remaining(date_str: str) -> int:
     if not date_str:
         return 999
     try:
-        from datetime import datetime
         clean_str = str(date_str).split("T")[0].split(" ")[0].strip()
         dt = datetime.strptime(clean_str, "%Y-%m-%d")
         now = datetime.now()
@@ -149,7 +148,6 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     raw_duration = payload.get("duration")
     if not raw_duration or raw_duration <= 0.0:
         try:
-            from datetime import datetime
             st = datetime.fromisoformat(payload.get("started_at", ""))
             ft = datetime.fromisoformat(payload.get("finished_at", ""))
             raw_duration = max(1.0, round((ft - st).total_seconds(), 2))

@@ -11,10 +11,10 @@ class PostProcessTests(unittest.TestCase):
     def test_score_and_grade(self):
         # A scan with one medium finding AND port-scan data:
         port_obs = [{"name": "open_tcp_ports", "value": [80], "source": "go-portscan"}]
-        self.assertEqual(score([{"severity": "medium"}], port_obs), 97)
-        self.assertEqual(grade(97), "A+")
+        self.assertEqual(score([{"severity": "medium"}], port_obs), 92)
+        self.assertEqual(grade(92), "A+")
         # Without port scan data a 3-point completeness penalty applies
-        self.assertEqual(score([{"severity": "medium"}]), 94)
+        self.assertEqual(score([{"severity": "medium"}]), 89)
 
     def test_incomplete_scan_is_not_perfect(self):
         observations = [
