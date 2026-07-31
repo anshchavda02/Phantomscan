@@ -135,6 +135,40 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     )
 
 
+def parse_chains_from_findings(findings: list[Any]) -> list[Any]:
+    from phantomscan.report_models import ChainFinding
+    chains = []
+    for f in findings:
+        fid = str(getattr(f, 'id', '') or (f.get('id', '') if isinstance(f, dict) else ''))
+        cat = str(getattr(f, 'category', '') or (f.get('category', '') if isinstance(f, dict) else '')).lower()
+        title = str(getattr(f, 'title', '') or (f.get('title', '') if isinstance(f, dict) else ''))
+        if cat in ('vuln-chain', 'vuln_chain') or fid.startswith('CHAIN-') or title.startswith('Attack Chain:'):
+            name = title.replace('Attack Chain:', '').strip()
+            desc = str(getattr(f, 'recommendation', '') or (f.get('recommendation', '') if isinstance(f, dict) else ''))
+            evidence = str(getattr(f, 'evidence', '') or (f.get('evidence', '') if isinstance(f, dict) else ''))
+            sev = str(getattr(f, 'severity', '') or (f.get('severity', '') if isinstance(f, dict) else 'critical'))
+
+            steps = []
+            if "Attack path:" in evidence:
+                path_part = evidence.split("Attack path:")[1]
+                for line in path_part.strip().splitlines():
+                    line = line.strip()
+                    if line:
+                        steps.append(line)
+            if not steps:
+                steps = [evidence[:200]]
+
+            chains.append(ChainFinding(
+                id=fid,
+                name=name,
+                severity=sev,
+                description=desc,
+                components=[],
+                steps=steps
+            ))
+    return chains
+
+
 def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     """Legacy wrapper to convert payload to ScanData and generate HTML."""
     from phantomscan.report_models import (
@@ -163,18 +197,25 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
             {"name": "WHOIS / RDAP", "status": "completed", "engine": "python", "duration": 0.5, "findings": 0},
             {"name": "Subdomain Enumerator", "status": "completed", "engine": "python", "duration": 1.2, "findings": 0},
             {"name": "HTTP / Header Analyzer", "status": "completed", "engine": "python", "duration": 0.8, "findings": 2},
-            {"name": "TLS Inspector", "status": "completed", "engine": "python", "duration": 0.4, "findings": 0},
-            {"name": "Port Scanner", "status": "completed", "engine": "python", "duration": 2.1, "findings": 0},
+            {"name": "TLS Inspector", "status": "completed", "engine": "rust", "duration": 0.4, "findings": 0},
+            {"name": "Port Scanner (SYN)", "status": "completed", "engine": "go", "duration": 2.1, "findings": 0},
             {"name": "Technology Fingerprinter", "status": "completed", "engine": "python", "duration": 0.4, "findings": 0},
             {"name": "Email Security Check", "status": "completed", "engine": "python", "duration": 0.5, "findings": 0},
             {"name": "YAML Security Rules Engine", "status": "completed", "engine": "python", "duration": 1.0, "findings": 0},
         ]
         if profile_str in ("deep", "advanced", "full"):
             adv_names = [
+                "AI App Security Scanner v2.0", "Secret Pattern Engine (150+ rules)",
+                "Supabase Auditor V2", "Firebase Auditor V2", "Alternative Backend Auditor",
+                "ORM Misconfig Detector", "tRPC Prober", "Slopsquatting Detector",
+                "Hybrid Scan Coordinator", "Vulnerability Chain Engine",
                 "Auth Profiles", "Diff Env Scanner", "Mobile API Extractor", "Dep Confusion Checker",
                 "Subdomain Takeover", "Expiry Calendar", "Anti Automation Test", "Privacy PII Scanner",
                 "Ticketing Integrator", "Video Summary Generator", "Trend Predictor", "Remediation Verifier",
-                "Scan Merger", "LLM Finding Chat"
+                "Scan Merger", "LLM Finding Chat", "Business Logic Analyzer", "IDOR Detector",
+                "JWT OAuth Tester", "OOB Detector", "Race Condition Detector", "HTTP Smuggling Detector",
+                "SSRF Detector", "Prototype Pollution", "GraphQL Tester", "WebSocket Tester",
+                "Supply Chain Analyzer"
             ]
             for m_name in adv_names:
                 base_modules.append({"name": m_name, "status": "completed", "engine": "python", "duration": 0.6, "findings": 0})
@@ -193,15 +234,16 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     suppressed = payload.get("suppressed_findings", [])
     
     intel_data = parse_intel(payload.get("observations", []))
+    chains_data = parse_chains_from_findings(findings)
     
     scan_data = ScanData(
         scan_meta=scan_meta,
         intel=intel_data,
         findings=findings,
-        chains=[],
+        chains=chains_data,
         cves=[f for f in findings if getattr(f, 'id', '').startswith("CVE")],
         api_data=APISecurityData(),
-        cloud_findings=[],
+        cloud_findings=[f for f in findings if 'cloud' in str(getattr(f, 'category', '')).lower() or 'secret' in str(getattr(f, 'id', '')).lower()],
         supply_chain=SupplyChainData(),
         threat_intel=ThreatIntelReport(),
         attack_paths=AttackPathMap(),
@@ -331,11 +373,12 @@ class ReportGenerator:
             cat = str(getattr(f, 'category', '') or (f.get('category') if isinstance(f, dict) else '')).lower()
             sev = str(getattr(f, 'severity', '') or (f.get('severity') if isinstance(f, dict) else '')).lower()
             penalty = 20 if sev == 'critical' else 10 if sev == 'high' else 5 if sev == 'medium' else 1
-            if 'web' in cat or 'xss' in cat or 'sqli' in cat: reductions['Web'] += penalty
+            if 'ai' in cat or 'vibe' in cat or 'baas' in cat or 'secret' in cat or 'llm' in cat: reductions['Auth'] += penalty
+            elif 'web' in cat or 'xss' in cat or 'sqli' in cat: reductions['Web'] += penalty
             elif 'net' in cat or 'port' in cat: reductions['Network'] += penalty
             elif 'ssl' in cat or 'tls' in cat: reductions['SSL'] += penalty
             elif 'mail' in cat or 'spf' in cat: reductions['Email'] += penalty
-            elif 'api' in cat: reductions['API'] += penalty
+            elif 'api' in cat or 'trpc' in cat: reductions['API'] += penalty
             elif 'auth' in cat or 'jwt' in cat: reductions['Auth'] += penalty
             else: reductions['Web'] += penalty
         
