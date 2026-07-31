@@ -29,6 +29,8 @@ async def run_advanced_modules(
     auth_token: str | None = None,
     baseline_path: str | None = None,
     webhook_url: str | None = None,
+    source_path: str | None = None,
+    check_slopsquatting: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Execute advanced modules based on the selected profile."""
     all_modules = get_all_modules()
@@ -59,6 +61,8 @@ async def run_advanced_modules(
                 observations=new_observations,
                 auth_cookie=auth_cookie,
                 auth_token=auth_token,
+                source_path=source_path,
+                check_slopsquatting=check_slopsquatting,
             )
             active_tasks.append((name, task))
 

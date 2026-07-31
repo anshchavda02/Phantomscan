@@ -86,6 +86,9 @@ def build_parser() -> argparse.ArgumentParser:
     scan_group.add_argument("--proxy", help="Start Passive Proxy Mode on HOST:PORT (e.g., 127.0.0.1:8080) to intercept and feed browser traffic to the YAML engine")
     scan_group.add_argument("--advanced", action="store_true", help="Run all 35 advanced security modules")
     scan_group.add_argument("--modules", help="Comma-separated list of specific advanced modules to run (e.g., 'ai_app_security,idor')")
+    scan_group.add_argument("--source-path", help="Path to local source code for hybrid black-box + white-box analysis (enables ORM, Prisma, Drizzle, and .env git-history checks)")
+    scan_group.add_argument("--check-slopsquatting", action="store_true", help="Check project dependencies for AI-hallucinated packages (slopsquatting). Requires --source-path.")
+
 
     # Authenticated & Multi-Role Scanning (Module 1)
     auth_group = parser.add_argument_group("Authenticated & Multi-Role Scanning")
@@ -429,6 +432,8 @@ async def scan_one(
                 args.auth_token,
                 args.baseline,
                 args.webhook,
+                getattr(args, "source_path", None),
+                getattr(args, "check_slopsquatting", False),
             )
             # Find the actual new findings by checking against the old list
             old_ids = {id(f) for f in findings}

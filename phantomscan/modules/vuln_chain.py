@@ -129,6 +129,112 @@ CHAIN_DEFINITIONS: list[dict[str, Any]] = [
             "3. Victim enters credentials believing they are on the real site",
         ],
     },
+    # ── Vibe App / AI-Generated Application Attack Chains ────────────────
+    {
+        "name": "Supabase RLS Bypass → Full Database Compromise",
+        "requires": {"supabase_rls_missing", "supabase_service_key"},
+        "severity": "critical",
+        "description": (
+            "Exposed Supabase service_role key combined with missing RLS on "
+            "tables allows complete database read/write/delete by any visitor."
+        ),
+        "attack_path": [
+            "1. Extract service_role key from client-side JavaScript",
+            "2. Use key to bypass ALL Row Level Security policies",
+            "3. Read, modify, or delete any data in any table",
+            "4. Manage user accounts, reset passwords, impersonate users",
+        ],
+    },
+    {
+        "name": "Firebase Test-Mode → Full Data Dump",
+        "requires": {"firebase_no_auth", "firebase_public_write"},
+        "severity": "critical",
+        "description": (
+            "Firebase Realtime Database in test mode (public read+write) "
+            "allows any visitor to read all data and inject malicious records."
+        ),
+        "attack_path": [
+            "1. Access Firebase RTDB via /.json endpoint (no auth)",
+            "2. Dump entire database contents",
+            "3. Write malicious data that other users will consume",
+            "4. Potentially inject XSS payloads or modify business data",
+        ],
+    },
+    {
+        "name": "AI Proxy Abuse → Unlimited LLM Cost Drain",
+        "requires": {"ai_proxy_unauth", "no_rate_limit"},
+        "severity": "critical",
+        "description": (
+            "Unauthenticated AI proxy endpoint with no rate limiting allows "
+            "unlimited API cost accumulation by any visitor."
+        ),
+        "attack_path": [
+            "1. Discover unauthenticated /api/chat or /api/ai endpoint",
+            "2. Script automated requests (no rate limit blocks them)",
+            "3. Drain API credits — OpenAI/Anthropic charges accumulate",
+            "4. Optionally extract system prompt via prompt injection",
+        ],
+    },
+    {
+        "name": "Slopsquatting → Supply Chain RCE",
+        "requires": {"slopsquatting_target"},
+        "severity": "critical",
+        "description": (
+            "AI-hallucinated package name creates a slopsquatting opportunity "
+            "where an attacker can register the missing package with malicious "
+            "code that executes on install."
+        ),
+        "attack_path": [
+            "1. AI generates code referencing non-existent npm/PyPI package",
+            "2. Attacker registers the hallucinated package name",
+            "3. Developer runs npm install / pip install and executes malicious postinstall",
+            "4. Attacker gains RCE on developer machine or CI/CD pipeline",
+        ],
+    },
+    {
+        "name": ".env Leak → Cloud Credential Compromise",
+        "requires": {"env_file_exposed", "cloud_key_exposed"},
+        "severity": "critical",
+        "description": (
+            "Exposed .env file contains cloud provider credentials (AWS, GCP, "
+            "Azure) enabling full cloud infrastructure compromise."
+        ),
+        "attack_path": [
+            "1. Access publicly served .env file",
+            "2. Extract cloud credentials (AWS_SECRET_ACCESS_KEY, etc.)",
+            "3. Use credentials to access cloud resources (S3, databases, etc.)",
+            "4. Lateral movement through cloud environment",
+        ],
+    },
+    {
+        "name": "Prisma Error Leak + IDOR → Schema-Guided Data Theft",
+        "requires": {"prisma_error_leak", "idor"},
+        "severity": "high",
+        "description": (
+            "Prisma error messages leak table/column names, and IDOR allows "
+            "accessing other users' records — combining schema knowledge with "
+            "access bypass for targeted data exfiltration."
+        ),
+        "attack_path": [
+            "1. Trigger Prisma errors to discover table/column schema",
+            "2. Use IDOR to access other users' records",
+            "3. Target specific sensitive columns discovered via errors",
+        ],
+    },
+    {
+        "name": "tRPC Unauth + Default Creds → Admin Takeover",
+        "requires": {"trpc_unauth", "default_creds"},
+        "severity": "critical",
+        "description": (
+            "Unauthenticated tRPC admin procedures combined with default "
+            "credentials enables full administrative control."
+        ),
+        "attack_path": [
+            "1. Discover unprotected tRPC admin procedures",
+            "2. Use default credentials to authenticate as admin",
+            "3. Full admin takeover with unrestricted API access",
+        ],
+    },
 ]
 
 # Mapping from common finding titles/IDs to chain tags
@@ -169,6 +275,33 @@ _FINDING_TAG_MAP: dict[str, str] = {
     "login": "login_page",
     "admin panel": "admin_panel",
     "admin": "admin_panel",
+    # ── Vibe App / AI-Generated Application Tags ─────────────────────
+    "ai-supabase-rls": "supabase_rls_missing",
+    "supabase table": "supabase_rls_missing",
+    "supabase-rls": "supabase_rls_missing",
+    "service role key": "supabase_service_key",
+    "service_role": "supabase_service_key",
+    "sb_secret_": "supabase_service_key",
+    "ai-firebase-no-auth": "firebase_no_auth",
+    "firebase publicly readable": "firebase_no_auth",
+    "ai-firebase-rtdb-public-read": "firebase_no_auth",
+    "firebase publicly writable": "firebase_public_write",
+    "ai-firebase-rtdb-public-write": "firebase_public_write",
+    "ai-proxy-unauth": "ai_proxy_unauth",
+    "unauthenticated ai proxy": "ai_proxy_unauth",
+    "slopsquatting": "slopsquatting_target",
+    "does not exist on npm": "slopsquatting_target",
+    "does not exist on pypi": "slopsquatting_target",
+    "ai-env-file-exposed": "env_file_exposed",
+    ".env file": "env_file_exposed",
+    "aws access key": "cloud_key_exposed",
+    "ai-key-exposed": "cloud_key_exposed",
+    "prisma error": "prisma_error_leak",
+    "ai-prisma-error-leak": "prisma_error_leak",
+    "trpc procedure": "trpc_unauth",
+    "ai-trpc-unauth": "trpc_unauth",
+    "default credentials": "default_creds",
+    "ai-default-creds": "default_creds",
 }
 
 
