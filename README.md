@@ -6,152 +6,132 @@
  |  __/| | | | (_| | | | | || (_) | | | | | |___) | (_| (_| | | | |
  |_|   |_| |_|\__,_|_| |_|\__\___/|_| |_| |_|____/ \___\__,_|_| |_|
 </pre>
-  <h3>Scan Smart. Stay Secure.</h3>
-  <p><strong>The ultimate polyglot, enterprise-grade Vulnerability Scanner for Web Apps and Networks.</strong></p>
+  <h3>Scan Smart. Stay Secure. — Version 2.0.0</h3>
+  <p><strong>The commercial-grade, polyglot vulnerability scanner tailored for AI-generated & Vibe-Coded Web Apps, Cloud Architectures, and Complex APIs.</strong></p>
 </div>
 
 ---
 
-## What is PhantomScan?
+## What is PhantomScan v2.0.0?
 
-PhantomScan is an advanced, automated security assessment platform built for penetration testers, security engineers, and system administrators. 
+PhantomScan is an enterprise-grade, automated security assessment platform engineered for penetration testers, security auditors, and DevSecOps engineers.
 
-Unlike traditional scanners that only check for outdated software or simple injection flaws, **PhantomScan understands business logic, multi-step workflows, and complex exploit chains.** It simulates how a modern attacker thinks—finding deep logical flaws, bypassing state machines, and identifying misconfigurations across your web applications, cloud environments, and raw network infrastructure.
-
-Whether you are securing a simple blog or a complex API-driven microservice architecture, PhantomScan provides actionable, compliance-ready intelligence to secure your perimeter.
+While standard scanners focus solely on static CVE checks or simple web fuzzing, **PhantomScan v2.0.0 features specialized engines for AI-generated ("vibe-coded") applications** built with tools like Lovable.dev, Bolt.new, v0, Cursor, Windsurf, Replit AI, and Base44. It exposes hidden LLM secrets, audits Row Level Security (RLS) policies, checks serverless proxy abuse, detects AI-hallucinated dependency slopsquatting, and correlates low-severity findings into multi-step exploit chains.
 
 ---
 
-## The Hybrid Architecture
+## The Hybrid Polyglot Architecture
 
-PhantomScan leverages the strengths of three different programming languages to achieve maximum speed, concurrency, and deep analysis without compromise:
+PhantomScan combines three powerful languages for optimal balance between orchestrative intelligence, raw execution speed, and cryptographic rigor:
 
-- **Python (The Brain)**: Orchestrates the scan, runs the 35 advanced vulnerability modules, handles asynchronous web fuzzing, and generates AI-driven reports.
-- **Go (The Muscle)**: Powers a blazing-fast, concurrent TCP SYN port scanner using goroutines to map network boundaries in seconds.
-- **Rust (The Inspector)**: Handles low-level, high-performance TLS/SSL cryptographic analysis, extracting certificate metadata and grading connection security safely and natively.
-
----
-
-## Features Breakdown
-
-### Advanced Vulnerability Detection (35 Specialized Modules)
-PhantomScan goes beyond the basics. It includes 35 bespoke security modules that actively test for complex, modern vulnerabilities:
-
-<details>
-<summary><strong>1. Business Logic & Authentication Flaws</strong></summary>
-<br>
-<ul>
-  <li><strong>Business Logic Analyzer:</strong> Detects mass assignment, negative price manipulation, and logic limits.</li>
-  <li><strong>IDOR / BOLA Detector:</strong> Automatically swaps object IDs cross-session to find Insecure Direct Object References.</li>
-  <li><strong>JWT / OAuth Tester:</strong> Cracks weak HMACs, tests 'none' alg bypass, and key confusion attacks.</li>
-  <li><strong>Auth & Session Manager:</strong> Tests for session fixation and improper token invalidation after logout.</li>
-  <li><strong>Stateful Workflow Scanner:</strong> Learns multi-step flows (Cart -> Checkout) and attempts state machine bypasses.</li>
-</ul>
-</details>
-
-<details>
-<summary><strong>2. AI & Vibe-Coded Web Application Security</strong></summary>
-<br>
-<ul>
-  <li><strong>AI Secret Scanner:</strong> Scans client JS bundles & source maps for exposed LLM API keys (OpenAI, Anthropic, Gemini, Groq, Replicate, HuggingFace, Perplexity, xAI, Cohere, Mistral, ElevenLabs, Stripe, Twilio) and BaaS configurations (Supabase service_role vs anon JWTs, Firebase). Detects platform markers (Lovable, Bolt.new, v0, Replit, Base44, Create.xyz, Softr, Framer AI, Windsurf).</li>
-  <li><strong>Supabase / Firebase RLS Auditor:</strong> Audits PostgREST schemas (`/rest/v1/`) and Firebase DB (`/.json`) with public anon keys for missing/misconfigured Row Level Security, sensitive column exposure, and unauthenticated writes.</li>
-  <li><strong>Serverless AI Proxy Abuse Detector:</strong> Probes serverless AI proxy paths (`/api/chat`, `/api/generate`, `/api/llm`, etc.) for missing authentication and rate-limiting headers.</li>
-  <li><strong>System Prompt Leak Detector:</strong> Probes AI endpoints for system prompt and internal business rule leakage.</li>
-  <li><strong>Auto-Generated CRUD Ownership Checker:</strong> Identifies unverified resource ownership on auto-generated REST APIs.</li>
-  <li><strong>Environment & Debug Route Exposure:</strong> Scans for exposed <code>.env</code> files, <code>.git</code> directories, build configs, and production debug endpoints.</li>
-  <li><strong>Default Credential Checker:</strong> Tests common endpoints for default admin/demo credentials.</li>
-</ul>
-</details>
-
-<details>
-<summary><strong>3. Injection & Memory Corruption</strong></summary>
-<br>
-<ul>
-  <li><strong>Prototype Pollution:</strong> Injects <code>__proto__</code> payloads to detect client/server-side JS pollution.</li>
-  <li><strong>Second-Order Injection:</strong> Stores XSS/SQLi in profiles/settings and checks if they trigger on admin dashboards.</li>
-  <li><strong>HTTP Request Smuggling:</strong> Exploits CL.TE, TE.CL ambiguities using raw TCP sockets to bypass WAFs.</li>
-</ul>
-</details>
-
-<details>
-<summary><strong>4. Advanced Web & Cloud Attacks</strong></summary>
-<br>
-<ul>
-  <li><strong>Blind / OOB Detector:</strong> Uses Out-Of-Band callbacks to catch asynchronous vulnerabilities like Log4Shell or Blind SSRF.</li>
-  <li><strong>Race Condition Detector:</strong> Floods endpoints concurrently to exploit Time-of-Check to Time-of-Use (TOCTOU) flaws.</li>
-  <li><strong>SSRF Detector:</strong> Probes for internal network access and cloud metadata evasion.</li>
-  <li><strong>GraphQL Tester:</strong> Enables introspection, discovers hidden queries, and attempts batching DoS attacks.</li>
-  <li><strong>WebSocket Tester:</strong> Tests for Cross-Site WebSocket Hijacking (CSWSH) and unauthenticated channels.</li>
-  <li><strong>Cloud Metadata Exposure:</strong> Detects exposed S3 buckets and probes AWS/GCP/Azure IMDS endpoints.</li>
-  <li><strong>Supply Chain Analyzer:</strong> Scans 3rd-party JS for hardcoded AWS/Stripe keys and missing SRI tags.</li>
-</ul>
-</details>
-
-### Core Infrastructure Reconnaissance
-<details>
-<summary><strong>Deep Network & Web Recon</strong></summary>
-<br>
-<ul>
-  <li><strong>Concurrent TCP Port Scanning:</strong> Rapidly identifies open services across 1000s of ports.</li>
-  <li><strong>TLS/SSL Grading:</strong> Evaluates cipher strength, certificate transparency, and issues an A-F grade.</li>
-  <li><strong>Email Security Auditing:</strong> Checks SPF, DMARC, and MX records to prevent domain spoofing.</li>
-  <li><strong>Subdomain Enumeration:</strong> Queries <code>crt.sh</code> and brute-forces hidden subdomains.</li>
-  <li><strong>Deep Web Analysis:</strong> Finds missing security headers, insecure cookies, wild CORS policies, and sensitive exposed paths (<code>.git</code>, <code>.env</code>).</li>
-</ul>
-</details>
-
-### Intelligence & Reporting
-<details>
-<summary><strong>Actionable Insights & Compliance</strong></summary>
-<br>
-<ul>
-  <li><strong>Vulnerability Chain Engine:</strong> Automatically correlates isolated low-risk findings (e.g., CORS + Reflected XSS) into critical exploit chains (Account Takeover).</li>
-  <li><strong>Attack Path Builder:</strong> Generates visual <strong>Mermaid.js</strong> diagrams showing how an attacker pivots through your app to achieve business impact.</li>
-  <li><strong>Compliance Mapping:</strong> Maps every finding directly to <strong>OWASP Top 10 (2021)</strong>, <strong>PCI DSS v4.0</strong>, and <strong>NIST 800-53</strong> controls.</li>
-  <li><strong>AI Narrative Generation:</strong> Uses a local, rule-based Natural Language Generation engine to write executive summaries and custom remediation advice (No API keys required!).</li>
-  <li><strong>Continuous Monitoring:</strong> Compares scans against previous baselines and fires webhooks for newly introduced vulnerabilities.</li>
-</ul>
-</details>
+- **Python (The Brain)**: Powers 35+ specialized security modules, orchestrates scans, manages pattern databases, and builds interactive HTML/JSON reports.
+- **Go (The Muscle)**: High-speed, concurrent TCP SYN port scanner built with goroutines to enumerate network attack surfaces in seconds.
+- **Rust (The Inspector)**: Low-level TLS/SSL cryptographic analyzer evaluating cipher suites, protocol vulnerabilities, and certificate validity natively.
 
 ---
 
-## Installation
+## Complete Feature Suite
 
-PhantomScan supports Windows, macOS, and Linux. For detailed, step-by-step setup instructions for the Python, Go, and Rust components, see the Installation Guide:
+### 1. Vibe App Security Module Suite (Mid-2026 Commercial Parity)
 
-**[View Detailed Installation Guide](INSTALL.md)**
+PhantomScan v2.0 introduces 9 specialized sub-scanners dedicated to securing AI-generated and full-stack vibe-coded web applications:
+
+- 🔑 **JSON-Driven Secret Pattern Engine**: Scans client JS bundles, source maps, and local source repositories against **150+ vendor-specific patterns** across 8 categories (LLM/AI, Payment, BaaS, Cloud, Email, Dev/Deploy, Analytics, and Generic). Uses Shannon entropy scoring and line-level comment context awareness.
+- 🗄️ **Supabase Auditor V2**: Full CRUD RLS auditing (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) on PostgREST endpoints (`/rest/v1/`), storage bucket visibility tests, auth confirmation settings, and key format detection (`sb_secret_` vs `service_role` JWTs).
+- 🔥 **Firebase Auditor V2**: Probes Realtime Database (`/.json`), Firestore collections, Storage bucket rules, and Admin SDK private key leaks.
+- ⚡ **Alternative Backend Auditor**: Introspects Convex functions (`/api/query`), detects exposed MongoDB connection strings, and flags raw PostgreSQL connection URLs.
+- 🛠️ **ORM Misconfiguration Detector**: Identifies Prisma error disclosures, scans `schema.prisma` for models missing ownership fields (`userId`, `owner_id`), and detects raw Drizzle `sql``` string injection risks.
+- 🔌 **tRPC Endpoint Prober**: Discovers `/api/trpc` routes and tests common administrative procedures (`user.getAll`, `admin.deleteUser`) for unauthenticated access.
+- 📦 **Slopsquatting Dependency Detector**: Cross-references `package.json` and `requirements.txt` against npm and PyPI registries to catch AI-hallucinated package names before attackers hijack them.
+- 🔀 **Hybrid Scan Coordinator**: Source-aware analysis mode via `--source-path`, audits committed `.env` files across Git history, and boosts finding confidence to `confirmed` when findings overlap between live bundles and local source code.
+- 🤖 **Serverless & System Prompt Protection**: Probes unauthenticated AI endpoints (`/api/chat`, `/api/generate`) for missing rate limits and system prompt leakage via prompt injection probes.
 
 ---
 
-## Getting Started
+### 2. Business Logic, Auth & Complex Web Scanners
 
-### Option 1: The Interactive Launcher (Recommended for Windows)
-Just double-click **`PhantomScan Launcher.bat`**. 
-This launches a beautiful, interactive PowerShell menu where you can configure advanced scans, supply authentication tokens, and choose target profiles without typing a single command.
+- **Business Logic Analyzer**: Detects mass assignment, price manipulation, and limit bypasses.
+- **IDOR / BOLA Detector**: Automatically swaps user/object IDs cross-session to identify unauthorized access.
+- **JWT & OAuth Tester**: Checks for `none` algorithm bypasses, weak HMAC secrets, and key confusion vulnerabilities.
+- **Stateful Workflow Scanner**: Maps multi-step operations (Cart -> Checkout -> Payment) to uncover state machine bypasses.
+- **Prototype Pollution**: Tests for client-side and server-side `__proto__` pollution.
+- **HTTP Request Smuggling**: Uses raw TCP socket techniques to test CL.TE and TE.CL ambiguities.
+- **Out-Of-Band (OOB) Detector**: Integrates OOB callbacks to capture asynchronous vulnerabilities like Log4Shell and Blind SSRF.
+- **Race Condition Detector**: Concurrent flooding to catch Time-of-Check to Time-of-Use (TOCTOU) race conditions.
 
-### Option 2: Command Line Interface
-Run PhantomScan directly from your terminal for CI/CD automation or quick ad-hoc testing:
+---
+
+### 3. Vulnerability Chain Engine & Attack Paths
+
+PhantomScan correlates isolated lower-severity findings into critical multi-step **Exploit Chains**:
+
+- **Supabase RLS Bypass → Full Database Compromise**
+- **Firebase Test-Mode → Full Data Dump**
+- **AI Proxy Abuse → Unlimited LLM Cost Drain**
+- **Slopsquatting → Supply Chain RCE**
+- **.env Leak → Cloud Credential Compromise**
+- **Prisma Error Leak + IDOR → Schema-Guided Data Theft**
+- **tRPC Unauth + Default Creds → Admin Takeover**
+
+Generates interactive **Mermaid.js** diagrams illustrating exact attack trajectories for executive presentation.
+
+---
+
+## Command Line Usage
+
+### Standard Scan Commands
 
 ```bash
-# 1. Advanced Full Scan (Runs all 20 advanced modules + Network + TLS)
+# 1. Run all 35 Advanced Modules (including Vibe App Security Suite)
 python phantomscan.py --target example.com --advanced
 
-# 2. Stateful Authenticated Scan (Test behind a login)
-python phantomscan.py --target example.com --advanced --auth-cookie "session_id=12345abcde"
+# 2. Hybrid Black-Box + Source-Aware Scan with Slopsquatting Check
+python phantomscan.py --target example.com --advanced --source-path ./my-app --check-slopsquatting
 
-# 3. Continuous Monitoring (Diff against a baseline)
-python phantomscan.py --target example.com --advanced --baseline reports/baseline.json
+# 3. Targeted Vibe Security Module Execution
+python phantomscan.py --target example.com --modules ai_app_security,vuln_chain
 
-# 4. Quick Passive Scan (Safe recon only, no active fuzzing)
+# 4. Stateful Authenticated Scan
+python phantomscan.py --target example.com --advanced --auth-cookie "session_id=abc123xyz"
+
+# 5. Quick Passive Recon Scanner
 python phantomscan.py --target example.com --profile passive --json
+```
+
+### CLI Flag Reference
+
+| Flag | Description |
+| :--- | :--- |
+| `--target` | Target domain, IP, CIDR, or URL to assess. |
+| `--profile` | Scan profile: `quick`, `full`, `passive`, `api`, `network`, `advanced`, `deep`. |
+| `--advanced` | Runs all 35 advanced security modules. |
+| `--source-path` | Path to local source code for hybrid black-box + white-box analysis. |
+| `--check-slopsquatting` | Queries npm/PyPI registries for AI-hallucinated packages (requires `--source-path`). |
+| `--modules` | Comma-separated list of specific modules to run (e.g., `ai_app_security,idor`). |
+| `--auth-cookie` | Session cookie string for authenticated scans. |
+| `--auth-token` | Bearer token string for API authenticated scans. |
+| `--json-out` | File path to export JSON report artifact. |
+
+---
+
+## Installation & Setup
+
+For full installation guide across Windows, macOS, and Linux, consult [INSTALL.md](INSTALL.md).
+
+```bash
+# Clone Repository
+git clone https://github.com/anshchavda02/Phantomscan.git
+cd Phantomscan
+
+# Install Python Dependencies
+pip install -r requirements.txt
+
+# Verify Test Suite (81 Passing Tests)
+python -m pytest tests/python -v
 ```
 
 ---
 
 ## Ethical Use Policy
 
-**AUTHORIZED USE ONLY.** 
-
-PhantomScan is a powerful tool capable of altering application state (via advanced modules like Race Conditions and Business Logic testing). **You must only run this tool against systems you own or systems you have explicit, written authorization to assess.**
-
-The tool strictly enforces scope constraints based on the provided target to prevent accidental out-of-bounds scanning, but the operator bears all responsibility for its use.
+**AUTHORIZED TESTING ONLY.** PhantomScan is designed strictly for authorized security assessments against systems you own or have explicit written permission to test.
