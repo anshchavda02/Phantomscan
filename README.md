@@ -22,7 +22,7 @@ While standard scanners focus solely on static CVE checks or simple web fuzzing,
 
 ## The Hybrid Polyglot Architecture
 
-PhantomScan combines three powerful languages for optimal balance between orchestrative intelligence, raw execution speed, and cryptographic rigor:
+PhantomScan combines three languages for optimal balance between orchestrative intelligence, raw execution speed, and cryptographic rigor:
 
 - **Python (The Brain)**: Powers 35+ specialized security modules, orchestrates scans, manages pattern databases, and builds interactive HTML/JSON reports.
 - **Go (The Muscle)**: High-speed, concurrent TCP SYN port scanner built with goroutines to enumerate network attack surfaces in seconds.
@@ -36,15 +36,15 @@ PhantomScan combines three powerful languages for optimal balance between orches
 
 PhantomScan v2.0 introduces 9 specialized sub-scanners dedicated to securing AI-generated and full-stack vibe-coded web applications:
 
-- 🔑 **JSON-Driven Secret Pattern Engine**: Scans client JS bundles, source maps, and local source repositories against **150+ vendor-specific patterns** across 8 categories (LLM/AI, Payment, BaaS, Cloud, Email, Dev/Deploy, Analytics, and Generic). Uses Shannon entropy scoring and line-level comment context awareness.
-- 🗄️ **Supabase Auditor V2**: Full CRUD RLS auditing (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) on PostgREST endpoints (`/rest/v1/`), storage bucket visibility tests, auth confirmation settings, and key format detection (`sb_secret_` vs `service_role` JWTs).
-- 🔥 **Firebase Auditor V2**: Probes Realtime Database (`/.json`), Firestore collections, Storage bucket rules, and Admin SDK private key leaks.
-- ⚡ **Alternative Backend Auditor**: Introspects Convex functions (`/api/query`), detects exposed MongoDB connection strings, and flags raw PostgreSQL connection URLs.
-- 🛠️ **ORM Misconfiguration Detector**: Identifies Prisma error disclosures, scans `schema.prisma` for models missing ownership fields (`userId`, `owner_id`), and detects raw Drizzle `sql``` string injection risks.
-- 🔌 **tRPC Endpoint Prober**: Discovers `/api/trpc` routes and tests common administrative procedures (`user.getAll`, `admin.deleteUser`) for unauthenticated access.
-- 📦 **Slopsquatting Dependency Detector**: Cross-references `package.json` and `requirements.txt` against npm and PyPI registries to catch AI-hallucinated package names before attackers hijack them.
-- 🔀 **Hybrid Scan Coordinator**: Source-aware analysis mode via `--source-path`, audits committed `.env` files across Git history, and boosts finding confidence to `confirmed` when findings overlap between live bundles and local source code.
-- 🤖 **Serverless & System Prompt Protection**: Probes unauthenticated AI endpoints (`/api/chat`, `/api/generate`) for missing rate limits and system prompt leakage via prompt injection probes.
+- **JSON-Driven Secret Pattern Engine**: Scans client JS bundles, source maps, and local source repositories against **150+ vendor-specific patterns** across 8 categories (LLM/AI, Payment, BaaS, Cloud, Email, Dev/Deploy, Analytics, and Generic). Uses Shannon entropy scoring and line-level comment context awareness.
+- **Supabase Auditor V2**: Full CRUD RLS auditing (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) on PostgREST endpoints (`/rest/v1/`), storage bucket visibility tests, auth confirmation settings, and key format detection (`sb_secret_` vs `service_role` JWTs).
+- **Firebase Auditor V2**: Probes Realtime Database (`/.json`), Firestore collections, Storage bucket rules, and Admin SDK private key leaks.
+- **Alternative Backend Auditor**: Introspects Convex functions (`/api/query`), detects exposed MongoDB connection strings, and flags raw PostgreSQL connection URLs.
+- **ORM Misconfiguration Detector**: Identifies Prisma error disclosures, scans `schema.prisma` for models missing ownership fields (`userId`, `owner_id`), and detects raw Drizzle `sql``` string injection risks.
+- **tRPC Endpoint Prober**: Discovers `/api/trpc` routes and tests common administrative procedures (`user.getAll`, `admin.deleteUser`) for unauthenticated access.
+- **Slopsquatting Dependency Detector**: Cross-references `package.json` and `requirements.txt` against npm and PyPI registries to catch AI-hallucinated package names before attackers hijack them.
+- **Hybrid Scan Coordinator**: Source-aware analysis mode via `--source-path`, audits committed `.env` files across Git history, and boosts finding confidence to `confirmed` when findings overlap between live bundles and local source code.
+- **Serverless & System Prompt Protection**: Probes unauthenticated AI endpoints (`/api/chat`, `/api/generate`) for missing rate limits and system prompt leakage via prompt injection probes.
 
 ---
 
