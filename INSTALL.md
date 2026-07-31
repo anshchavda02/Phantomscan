@@ -131,9 +131,9 @@ phantomscan --target example.com --log-file logs/example.log
 
 ## Output Files
 
-- HTML report: `reports/<target>.html`
-- JSON report: `reports/<target>.json`
-- False-positive log: `reports/fp_log_<target>.json`
+- HTML report: `reports/<target>_<timestamp>.html`
+- JSON report: `reports/<target>_<timestamp>.json`
+- False-positive log: `reports/fp_log_<target>_<timestamp>.json`
 - Scan logs: `logs/phantomscan_<target>_<timestamp>.log`
 
 ## Notes

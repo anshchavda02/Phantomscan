@@ -444,6 +444,13 @@ async def scan_one(
     include_medium = args.show_medium or args.show_all or args.confidence in {"medium", "low"}
     include_low = args.show_all or args.confidence == "low"
 
+    # Parse timestamp for report filenames (YYYYMMDD_HHMMSS)
+    try:
+        ts_dt = datetime.fromisoformat(started)
+        ts_str = ts_dt.strftime("%Y%m%d_%H%M%S")
+    except Exception:
+        ts_str = str(int(time.time()))
+
     final_findings, suppressed_findings, observations = post_process(
         findings=findings,
         observations=observations,
@@ -451,7 +458,7 @@ async def scan_one(
         target_host=root_domain(target.host),
         include_medium=include_medium,
         include_low=include_low,
-        fp_log_path=root / "reports" / f"fp_log_{safe_target}.json",
+        fp_log_path=root / "reports" / f"fp_log_{safe_target}_{ts_str}.json",
     )
     final_score = score(final_findings, observations)
     final_grade = grade(final_score)
@@ -539,15 +546,34 @@ async def main_async() -> int:
     output_dir = root / "reports"
     output_dir.mkdir(exist_ok=True)
 
+    def get_unique_path(base_path: Path) -> Path:
+        """Ensure file path is unique by appending an incrementing suffix if it already exists."""
+        if not base_path.exists():
+            return base_path
+        stem = base_path.stem
+        suffix = base_path.suffix
+        counter = 1
+        while True:
+            candidate = base_path.parent / f"{stem}_{counter}{suffix}"
+            if not candidate.exists():
+                return candidate
+            counter += 1
+
     for report in reports:
         safe_target = report["target"].replace("/", "_").replace(":", "_")
-        json_path = (
-            Path(args.json_out)
-            if args.json_out and len(reports) == 1
-            else output_dir / f"{safe_target}.json"
-        )
-        html_path = output_dir / f"{safe_target}.html"
-        csv_path = output_dir / f"{safe_target}.csv"
+        try:
+            ts_dt = datetime.fromisoformat(report.get("started_at", ""))
+            ts_str = ts_dt.strftime("%Y%m%d_%H%M%S")
+        except Exception:
+            ts_str = str(int(time.time()))
+
+        if args.json_out and len(reports) == 1:
+            json_path = Path(args.json_out)
+        else:
+            json_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.json")
+
+        html_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.html")
+        csv_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.csv")
         write_json_report(json_path, report)
         write_csv_report(csv_path, report)
         write_html_report(html_path, report)
