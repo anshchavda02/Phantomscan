@@ -53,7 +53,7 @@ async def scan_ports(target: Target, ports_spec: str, logger: logging.Logger) ->
 
     async def one(port: int) -> dict[str, Any] | None:
         async with semaphore:
-            return await asyncio.to_thread(_scan_one_port, target.host, port, 5.0)
+            return await asyncio.to_thread(_scan_one_port, target.host, port, 1.5)
 
     results = [item for item in await asyncio.gather(*(one(port) for port in ports)) if item]
     elapsed_ms = int((time.perf_counter() - started) * 1000)

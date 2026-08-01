@@ -175,9 +175,14 @@ class OOBDetector:
             except Exception:
                 pass
 
-            await asyncio.sleep(3)
+            hit = False
+            for _ in range(10):
+                await asyncio.sleep(0.5)
+                if oob_listener.check_hit(uid):
+                    hit = True
+                    break
 
-            if oob_listener.check_hit(uid):
+            if hit:
                 findings.append({
                     "id": "BLIND-SSRF-OOB",
                     "title": "Blind SSRF Confirmed via OOB Callback",

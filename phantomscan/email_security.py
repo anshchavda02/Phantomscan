@@ -36,6 +36,8 @@ def _make_resolver() -> dns.asyncresolver.Resolver:
     """Return an async resolver using public, reliable nameservers."""
     resolver = dns.asyncresolver.Resolver()
     resolver.nameservers = ["8.8.8.8", "1.1.1.1"]
+    resolver.timeout = 3.0
+    resolver.lifetime = 5.0
     return resolver
 
 

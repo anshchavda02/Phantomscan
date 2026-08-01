@@ -334,11 +334,14 @@ class VulnChainEngine:
         for chain in CHAIN_DEFINITIONS:
             required: set[str] = chain["requires"]
             if required.issubset(tags):
-                component_titles = [
-                    f.get("title", "")
-                    for f in findings
-                    if self._finding_matches_tags(f, required)
-                ]
+                matched_titles = []
+                for req_tag in required:
+                    for f in findings:
+                        if self._finding_matches_single_tag(f, req_tag):
+                            t = f.get("title", "")
+                            if t and t not in matched_titles:
+                                matched_titles.append(t)
+                                break
                 chain_findings.append({
                     "id": f"CHAIN-{chain['name'].upper().replace(' ', '-')[:40]}",
                     "title": f"Attack Chain: {chain['name']}",
@@ -347,7 +350,7 @@ class VulnChainEngine:
                     "category": "vuln-chain",
                     "target": "",
                     "evidence": (
-                        f"Component findings: {', '.join(component_titles[:5])}\n\n"
+                        f"Component findings: {', '.join(matched_titles[:5])}\n\n"
                         f"Attack path:\n" +
                         "\n".join(chain["attack_path"])
                     ),
@@ -375,13 +378,13 @@ class VulnChainEngine:
         return tags
 
     @staticmethod
-    def _finding_matches_tags(
-        finding: dict[str, Any], required_tags: set[str]
+    def _finding_matches_single_tag(
+        finding: dict[str, Any], target_tag: str
     ) -> bool:
         title = str(finding.get("title", "")).lower()
         fid = str(finding.get("id", "")).lower()
         combined = f"{title} {fid}"
         for keyword, tag in _FINDING_TAG_MAP.items():
-            if keyword in combined and tag in required_tags:
+            if keyword in combined and tag == target_tag:
                 return True
         return False

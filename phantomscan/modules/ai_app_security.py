@@ -87,16 +87,26 @@ def _shannon_entropy(s: str) -> float:
 
 
 def _is_comment_context(content: str, match_start: int) -> bool:
-    """Check if a match position is inside a comment context on its current line."""
+    """Check if a match position is inside a single-line or block comment context."""
+    # Check current line first
     line_start = content.rfind("\n", 0, match_start)
-    if line_start == -1:
-        line_start = 0
-    else:
-        line_start += 1
-    preceding = content[line_start:match_start].lower()
+    line_start = 0 if line_start == -1 else line_start + 1
+    preceding_line = content[line_start:match_start].lower()
     comment_markers = ["// example", "/* example", "# example", "// todo",
-                       "// placeholder", "// test", "/* test", "//"]
-    return any(m in preceding for m in comment_markers)
+                       "// placeholder", "// test", "/* test", "//", "#"]
+    if any(m in preceding_line for m in comment_markers):
+        return True
+
+    # Check for unclosed block comment preceding match_start
+    preceding_all = content[:match_start]
+    last_block_start = max(preceding_all.rfind("/*"), preceding_all.rfind('"""'), preceding_all.rfind("'''"))
+    if last_block_start != -1:
+        block_type = preceding_all[last_block_start:last_block_start + 2]
+        close_marker = "*/" if block_type == "/*" else preceding_all[last_block_start:last_block_start + 3]
+        last_block_end = preceding_all.rfind(close_marker, last_block_start + 2)
+        if last_block_end == -1:
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------

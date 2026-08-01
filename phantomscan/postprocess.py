@@ -131,11 +131,22 @@ def score(findings: list[dict[str, Any]], observations: list[dict[str, Any]] | N
     if "http/3" in text or "\"h3\"" in text or "alt-svc" in text:
         bonus_total += 1
 
-    # Cap bonuses at the total deductions applied (can't bonus past penalised amount)
-    value += min(bonus_total, sum(totals.values()) + completeness_penalty // 2)
+    # Base score starts at 100 + bonus (capped at 100 before deductions)
+    base_score = min(100, 100 + bonus_total)
+    total_deductions = sum(totals.values()) + completeness_penalty
+    value = base_score - total_deductions
 
-    if findings:
+    # Apply strict caps based on existing finding severities
+    severities = {str(item.get("severity", "info")).lower() for item in findings}
+    if "critical" in severities:
+        value = min(value, 49)
+    elif "high" in severities:
+        value = min(value, 69)
+    elif "medium" in severities:
+        value = min(value, 84)
+    elif findings:
         value = min(value, 99)
+
     if obs:
         value = max(20, value)
     return max(0, min(100, value))

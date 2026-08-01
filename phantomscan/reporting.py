@@ -43,16 +43,16 @@ def dict_to_finding(f_dict: dict) -> Any:
     except:
         return f_dict
 
-def _calculate_days_remaining(date_str: str) -> int:
+def _calculate_days_remaining(date_str: str) -> int | None:
     if not date_str:
-        return 999
+        return None
     try:
         clean_str = str(date_str).split("T")[0].split(" ")[0].strip()
         dt = datetime.strptime(clean_str, "%Y-%m-%d")
         now = datetime.now()
         return (dt - now).days
     except Exception:
-        return 999
+        return None
 
 def parse_intel(observations: list[dict]) -> IntelligenceData:
     from phantomscan.report_models import (

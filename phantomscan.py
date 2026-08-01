@@ -145,7 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
     config_group.add_argument("--depth", type=int, default=1, help="Web crawler depth (default: 1)")
     config_group.add_argument("--silent", action="store_true", help="Suppress rich terminal output (useful for piping)")
     config_group.add_argument("--debug", action="store_true", help="Enable verbose debug logging and pre-scan engine health checks")
-    config_group.add_argument("--confidence", choices=["high", "medium", "low"], default="medium", help="Minimum confidence level to report (default: medium)")
+    config_group.add_argument("--confidence", choices=["high", "medium", "low"], default="high", help="Minimum confidence level to report (default: high)")
     config_group.add_argument("--show-medium", action="store_true", help="Include medium-confidence findings in the main output")
     config_group.add_argument("--show-all", action="store_true", help="Include all findings regardless of confidence")
     config_group.add_argument("--cve", action="store_true", help="Focus exclusively on CVE detection modules")
@@ -435,11 +435,13 @@ async def scan_one(
                 getattr(args, "source_path", None),
                 getattr(args, "check_slopsquatting", False),
             )
-            # Find the actual new findings by checking against the old list
-            old_ids = {id(f) for f in findings}
+            seen_keys = {(f.get("id"), f.get("target"), f.get("title")) for f in findings if isinstance(f, dict)}
             for f in adv_findings:
-                if id(f) not in old_ids:
-                    findings.append(f)
+                if isinstance(f, dict):
+                    key = (f.get("id"), f.get("target"), f.get("title"))
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        findings.append(f)
             observations = new_obs
         finally:
             await client.close()
