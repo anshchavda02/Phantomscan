@@ -89,7 +89,8 @@ def post_process(
     if fp_log_path:
         fp_log_path.parent.mkdir(parents=True, exist_ok=True)
         fp_log_path.write_text(json.dumps(suppressed, indent=2, sort_keys=True), encoding="utf-8")
-    return filtered, suppressed, observations
+    clean_obs = [item.to_dict() if hasattr(item, "to_dict") else item for item in observations]
+    return filtered, suppressed, clean_obs
 
 
 def score(findings: list[dict[str, Any]], observations: list[dict[str, Any]] | None = None) -> int:
@@ -106,7 +107,7 @@ def score(findings: list[dict[str, Any]], observations: list[dict[str, Any]] | N
     value -= completeness_penalty
 
     # Build a flat text blob for simple marker checks
-    text = " ".join(f"{item.get('name', '')} {item.get('value', '')}" for item in obs).lower()
+    text = " ".join(f"{_get_obs_field(item, 'name')} {_get_obs_field(item, 'value')}" for item in obs).lower()
 
     # Extract SSL grade from structured observation first, then fall back to text
     ssl_grade = _extract_ssl_grade(obs)
@@ -117,9 +118,9 @@ def score(findings: list[dict[str, Any]], observations: list[dict[str, Any]] | N
     if ssl_grade and ssl_grade not in ("f", "unknown"):
         bonus_total += 1  # cert is at least valid
     if any(
-        any(w in str(item.get("value", "")).lower() for w in ("cloudflare", "waf", "shield", "armor"))
+        any(w in str(_get_obs_field(item, "value")).lower() for w in ("cloudflare", "waf", "shield", "armor"))
         for item in obs
-        if "waf" in str(item.get("name", "")).lower() or "technologies" in str(item.get("name", "")).lower()
+        if "waf" in str(_get_obs_field(item, "name")).lower() or "technologies" in str(_get_obs_field(item, "name")).lower()
     ):
         bonus_total += 2
     if "cloudflare" in text or "fastly" in text or "akamai" in text or "cloudfront" in text:
@@ -143,20 +144,24 @@ def score(findings: list[dict[str, Any]], observations: list[dict[str, Any]] | N
     elif "high" in severities:
         value = min(value, 69)
     elif "medium" in severities:
-        value = min(value, 84)
+        value = min(value, 94)
     elif findings:
         value = min(value, 99)
 
-    if obs:
-        value = max(20, value)
-    return max(0, min(100, value))
+    return max(20, min(100, value))
+
+
+def _get_obs_field(item: Any, field: str, default: Any = "") -> Any:
+    if isinstance(item, dict):
+        return item.get(field, default)
+    return getattr(item, field, default)
 
 
 def _extract_ssl_grade(observations: list[dict[str, Any]]) -> str:
     """Extract the SSL/TLS grade from observations."""
     for item in observations:
-        name = str(item.get("name", "")).lower()
-        val = item.get("value")
+        name = str(_get_obs_field(item, "name", "")).lower()
+        val = _get_obs_field(item, "value")
         # Direct ssl_grade observation
         if name == "ssl_grade" and isinstance(val, str):
             return val.lower()
@@ -206,15 +211,15 @@ def _suppression_reason(
 
 def _observation_text(observations: list[dict[str, Any]], needle: str) -> str:
     return " ".join(
-        str(item.get("value", ""))
+        str(_get_obs_field(item, "value", ""))
         for item in observations
-        if needle in str(item.get("name", "")).lower()
+        if needle in str(_get_obs_field(item, "name", "")).lower()
     )
 
 
 def _scan_completeness_penalty(observations: list[dict[str, Any]]) -> int:
-    names = {str(item.get("name", "")) for item in observations}
-    text = " ".join(str(item.get("value", "")) for item in observations).lower()
+    names = {str(_get_obs_field(item, "name", "")) for item in observations}
+    text = " ".join(str(_get_obs_field(item, "value", "")) for item in observations).lower()
     penalty = 0
     if "http_error" in names:
         penalty += 8

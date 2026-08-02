@@ -14,6 +14,8 @@ import sys
 import time
 from typing import Any
 
+import hashlib
+
 from phantomscan.db import Database
 from phantomscan.email_security import analyze_email
 from phantomscan.engines import run_engine
@@ -52,6 +54,24 @@ console = Console()
 def cprint(text: str, color: str = "cyan") -> None:
     """Print a terminal message using Rich."""
     console.print(text, style=color)
+
+
+def _finding_key(f: dict[str, Any]) -> str:
+    parts = [
+        str(f.get("title", "")),
+        str(f.get("module", "")),
+        str(f.get("severity", "")),
+        str(f.get("evidence", ""))[:100],
+    ]
+    return hashlib.sha256(":".join(parts).encode()).hexdigest()
+
+
+def _parse_dt_naive(iso: str) -> datetime:
+    dt = datetime.fromisoformat(iso)
+    if dt.tzinfo is not None:
+        from datetime import timezone
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -223,6 +243,7 @@ async def timed_step(
     silent: bool,
     func: Any,
     *args: Any,
+    returns_tuple: bool = False,
 ) -> Any:
     """Run and time one scan step, catching recoverable errors."""
     started = time.perf_counter()
@@ -237,12 +258,7 @@ async def timed_step(
                     f"{name.lower().replace(' ', '_')}_error", str(exc), "orchestrator"
                 ).to_dict()
             )
-            # If the func was supposed to return a tuple, return a tuple of empty lists
-            import inspect
-            sig = inspect.signature(func)
-            if "tuple" in str(sig.return_annotation).lower():
-                return ([], [])
-            return []
+            return ([], []) if returns_tuple else []
 
     if not silent:
         with console.status(f"[*] {name}...", spinner="line", spinner_style="cyan"):
@@ -312,6 +328,7 @@ async def scan_one(
     http_obs, http_findings = await timed_step(
         "Analyzing HTTP", logger, observations, args.silent,
         fetch_headers, target, 10.0, logger,
+        returns_tuple=True,
     )
     if isinstance(http_obs, (list, tuple)):
         observations.extend(item.to_dict() for item in http_obs)
@@ -326,18 +343,31 @@ async def scan_one(
             break
 
     # Deep web analysis (sensitive paths, CORS, disclosures, redirect)
-    deep_findings = []
-    if args.profile in ("full", "bug-bounty", "owasp"):
+    DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep")
+    if args.profile in DEEP_PROFILES:
         deep_findings = await timed_step(
-            "Deep web analysis", logger, observations, args.silent, deep_analyze_web, target, effective_url, logger
+            "Deep web analysis", logger, observations, args.silent,
+            deep_analyze_web, target, effective_url, logger,
+            returns_tuple=False
         )
-    if isinstance(deep_findings, list):
-        findings.extend(item.to_dict() for item in deep_findings)
+        if isinstance(deep_findings, list):
+            findings.extend(
+                f.to_dict() if hasattr(f, 'to_dict')
+                else f
+                for f in deep_findings
+            )
 
     if args.profile != "network":
-        await timed_step(
-            "YAML vulnerability rules", logger, observations, args.silent, run_yaml_rules, effective_url, observations
+        yaml_findings = await timed_step(
+            "YAML vulnerability rules", logger, observations, args.silent,
+            run_yaml_rules, effective_url, observations
         )
+        if isinstance(yaml_findings, list):
+            findings.extend(
+                f.to_dict() if hasattr(f, 'to_dict')
+                else f
+                for f in yaml_findings
+            )
 
     # Technology fingerprinting
     tech_obs_list = detect_technologies([*dns_obs, *(item for item in http_obs if hasattr(item, "name"))])
@@ -347,6 +377,7 @@ async def scan_one(
     email_obs, email_findings = await timed_step(
         "Checking email security", logger, observations, args.silent,
         analyze_email, target, logger,
+        returns_tuple=True,
     )
     if isinstance(email_obs, (list, tuple)):
         observations.extend(item.to_dict() for item in email_obs)
@@ -382,6 +413,7 @@ async def scan_one(
         port_obs, port_findings = await timed_step(
             "Scanning TCP ports", logger, observations, args.silent,
             scan_ports, target, args.ports, logger,
+            returns_tuple=True,
         )
         observations.extend(item.to_dict() for item in port_obs)
         findings.extend(port_findings)
@@ -389,6 +421,7 @@ async def scan_one(
         tls_obs, tls_findings = await timed_step(
             "Inspecting TLS", logger, observations, args.silent,
             inspect_tls, target, logger,
+            returns_tuple=True,
         )
         observations.extend(item.to_dict() for item in tls_obs)
         findings.extend(tls_findings)
@@ -434,11 +467,16 @@ async def scan_one(
                 args.webhook,
                 getattr(args, "source_path", None),
                 getattr(args, "check_slopsquatting", False),
+                returns_tuple=True,
             )
-            seen_keys = {(f.get("id"), f.get("target"), f.get("title")) for f in findings if isinstance(f, dict)}
+            seen_keys = {
+                _finding_key(f)
+                for f in findings
+                if isinstance(f, dict)
+            }
             for f in adv_findings:
                 if isinstance(f, dict):
-                    key = (f.get("id"), f.get("target"), f.get("title"))
+                    key = _finding_key(f)
                     if key not in seen_keys:
                         seen_keys.add(key)
                         findings.append(f)
@@ -453,7 +491,7 @@ async def scan_one(
 
     # Parse timestamp for report filenames (YYYYMMDD_HHMMSS)
     try:
-        ts_dt = datetime.fromisoformat(started)
+        ts_dt = _parse_dt_naive(started)
         ts_str = ts_dt.strftime("%Y%m%d_%H%M%S")
     except Exception:
         ts_str = str(int(time.time()))
@@ -472,8 +510,8 @@ async def scan_one(
     finished = utc_now()
 
     # Calculate elapsed scan duration in seconds
-    start_dt = datetime.fromisoformat(started)
-    finish_dt = datetime.fromisoformat(finished)
+    start_dt = _parse_dt_naive(started)
+    finish_dt = _parse_dt_naive(finished)
     duration_sec = max(0.1, round((finish_dt - start_dt).total_seconds(), 2))
 
     for item in final_findings:
@@ -548,6 +586,20 @@ async def main_async() -> int:
     for target in [t for t in targets if t.strip()]:
         display = ScanProgressDisplay(target, silent=args.silent)
         report = await display.run_with_progress(scan_one(args, target, root))
+        if report.get("duration", 0) < 5.0:
+            logging.warning(
+                "Scan completed in under 5 seconds — "
+                "this may indicate modules are returning "
+                "mock/cached data rather than performing "
+                "real network operations. Use --debug "
+                "to investigate."
+            )
+            if not args.silent:
+                cprint(
+                    "[!] Warning: Scan completed very "
+                    "quickly. Verify real scanning occurred.",
+                    "yellow"
+                )
         reports.append(report)
 
     output_dir = root / "reports"
@@ -569,7 +621,7 @@ async def main_async() -> int:
     for report in reports:
         safe_target = report["target"].replace("/", "_").replace(":", "_")
         try:
-            ts_dt = datetime.fromisoformat(report.get("started_at", ""))
+            ts_dt = _parse_dt_naive(report.get("started_at", ""))
             ts_str = ts_dt.strftime("%Y%m%d_%H%M%S")
         except Exception:
             ts_str = str(int(time.time()))
@@ -603,15 +655,42 @@ def main() -> int:
         sys.exit(0)
         
     if args.proxy:
+        if not args.target:
+            print(
+                "[!] --proxy mode requires --target "
+                "to define the authorized scope. "
+                "Refusing to start an unrestricted proxy."
+            )
+            sys.exit(1)
         if ":" not in args.proxy:
             print("Proxy argument must be in format HOST:PORT (e.g., 127.0.0.1:8080)")
             sys.exit(1)
         host, port_str = args.proxy.split(":", 1)
-        from phantomscan.proxy import start_proxy
+        if host in ("0.0.0.0", "::"):
+            print(
+                "[!] Warning: Proxy is binding to all "
+                "interfaces. This exposes an open proxy "
+                "on your network. Use 127.0.0.1 unless "
+                "you specifically need network-wide access."
+            )
+        try:
+            from phantomscan.proxy import start_proxy
+        except ImportError:
+            print(
+                "Proxy mode requires mitmproxy: "
+                "pip install mitmproxy>=10.0"
+            )
+            sys.exit(1)
         start_proxy(host, int(port_str), target_scope=args.target or "localhost")
         return 0
 
     return asyncio.run(main_async())
+
+
+if __name__ == "__main__":
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding='utf-8')
+    raise SystemExit(main())
 
 
 if __name__ == "__main__":

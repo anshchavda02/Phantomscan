@@ -455,19 +455,20 @@
         const themeBtn = document.getElementById('theme-toggle');
         if(themeBtn) themeBtn.addEventListener('click', toggleTheme);
 
-        // Chart.js Initialization
         document.addEventListener('DOMContentLoaded', () => {
             // Severity Donut
             const donutCtx = document.getElementById('severityDonutChart');
-            if (donutCtx && state.chartData.severity_donut) {
+            if (donutCtx && state.chartData && state.chartData.severity_donut) {
                 try {
+                    const data = state.chartData.severity_donut.data || [0, 0, 0, 0, 0];
+                    const total = data.reduce((a,b) => a+b, 0);
                     new Chart(donutCtx, {
                         type: 'doughnut',
                         data: {
-                            labels: state.chartData.severity_donut.labels,
+                            labels: state.chartData.severity_donut.labels || ['Critical', 'High', 'Medium', 'Low', 'Info'],
                             datasets: [{
-                                data: state.chartData.severity_donut.data,
-                                backgroundColor: state.chartData.severity_donut.colors,
+                                data: total > 0 ? data : [0, 0, 0, 0, 1],
+                                backgroundColor: state.chartData.severity_donut.colors || ['#ff2d55', '#ff6b00', '#f59e0b', '#10b981', '#3b82f6'],
                                 borderWidth: 0
                             }]
                         },

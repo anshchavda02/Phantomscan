@@ -90,6 +90,7 @@
     </div>
 
     <div id="findings-container">
+        {% if findings_grouped %}
         {% for group_name, group_findings in findings_grouped.items() %}
         <div class="module-group" style="margin-bottom: 48px;">
             <h3 style="margin-bottom: 16px; border-bottom: 1px solid var(--border-light); padding-bottom: 8px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
@@ -97,12 +98,19 @@
                 <span class="pill">{{ group_findings|length }} Findings</span>
             </h3>
             
+            {% if group_findings %}
             {% for finding in group_findings %}
                 {% set index = loop.index %}
                 {% include 'partials/finding_card.html.j2' %}
             {% endfor %}
+            {% else %}
+            <p style="color: var(--text-muted);">None found</p>
+            {% endif %}
         </div>
         {% endfor %}
+        {% else %}
+        <p style="color: var(--text-muted); padding: 24px;">None found</p>
+        {% endif %}
     </div>
 </section>
 

@@ -7,28 +7,16 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 
-# ── Domain utilities ──────────────────────────────────────────────────────────
-
-_COMMON_SECOND_LEVELS = {"co", "com", "net", "org", "ac", "gov", "edu", "mil"}
+import tldextract
 
 
 def root_domain(host: str) -> str:
-    """Best-effort eTLD+1 extraction without external dependencies.
-
-    Examples::
-
-        root_domain("api.example.com")   # "example.com"
-        root_domain("foo.co.uk")         # "foo.co.uk"
-        root_domain("192.168.1.1")       # "192.168.1.1"
-    """
+    """eTLD+1 extraction using tldextract."""
     host = host.lower().strip(".")
-    parts = host.split(".")
-    if len(parts) <= 2:
-        return host
-    # Handle two-part TLDs like .co.uk, .com.au
-    if len(parts[-1]) == 2 and parts[-2] in _COMMON_SECOND_LEVELS and len(parts) >= 3:
-        return ".".join(parts[-3:])
-    return ".".join(parts[-2:])
+    ext = tldextract.extract(host)
+    if ext.domain and ext.suffix:
+        return f"{ext.domain}.{ext.suffix}"
+    return host
 
 
 # ── Target dataclass ──────────────────────────────────────────────────────────

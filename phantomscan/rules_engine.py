@@ -12,7 +12,7 @@ from typing import Any, Optional
 import yaml
 import aiohttp
 
-from phantomscan.models import Observation
+from phantomscan.models import Finding, Observation
 from phantomscan.oob import oob_listener
 
 
@@ -129,14 +129,43 @@ class RuleEngine:
         return any(results) if results else False
 
 
-async def run_yaml_rules(target: str, observations: list[Observation]) -> None:
+async def run_yaml_rules(target: str, observations: list[Observation]) -> list[Finding]:
     """Entry point to execute all loaded rules against a target."""
     engine = RuleEngine()
     if not engine.rules:
-        return
+        return []
         
     resolver = aiohttp.ThreadedResolver()
     connector = aiohttp.TCPConnector(ssl=False, resolver=resolver)
     async with aiohttp.ClientSession(connector=connector) as session:
         tasks = [engine._execute_rule(session, target, rule, observations) for rule in engine.rules]
         await asyncio.gather(*tasks)
+
+    findings: list[Finding] = []
+    for obs in list(observations):
+        val = None
+        if isinstance(obs, Observation) and obs.name == "yaml_rule_match":
+            val = obs.value if isinstance(obs.value, dict) else {}
+        elif isinstance(obs, dict) and obs.get("name") == "yaml_rule_match":
+            val = obs.get("value") if isinstance(obs.get("value"), dict) else {}
+
+        if val:
+            rule_id = val.get("id") or "MATCH"
+            rule_name = val.get("name") or f"YAML Rule Match: {rule_id}"
+            sev = str(val.get("severity") or "medium").lower()
+            if sev not in ("critical", "high", "medium", "low", "info"):
+                sev = "medium"
+            matched_url = val.get("matched_url", target)
+            findings.append(
+                Finding(
+                    id=f"YAML-RULE-{rule_id}",
+                    title=rule_name,
+                    severity=sev,  # type: ignore[arg-type]
+                    confidence="high",
+                    category="vulnerability",
+                    target=target,
+                    evidence=f"YAML rule '{rule_id}' matched against target. Matched URL: {matched_url}",
+                    recommendation="Review endpoint and remediate identified vulnerability.",
+                )
+            )
+    return findings

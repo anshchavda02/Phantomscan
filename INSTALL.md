@@ -138,4 +138,10 @@ phantomscan --target example.com --log-file logs/example.log
 
 ## Notes
 
+For proxy interception mode only:
+```bash
+pip install mitmproxy>=10.0
+# or: pip install -r requirements-optional.txt
+```
+
 Full scans perform real network checks and can take 20-60 seconds depending on target reachability, DNS latency, and selected ports.
