@@ -84,14 +84,6 @@ async def analyze_email(
 
     domain = root_domain(target.host)
 
-    # Skip known platforms that manage their own posture correctly.
-    if domain in _KNOWN_GOOD_PLATFORMS:
-        log.info("Email check: skipping known-good platform %s", domain)
-        return [
-            Observation("email_domain", domain, "email"),
-            Observation("email_skipped", f"Known-good platform: {domain}", "email"),
-        ], []
-
     resolver = _make_resolver()
     observations: list[Observation] = [Observation("email_domain", domain, "email")]
     findings: list[Finding] = []

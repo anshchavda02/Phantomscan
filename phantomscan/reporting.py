@@ -54,12 +54,18 @@ def _calculate_days_remaining(date_str: str) -> int | None:
     except Exception:
         return None
 
+def _get_obs_field(item: Any, field: str, default: Any = "") -> Any:
+    if isinstance(item, dict):
+        return item.get(field, default)
+    return getattr(item, field, default)
+
+
 def parse_intel(observations: list[dict]) -> IntelligenceData:
     from phantomscan.report_models import (
         IntelligenceData, WhoisData, DNSRecords, Subdomain, 
         IPIntel, SSLResult, Technology, EmailSecurityData, PortResult
     )
-    obs = {o.get("name"): o.get("value") for o in observations}
+    obs = {_get_obs_field(o, "name"): _get_obs_field(o, "value") for o in observations if _get_obs_field(o, "name")}
     
     # 1. WHOIS
     whois_val = obs.get("whois_info") or {}
@@ -110,13 +116,81 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     tech_val = obs.get("technologies") or []
     techs = [Technology(name=t.get("name", "Unknown"), category="Server", confidence=t.get("confidence", 0)) for t in tech_val] if isinstance(tech_val, list) else []
     
-    # 7. Email
+    # 7. Email Security Parsing and Scoring
+    email_domain = str(obs.get("email_domain") or "")
+    mx_records = obs.get("mx_records") or []
+    spf_record = str(obs.get("spf_record") or "")
+    dmarc_record = str(obs.get("dmarc_record") or "")
+    dkim_present = bool(obs.get("dkim_present"))
+
+    # Determine Provider
+    mx_text = " ".join(str(m) for m in mx_records).lower()
+    spf_text = spf_record.lower()
+    combined_email_text = f"{mx_text} {spf_text} {email_domain}".lower()
+
+    if any(p in combined_email_text for p in ["google", "gmail", "aspmx.l.google.com", "googlemail"]):
+        provider = "Google Workspace"
+    elif any(p in combined_email_text for p in ["outlook", "microsoft", "protection.outlook.com"]):
+        provider = "Microsoft 365"
+    elif "proofpoint" in combined_email_text or "pphosted" in combined_email_text:
+        provider = "Proofpoint"
+    elif "mimecast" in combined_email_text:
+        provider = "Mimecast"
+    elif "sendgrid" in combined_email_text:
+        provider = "SendGrid"
+    elif "mailgun" in combined_email_text:
+        provider = "Mailgun"
+    elif "amazonses" in combined_email_text or "amazonaws" in combined_email_text:
+        provider = "Amazon SES"
+    elif "cloudflare" in combined_email_text:
+        provider = "Cloudflare Email Routing"
+    elif mx_records:
+        provider = "Custom Mail Server"
+    else:
+        provider = "Unknown / No MX"
+
+    # Evaluate SPF & DMARC validity
+    spf_valid = bool(spf_record and spf_record.startswith("v=spf1") and "+all" not in spf_record)
+    dmarc_valid = bool(dmarc_record and "v=dmarc1" in dmarc_record.lower())
+
+    # Calculate Email Security Score (0 to 10)
+    email_score = 0
+
+    # MX Records check (0-2 pts)
+    if mx_records:
+        email_score += 2
+
+    # SPF Scoring (0-4 pts)
+    if spf_record and spf_record.startswith("v=spf1"):
+        if "+all" in spf_record:
+            email_score += 0
+        elif "?all" in spf_record:
+            email_score += 2
+        else:
+            email_score += 4
+
+    # DMARC Scoring (0-4 pts)
+    if dmarc_record and "v=dmarc1" in dmarc_record.lower():
+        dmarc_lower = dmarc_record.lower()
+        if "p=reject" in dmarc_lower or "p=quarantine" in dmarc_lower:
+            email_score += 4
+        elif "p=none" in dmarc_lower:
+            email_score += 2
+        else:
+            email_score += 2
+
+    email_score = max(0, min(10, email_score))
+
     email = EmailSecurityData(
-        spf={"status": "Found" if obs.get("spf_record") else "Missing", "record": obs.get("spf_record")},
-        dmarc={"status": "Found" if obs.get("dmarc_record") else "Missing", "record": obs.get("dmarc_record")},
-        dkim={"status": "Found" if obs.get("dkim_present") else "Missing"},
-        mx_records=[{"hostname": mx} for mx in obs.get("mx_records", [])],
-        domain=obs.get("email_domain", "")
+        spf=spf_valid,
+        dmarc=dmarc_valid,
+        dkim=dkim_present,
+        spf_record=spf_record,
+        dmarc_record=dmarc_record,
+        score=email_score,
+        mx_records=[{"hostname": str(mx)} for mx in mx_records] if isinstance(mx_records, list) else [],
+        provider=provider,
+        domain=email_domain
     )
     
     # 8. Ports

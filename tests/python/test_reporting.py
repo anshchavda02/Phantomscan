@@ -62,3 +62,21 @@ def test_unique_path_generation(tmp_path: Path):
     unique_2 = get_unique_path(base_file)
     assert unique_2.name == "example.com_20260731_120000_2.html"
 
+
+def test_parse_intel_email_security():
+    """Test parse_intel EmailSecurityData provider identification and scoring."""
+    from phantomscan.reporting import parse_intel
+    observations = [
+        {"name": "email_domain", "value": "google.com"},
+        {"name": "mx_records", "value": ["smtp.google.com"]},
+        {"name": "spf_record", "value": "v=spf1 include:_spf.google.com ~all"},
+        {"name": "dmarc_record", "value": "v=DMARC1; p=reject; sp=reject;"},
+    ]
+    intel = parse_intel(observations)
+    email = intel.email_security
+    assert email.domain == "google.com"
+    assert email.provider == "Google Workspace"
+    assert email.spf is True
+    assert email.dmarc is True
+    assert email.score == 10
+

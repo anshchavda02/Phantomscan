@@ -92,9 +92,11 @@ class Technology:
 
 @dataclass
 class EmailSecurityData:
-    spf: Dict[str, Any] = field(default_factory=dict)
-    dmarc: Dict[str, Any] = field(default_factory=dict)
-    dkim: Dict[str, Any] = field(default_factory=dict)
+    spf: Any = False
+    dmarc: Any = False
+    dkim: Any = False
+    spf_record: str = ""
+    dmarc_record: str = ""
     score: int = 0
     mx_records: List[Dict[str, str]] = field(default_factory=list)
     provider: str = ""

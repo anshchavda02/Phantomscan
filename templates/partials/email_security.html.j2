@@ -1,6 +1,6 @@
 <!-- Email Security Panel -->
-<div class="intel-card" style="border-left: 3px solid var(--accent3);">
-    <div class="intel-card-header" style="color: var(--accent3);" onclick="this.nextElementSibling.classList.toggle('hidden')">
+<div class="intel-card" style="border-left: 3px solid {% if intel.email_security.score >= 8 %}var(--low){% elif intel.email_security.score >= 5 %}var(--med){% else %}var(--crit){% endif %};">
+    <div class="intel-card-header" style="color: {% if intel.email_security.score >= 8 %}var(--low){% elif intel.email_security.score >= 5 %}var(--med){% else %}var(--crit){% endif %};" onclick="this.nextElementSibling.classList.toggle('hidden')">
         <span>✉️ EMAIL SECURITY</span>
         <span style="margin-left: auto;" class="pill">Score {{ intel.email_security.score }}/10</span>
     </div>
