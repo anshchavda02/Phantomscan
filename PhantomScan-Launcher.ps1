@@ -11,11 +11,14 @@ $Reports = Join-Path $Root "reports"
 $Logs = Join-Path $Root "logs"
 
 function Write-AsciiLogo {
-    Write-Host "  ____  _                 _                  ____                  " -ForegroundColor Cyan
-    Write-Host " |  _ \| |__   __ _ _ __ | |_ ___  _ __ ___ / ___|  ___ __ _ _ __  " -ForegroundColor Cyan
-    Write-Host " | |_) | '_ \ / _` | '_ \| __/ _ \| '_ ` _ \\___ \ / __/ _` | '_ \ " -ForegroundColor Cyan
-    Write-Host " |  __/| | | | (_| | | | | || (_) | | | | | |___) | (_| (_| | | | |" -ForegroundColor Cyan
-    Write-Host " |_|   |_| |_|\__,_|_| |_|\__\___/|_| |_| |_|____/ \___\__,_|_| |_|" -ForegroundColor Cyan
+    $logo = @'
+  ____  _                 _                  ____                  
+ |  _ \| |__   __ _ _ __ | |_ ___  _ __ ___ / ___|  ___ __ _ _ __  
+ | |_) | '_ \ / _` | '_ \| __/ _ \| '_ ` _ \\___ \ / __/ _` | '_ \ 
+ |  __/| | | | (_| | | | | || (_) | | | | | |___) | (_| (_| | | | |
+ |_|   |_| |_|\__,_|_| |_|\__\___/|_| |_| |_|____/ \___\__,_|_| |_|
+'@
+    Write-Host $logo -ForegroundColor Cyan
     Write-Host ""
     Write-Host "                    Scan Smart. Stay Secure." -ForegroundColor DarkCyan
     Write-Host ""
