@@ -16,7 +16,11 @@ func TestSelectPortsIncludesWeb(t *testing.T) {
 }
 
 func TestClassifyRiskyPort(t *testing.T) {
-	findings := classifyPorts("127.0.0.1", []int{80, 6379})
+	results := []PortResult{
+		{Port: 80, State: "open", Service: "http"},
+		{Port: 6379, State: "open", Service: "redis"},
+	}
+	findings := classifyPorts("127.0.0.1", results)
 	if len(findings) != 1 {
 		t.Fatalf("expected one risky finding, got %d", len(findings))
 	}
