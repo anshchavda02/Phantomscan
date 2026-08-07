@@ -13,6 +13,15 @@
                 <div class="intel-row"><span class="intel-label">Report Version</span><span class="intel-value">{{ report_version }}</span></div>
                 <div class="intel-row"><span class="intel-label">Scan ID</span><span class="intel-value" style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">{{ scan.scan_id }}</span></div>
                 <div class="intel-row"><span class="intel-label">Total Duration</span><span class="intel-value">{{ scan.duration_seconds | round(2) }}s</span></div>
+                {% if scan_metadata and scan_metadata.cache_hit_rate is defined %}
+                <div class="intel-row"><span class="intel-label">Cache Hit Rate</span><span class="intel-value">{{ (scan_metadata.cache_hit_rate * 100) | round(1) }}%</span></div>
+                {% endif %}
+                {% if scan_metadata and scan_metadata.circuit_breakers_opened %}
+                <div class="intel-row"><span class="intel-label">Circuit Breakers</span><span class="intel-value" style="color: var(--crit); font-weight: bold;">OPEN: {{ scan_metadata.circuit_breakers_opened | join(', ') }}</span></div>
+                {% endif %}
+                {% if scan_metadata and scan_metadata.degradation_active %}
+                <div class="intel-row"><span class="intel-label">Active Degradation</span><span class="intel-value" style="color: var(--med);">{{ scan_metadata.degradation_active | length }} fallback(s) active</span></div>
+                {% endif %}
             </div>
             
             <div>

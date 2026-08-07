@@ -222,6 +222,7 @@ while ($true) {
     $saveJson = Read-YesNo "Save JSON report" $true
     $requestPdf = Read-YesNo "Request PDF flag (experimental in this build)" $false
     $debugLogging = Read-YesNo "Show debug log output in this window" $false
+    $enterpriseSettings = Read-YesNo "Configure enterprise tuning (--time-budget, --log-format, --resume)" $false
 
     $scanArgs = @("--target", $target)
     
@@ -266,6 +267,25 @@ while ($true) {
             }
         }
     }
+
+    if ($enterpriseSettings) {
+        $timeBudget = Read-Host "Enter max time budget in seconds (or press Enter for unlimited)"
+        if (-not [string]::IsNullOrWhiteSpace($timeBudget)) {
+            $scanArgs += "--time-budget"
+            $scanArgs += $timeBudget
+        }
+        $logFmt = Read-Choice "Log output format" @("text", "json") "text"
+        if ($logFmt -eq "json") {
+            $scanArgs += "--log-format"
+            $scanArgs += "json"
+        }
+        $resumeId = Read-Host "Enter scan ID to resume (or press Enter for new scan)"
+        if (-not [string]::IsNullOrWhiteSpace($resumeId)) {
+            $scanArgs += "--resume"
+            $scanArgs += $resumeId
+        }
+    }
+
     if ($showJsonInWindow) {
         $scanArgs += "--json"
     }
