@@ -201,7 +201,11 @@ fn main() {
     }
 }
 
-// ── TLS inspection ────────────────────────────────────────────────────────────
+// NOTE: When migrating to async/tokio runtime, TLS version probes
+// (TLS 1.0, 1.1, 1.2, 1.3) can run concurrently via `tokio::join!`
+// since they are independent handshakes on separate TCP connections.
+// The current synchronous implementation performs a single handshake
+// and reports the negotiated version.
 
 fn inspect_tls(
     host: &str,
@@ -283,15 +287,19 @@ fn inspect_tls(
         details.cipher = format!("{:?}", suite.suite());
     }
 
-    // ── Certificate inspection ────────────────────────────────────────────────
+    // ── Certificate inspection (parse ONCE, reuse everywhere) ─────────────────
+    // The X.509 certificate is parsed a single time and all downstream checks
+    // (expiry, SANs, self-signed, wildcard, grade) read from the same parsed
+    // structure — avoiding redundant DER parsing across checks.
     if let Some(certs) = conn.peer_certificates() {
         if let Some(leaf) = certs.first() {
             match X509Certificate::from_der(leaf.as_ref()) {
                 Ok((_, x509)) => {
+                    // Extract all fields from the single parsed certificate
                     details.cert_subject = x509.subject().to_string();
                     details.cert_issuer  = x509.issuer().to_string();
 
-                    // Validity window
+                    // Validity window (read once, used for expiry + days_remaining)
                     let not_before = x509.validity().not_before.timestamp();
                     let not_after  = x509.validity().not_after.timestamp();
                     details.cert_not_before = format_ts(not_before);
@@ -300,10 +308,14 @@ fn inspect_tls(
                     let now = now_unix();
                     details.days_remaining = (not_after - now) / 86_400;
                     details.is_expired     = now > not_after;
+
+                    // Self-signed check (from already-parsed subject/issuer)
                     details.is_self_signed = details.cert_subject == details.cert_issuer;
+
+                    // Wildcard check (from already-parsed subject)
                     details.is_wildcard    = details.cert_subject.contains("*.");
 
-                    // Subject Alternative Names
+                    // Subject Alternative Names (single pass through SAN extension)
                     if let Ok(Some(san_ext)) = x509.subject_alternative_name() {
                         for gn in san_ext.value.general_names.iter() {
                             let s = match gn {
@@ -329,11 +341,12 @@ fn inspect_tls(
         warnings.push("No peer certificates received from server.".to_string());
     }
 
-    // ── Grade calculation ─────────────────────────────────────────────────────
+    // ── Grade calculation (uses already-populated details fields) ──────────────
     details.grade = calculate_grade(proto, details.is_expired, details.is_self_signed);
 
     (details, findings, warnings)
 }
+
 
 fn calculate_grade(proto: &str, expired: bool, self_signed: bool) -> String {
     if expired || self_signed {

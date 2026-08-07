@@ -10,6 +10,7 @@ PyYAML>=6.0
 pyjwt>=2.8.0
 websockets>=12.0
 cryptography>=42.0.0
+psutil>=5.9.0
 # Optional module dependencies:
 # pyttsx3>=2.90
 # Pillow>=10.0.0

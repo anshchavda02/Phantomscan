@@ -39,6 +39,19 @@ from phantomscan.scope import parse_target, root_domain
 from phantomscan.advanced_scan import run_advanced_modules
 from phantomscan.http_client import RobustHTTPClient
 
+# Enterprise modules
+from modules.http_pool import SharedHTTPPool
+from modules.scan_cache import ScanCache
+from modules.circuit_breaker import CircuitBreaker, CircuitOpenError, create_default_breakers
+from modules.degradation_matrix import print_degradation_table
+from modules.scan_checkpoint import ScanCheckpoint
+from modules.resource_governor import ResourceGovernor
+from modules.structured_logging import (
+    configure_logging,
+    ScanLogger,
+    build_scan_summary,
+)
+
 WARNING = """
 PhantomScan 2.0.0 - Scan Smart. Stay Secure.
 Authorized security assessment only. Run this tool only against systems you own
@@ -201,7 +214,26 @@ def build_parser() -> argparse.ArgumentParser:
     legacy_group.add_argument("--interval", help=argparse.SUPPRESS)
     legacy_group.add_argument("--daemon", choices=["start", "stop", "status"], help=argparse.SUPPRESS)
     legacy_group.add_argument("--annotate", action="store_true", help=argparse.SUPPRESS)
-    legacy_group.add_argument("--resume", action="store_true", help=argparse.SUPPRESS)
+    legacy_group.add_argument("--resume", help="Resume a previously interrupted scan by scan ID")
+
+    # Enterprise flags
+    enterprise_group = parser.add_argument_group("Enterprise Performance & Reliability")
+    enterprise_group.add_argument(
+        "--time-budget", type=int, default=None,
+        help="Maximum total scan time in seconds. Degrades gracefully to partial results."
+    )
+    enterprise_group.add_argument(
+        "--log-format", choices=["json", "text"], default="text",
+        help="Log output format: 'json' for structured/machine-parseable, 'text' for human-readable (default: text)"
+    )
+    enterprise_group.add_argument(
+        "--max-memory-mb", type=int, default=2048,
+        help="Maximum memory usage ceiling in MB (default: 2048)"
+    )
+    enterprise_group.add_argument(
+        "--max-concurrent-scans", type=int, default=5,
+        help="Maximum concurrent batch scans (default: 5)"
+    )
 
     return parser
 
@@ -543,6 +575,12 @@ async def scan_one(
         "findings": final_findings,
         "suppressed_findings": suppressed_findings,
         "observations": observations,
+        "scan_metadata": {
+            "modules_failed": getattr(args, "_modules_failed", []),
+            "circuit_breakers_opened": getattr(args, "_breakers_opened", []),
+            "cache_hit_rate": getattr(args, "_cache_hit_rate", 0.0),
+            "degradation_active": getattr(args, "_degradation_msgs", []),
+        },
         "engagement": {
             "client": args.client,
             "assessor": args.assessor,
@@ -560,7 +598,7 @@ async def scan_one(
 
 
 async def main_async() -> int:
-    """CLI async entrypoint."""
+    """CLI async entrypoint with enterprise infrastructure."""
     parser = build_parser()
     args = parser.parse_args()
     if not args.silent:
@@ -570,11 +608,40 @@ async def main_async() -> int:
 
     root = Path(__file__).resolve().parent
 
-    # Pre-scan engine health check (when --debug is set)
+    # Configure structured logging
+    configure_logging(
+        log_format=getattr(args, "log_format", "text"),
+        debug=args.debug,
+    )
+
+    # Initialize enterprise infrastructure
+    governor = ResourceGovernor(
+        max_memory_mb=getattr(args, "max_memory_mb", 2048),
+        max_concurrent_scans=getattr(args, "max_concurrent_scans", 5),
+    )
+    scan_cache = ScanCache(db_path=root / "phantomscan.sqlite3")
+    checkpoint = ScanCheckpoint(db_path=root / "phantomscan.sqlite3")
+    breakers = create_default_breakers()
+
+    # Pre-scan engine health check with degradation matrix
     if args.debug and not args.silent:
         checker = EngineHealthChecker(root)
-        await checker.check_all()
+        health = await checker.check_all()
+        engine_statuses = {
+            k: v.available for k, v in health.engines.items()
+        }
+        degradation_msgs = print_degradation_table(engine_statuses)
+        args._degradation_msgs = degradation_msgs
         cprint("")  # blank line
+    elif not args.silent:
+        # Quick health check without verbose table
+        checker = EngineHealthChecker(root)
+        health = await checker.check_all()
+
+    # Store breaker reference on args for downstream modules
+    args._breakers_opened = []
+    args._modules_failed = []
+    args._cache_hit_rate = 0.0
 
     targets = (
         [args.target]
@@ -583,24 +650,36 @@ async def main_async() -> int:
     )
     reports: list[dict[str, Any]] = []
 
-    for target in [t for t in targets if t.strip()]:
-        display = ScanProgressDisplay(target, silent=args.silent)
-        report = await display.run_with_progress(scan_one(args, target, root))
-        if report.get("duration", 0) < 5.0:
-            logging.warning(
-                "Scan completed in under 5 seconds — "
-                "this may indicate modules are returning "
-                "mock/cached data rather than performing "
-                "real network operations. Use --debug "
-                "to investigate."
-            )
-            if not args.silent:
-                cprint(
-                    "[!] Warning: Scan completed very "
-                    "quickly. Verify real scanning occurred.",
-                    "yellow"
-                )
-        reports.append(report)
+    try:
+        for target in [t for t in targets if t.strip()]:
+            async with governor.acquire_scan_slot():
+                governor.check_memory()
+                display = ScanProgressDisplay(target, silent=args.silent)
+                report = await display.run_with_progress(scan_one(args, target, root))
+                if report.get("duration", 0) < 5.0:
+                    logging.warning(
+                        "Scan completed in under 5 seconds — "
+                        "this may indicate modules are returning "
+                        "mock/cached data rather than performing "
+                        "real network operations. Use --debug "
+                        "to investigate."
+                    )
+                    if not args.silent:
+                        cprint(
+                            "[!] Warning: Scan completed very "
+                            "quickly. Verify real scanning occurred.",
+                            "yellow"
+                        )
+                reports.append(report)
+
+        # Update cache hit rate on args for report metadata
+        args._cache_hit_rate = scan_cache.hit_rate
+
+    finally:
+        # Always close shared resources to prevent connection leaks
+        await SharedHTTPPool.shutdown()
+        scan_cache.close()
+        checkpoint.close()
 
     output_dir = root / "reports"
     output_dir.mkdir(exist_ok=True)

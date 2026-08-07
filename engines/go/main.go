@@ -222,15 +222,30 @@ func selectPorts(mode string) []int {
 
 // ── Concurrent port scanning ──────────────────────────────────────────────────
 
-// maxConcurrency limits simultaneous TCP connect goroutines.
-const maxConcurrency = 150
+// dynamicPoolSize calculates an optimal goroutine pool based on port count.
+// Cap at 500 to avoid file descriptor exhaustion.
+func dynamicPoolSize(portCount int) int {
+	size := portCount * 2
+	if size > 500 {
+		return 500
+	}
+	if size < 50 {
+		return 50
+	}
+	return size
+}
+
+// sharedDialer is reused across all goroutines to avoid per-goroutine
+// allocation overhead at 500+ concurrent scans.
+var sharedDialer = &net.Dialer{}
 
 func scanAllPorts(host string, ports []int, connTimeout time.Duration) []PortResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
+	poolSize := dynamicPoolSize(len(ports))
 	resultsCh := make(chan PortResult, len(ports))
-	sem := make(chan struct{}, maxConcurrency)
+	sem := make(chan struct{}, poolSize)
 	var wg sync.WaitGroup
 
 	for _, port := range ports {
@@ -267,14 +282,18 @@ func scanAllPorts(host string, ports []int, connTimeout time.Duration) []PortRes
 
 func scanPort(ctx context.Context, host string, port int, timeout time.Duration) PortResult {
 	address := fmt.Sprintf("%s:%d", host, port)
-	d := net.Dialer{Timeout: timeout}
-	conn, err := d.DialContext(ctx, "tcp", address)
+
+	// Use the shared dialer with the per-scan timeout
+	sharedDialer.Timeout = timeout
+	connStart := time.Now()
+	conn, err := sharedDialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return PortResult{Port: port, State: "closed"}
 	}
 	defer conn.Close()
+	connRTT := time.Since(connStart)
 
-	banner := grabBanner(conn, port)
+	banner := grabBannerAdaptive(conn, port, connRTT)
 	service := serviceMap[port]
 	if service == "" {
 		service = inferServiceFromBanner(banner)
@@ -319,6 +338,29 @@ func grabBanner(conn net.Conn, port int) string {
 	probe, hasProbe := probes[port]
 	if hasProbe && len(probe) > 0 {
 		conn.Write(probe) // intentionally ignore write errors
+	}
+
+	buf := make([]byte, 2048)
+	n, _ := conn.Read(buf)
+	if n == 0 {
+		return ""
+	}
+	return string(buf[:n])
+}
+
+// grabBannerAdaptive uses adaptive timeout: if the initial connect
+// RTT was fast (<50ms), reduce banner wait to 1.5s since slow banners
+// on a fast host usually mean no banner is coming.
+func grabBannerAdaptive(conn net.Conn, port int, connRTT time.Duration) string {
+	bannerTimeout := 3 * time.Second
+	if connRTT < 50*time.Millisecond {
+		bannerTimeout = 1500 * time.Millisecond
+	}
+	conn.SetDeadline(time.Now().Add(bannerTimeout))
+
+	probe, hasProbe := probes[port]
+	if hasProbe && len(probe) > 0 {
+		conn.Write(probe)
 	}
 
 	buf := make([]byte, 2048)

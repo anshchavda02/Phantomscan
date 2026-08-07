@@ -51,3 +51,27 @@ engines:
     path: engines/node/browser_engine.js
     enabled: true
 
+# ── Enterprise Performance Settings ──────────────────────────────────────────
+performance:
+  max_concurrent_modules_per_tier: 10
+  time_budget_seconds: null  # unlimited by default
+  cache_ttl:
+    dns: 300
+    ip_intel: 3600
+    whois: 86400
+    cve: 86400
+    crtsh: 3600
+
+# ── Enterprise Reliability Settings ──────────────────────────────────────────
+reliability:
+  circuit_breaker:
+    failure_threshold: 3
+    recovery_timeout_seconds: 60
+  checkpoint_interval_seconds: 30
+  max_memory_mb: 2048
+  max_concurrent_scans: 5
+  retry_max_attempts: 3
+
+# ── Daemon Mode Settings ─────────────────────────────────────────────────────
+daemon:
+  health_endpoint_port: 9191
