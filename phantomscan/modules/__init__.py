@@ -50,6 +50,8 @@ MODULE_REGISTRY: dict[str, str] = {
     "finding_chat":         ".finding_chat.FindingChatAssistant",
     # AI / Vibe-Coded Web App Security
     "ai_app_security":      ".ai_app_security.AIAppSecurityScanner",
+    # SQL Injection with multi-layer verification
+    "sqli_detector":        ".sqli_detector.SQLiDetector",
 }
 
 

@@ -59,7 +59,9 @@ def post_process(
     include_low: bool,
     fp_log_path: Path | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    """Apply confidence filters and false-positive suppression rules."""
+    """Apply FindingGate, confidence filters, and false-positive suppression."""
+    from phantomscan.modules.finding_gate import gate_finding
+
     platform = load_known_platform(data_dir, target_host)
     suppressed: list[dict[str, Any]] = []
     filtered: list[dict[str, Any]] = []
@@ -71,6 +73,13 @@ def post_process(
 
     for item in deduplicate_findings(findings):
         enriched = dict(item)
+
+        # ── FindingGate: universal validation checkpoint ──────────────────
+        gated = gate_finding(enriched, fp_log=suppressed)
+        if gated is None:
+            continue  # rejected by gate, already logged to suppressed
+        enriched = gated
+
         confidence = str(enriched.get("confidence", "medium")).lower()
         if confidence == "low":
             enriched["manual_verification"] = True
@@ -91,6 +100,7 @@ def post_process(
         fp_log_path.write_text(json.dumps(suppressed, indent=2, sort_keys=True), encoding="utf-8")
     clean_obs = [item.to_dict() if hasattr(item, "to_dict") else item for item in observations]
     return filtered, suppressed, clean_obs
+
 
 
 def score(findings: list[dict[str, Any]], observations: list[dict[str, Any]] | None = None) -> int:

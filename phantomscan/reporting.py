@@ -367,7 +367,7 @@ class ReportGenerator:
         # Build Attack Surface Map (D3 data) dynamically if not provided
         d3_data = scan_data.attack_paths.d3_json if (scan_data.attack_paths and scan_data.attack_paths.d3_json) else self.build_d3_attack_map(scan_data)
 
-        scan_metadata = payload.get("scan_metadata", {})
+        scan_metadata = scan_data.scan_meta
 
         html = template.render(
             scan=scan_data.scan_meta,

@@ -16,14 +16,8 @@ from phantomscan.oob import oob_listener
 
 logger = logging.getLogger(__name__)
 
-_BLIND_SQLI_PAYLOADS = [
-    "' AND SLEEP(5)-- -",
-    "' AND (SELECT * FROM (SELECT(SLEEP(5)))a)-- -",
-    "1; WAITFOR DELAY '0:0:5'-- ",
-    "' OR SLEEP(5)-- -",
-    "1 AND SLEEP(5)",
-    "') AND SLEEP(5)-- -",
-]
+_BLIND_SQLI_PAYLOADS: list[str] = []  # Moved to sqli_detector.py
+
 
 _BLIND_CMDI_PAYLOADS = [
     "; sleep 5",
@@ -82,65 +76,15 @@ class OOBDetector:
         return findings
 
     # ── Blind SQL Injection (Time-Based) ─────────────────────────────────────
+    # DEPRECATED: Moved to sqli_detector.SQLiDetector with proper multi-layer
+    # verification (statistical baseline, 2x reproduction, boolean differential).
 
     async def _test_blind_sqli(
         self, target: str, params: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        findings: list[dict[str, Any]] = []
-        test_urls = params[:15]
+        """No-op stub — blind SQLi detection moved to sqli_detector.py."""
+        return []
 
-        for param_info in test_urls:
-            url = param_info.get("url", target)
-            param_name = param_info.get("name", "q")
-
-            # Measure baseline
-            try:
-                t0 = time.perf_counter()
-                await self.http.get(
-                    url, params={param_name: "normalvalue123"},
-                    retries=1,
-                )
-                baseline = time.perf_counter() - t0
-            except Exception:
-                baseline = 0.5
-
-            for payload in _BLIND_SQLI_PAYLOADS:
-                try:
-                    t0 = time.perf_counter()
-                    await self.http.get(
-                        url, params={param_name: payload},
-                        retries=1,
-                    )
-                    elapsed = time.perf_counter() - t0
-
-                    if elapsed >= 4.5 and elapsed > baseline + 3.0:
-                        findings.append({
-                            "id": "BLIND-SQLI-TIME",
-                            "title": "Blind SQL Injection (Time-Based)",
-                            "severity": "critical",
-                            "confidence": "high",
-                            "category": "injection",
-                            "target": url,
-                            "evidence": (
-                                f"Parameter: {param_name}\n"
-                                f"Payload: {payload}\n"
-                                f"Baseline: {baseline:.2f}s\n"
-                                f"With payload: {elapsed:.2f}s\n"
-                                f"Delay: {elapsed - baseline:.2f}s"
-                            ),
-                            "recommendation": (
-                                "Use parameterized queries / prepared statements. "
-                                "Never concatenate user input into SQL. CWE-89, "
-                                "OWASP A03:2021."
-                            ),
-                            "references": [
-                                "https://cwe.mitre.org/data/definitions/89.html",
-                            ],
-                        })
-                        break
-                except Exception:
-                    continue
-        return findings
 
     # ── Blind SSRF via OOB ───────────────────────────────────────────────────
 

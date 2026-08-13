@@ -484,7 +484,8 @@ async def fetch_headers(
         Observation("http_response_time_ms", elapsed_ms, "http"),
         Observation("redirect_chain", result.redirect_chain, "http"),
     ]
-    findings = analyze_security_headers(result.url, result.headers)
+    body_text = result.text()
+    findings = analyze_security_headers(result.url, result.headers, body_text)
     findings.extend(analyze_cookies(result.url, result.raw_set_cookies))
     return observations, findings
 
@@ -730,52 +731,123 @@ def _path_is_sensitive_content(body: str, path: str) -> bool:
 # ── Security header analysis ──────────────────────────────────────────────────
 
 
-def analyze_security_headers(url: str, headers: dict[str, str]) -> list[Finding]:
-    """Create a grouped security header finding for all missing defensive headers."""
-    checks = [
-        ("strict-transport-security", "HSTS", "medium",
-         "Browsers may downgrade to HTTP connections."),
-        ("content-security-policy", "Content-Security-Policy", "medium",
-         "XSS is harder to mitigate without a CSP."),
-        ("x-content-type-options", "X-Content-Type-Options", "low",
-         "MIME-type sniffing attacks are possible."),
-        ("x-frame-options", "X-Frame-Options", "low",
-         "Clickjacking via iframe embedding is possible."),
-        ("referrer-policy", "Referrer-Policy", "low",
-         "Full referrer URLs may be leaked to third-party sites."),
-        ("permissions-policy", "Permissions-Policy", "low",
-         "Browser features (camera, microphone) are unrestricted."),
-    ]
+def analyze_security_headers(
+    url: str,
+    headers: dict[str, str],
+    html_body: str = "",
+) -> list[Finding]:
+    """Create a grouped security header finding for all missing defensive headers.
 
-    # X-Frame-Options is redundant if frame-ancestors is in CSP
-    csp = headers.get("content-security-policy", "")
-    has_frame_ancestors = "frame-ancestors" in csp
+    Uses :class:`HeaderAnalyzer` for case-insensitive lookups (RFC 7230),
+    checks CSP via both HTTP header and ``<meta>`` tag, and resolves the
+    ``X-Frame-Options`` / ``frame-ancestors`` overlap correctly.
 
-    missing: list[tuple[str, str]] = []
-    for header, label, _, impact in checks:
-        if header == "x-frame-options" and has_frame_ancestors:
-            continue
-        if header not in headers:
-            missing.append((label, impact))
+    Args:
+        url: The URL being analysed (used for finding target).
+        headers: Raw HTTP response headers (any casing).
+        html_body: The HTML response body (used for ``<meta>`` CSP detection).
+    """
+    from phantomscan.modules.header_analyzer import (
+        HeaderAnalyzer,
+        check_frame_protection,
+        detect_csp,
+    )
+
+    ha = HeaderAnalyzer(headers)
+    csp_result = detect_csp(headers, html_body)
+    frame_result = check_frame_protection(headers, csp_result)
+
+    # Severity map — ceiling is Medium, per calibration rules
+    HEADER_SEVERITY: dict[str, str] = {
+        "strict-transport-security": "medium",
+        "content-security-policy":   "medium",
+        "x-content-type-options":    "low",
+        "referrer-policy":           "low",
+        "permissions-policy":        "low",
+    }
+    SEVERITY_RANK = {"info": 0, "low": 1, "medium": 2}
+
+    missing: list[tuple[str, str, str]] = []  # (label, impact, severity)
+
+    # HSTS
+    if not ha.has_header("strict-transport-security"):
+        missing.append((
+            "HSTS",
+            "Browsers may downgrade to HTTP connections.",
+            HEADER_SEVERITY["strict-transport-security"],
+        ))
+
+    # CSP — check both header AND meta tag
+    if not csp_result.present:
+        missing.append((
+            "Content-Security-Policy",
+            "XSS is harder to mitigate without a CSP.",
+            HEADER_SEVERITY["content-security-policy"],
+        ))
+
+    # X-Content-Type-Options
+    if not ha.has_header("x-content-type-options"):
+        missing.append((
+            "X-Content-Type-Options",
+            "MIME-type sniffing attacks are possible.",
+            HEADER_SEVERITY["x-content-type-options"],
+        ))
+
+    # Frame protection — only flag if NEITHER XFO nor frame-ancestors present
+    if not frame_result.protected:
+        missing.append((
+            "X-Frame-Options / frame-ancestors",
+            frame_result.note,
+            "low",
+        ))
+
+    # Referrer-Policy
+    if not ha.has_header("referrer-policy"):
+        missing.append((
+            "Referrer-Policy",
+            "Full referrer URLs may be leaked to third-party sites.",
+            HEADER_SEVERITY["referrer-policy"],
+        ))
+
+    # Permissions-Policy
+    if not ha.has_header("permissions-policy"):
+        missing.append((
+            "Permissions-Policy",
+            "Browser features (camera, microphone) are unrestricted.",
+            HEADER_SEVERITY["permissions-policy"],
+        ))
 
     if not missing:
         return []
 
-    labels = [m[0] for m in missing]
-    has_critical = any(lab in {"HSTS", "Content-Security-Policy"} for lab in labels)
-    severity = "medium" if has_critical else "low"
+    # Overall severity = highest individual component, capped at Medium
+    overall_severity = max(
+        missing, key=lambda m: SEVERITY_RANK.get(m[2], 0)
+    )[2]
 
-    evidence_lines = "\n".join(f"Missing: {lab} — {imp}" for lab, imp in missing)
+    evidence_lines = "\n".join(
+        f"Missing: {label} — {impact}" for label, impact, _ in missing
+    )
+
+    # Add CSP meta-tag note if relevant
+    if csp_result.present and csp_result.source == "meta_tag" and csp_result.note:
+        evidence_lines += f"\nNote: {csp_result.note}"
+
+    # Exactly ONE finding object — this is the only code path that creates
+    # the grouped header finding
     return [
         Finding(
             id="SECURITY-HEADERS-GROUPED",
             title="Security headers policy incomplete",
-            severity=severity,  # type: ignore[arg-type]
+            severity=overall_severity,  # type: ignore[arg-type]
             confidence="high",
             category="web",
             target=url,
             evidence=evidence_lines,
-            recommendation="Add missing defensive HTTP response headers in your web server or application configuration.",
+            recommendation=(
+                "Add missing defensive HTTP response headers in your "
+                "web server or application configuration."
+            ),
         )
     ]
 

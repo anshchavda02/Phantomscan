@@ -8,11 +8,29 @@ from typing import Any, Literal
 
 Severity = Literal["critical", "high", "medium", "low", "info"]
 Confidence = Literal["high", "medium", "low"]
+VerificationMethod = Literal[
+    "baseline_differential",
+    "multi_source_agreement",
+    "active_confirmation",
+    "external_verification",
+    "passive_observation",
+    "",  # empty = legacy/unset
+]
 
 
 def utc_now() -> str:
     """Return an ISO-8601 UTC timestamp."""
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+VALID_VERIFICATION_METHODS = {
+    "baseline_differential",
+    "multi_source_agreement",
+    "active_confirmation",
+    "external_verification",
+    "passive_observation",
+    "",
+}
 
 
 @dataclass(frozen=True)
@@ -28,6 +46,9 @@ class Finding:
     evidence: str
     recommendation: str
     references: list[str] = field(default_factory=list)
+    verification_method: str = ""
+    module: str = ""
+    cwe: str = ""
 
     def __post_init__(self) -> None:
         """Validate fields."""
@@ -37,6 +58,10 @@ class Finding:
             raise ValueError(f"Invalid severity: {self.severity}")
         if self.confidence not in valid_confidences:
             raise ValueError(f"Invalid confidence: {self.confidence}")
+        if self.verification_method and self.verification_method not in VALID_VERIFICATION_METHODS:
+            raise ValueError(
+                f"Invalid verification_method: {self.verification_method}"
+            )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Finding":
@@ -51,11 +76,15 @@ class Finding:
             evidence=data.get("evidence", ""),
             recommendation=data.get("recommendation", ""),
             references=data.get("references", []),
+            verification_method=data.get("verification_method", ""),
+            module=data.get("module", ""),
+            cwe=data.get("cwe", ""),
         )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary."""
         return asdict(self)
+
 
 
 @dataclass(frozen=True)
