@@ -682,7 +682,19 @@ async def deep_analyze_web(
                     allow_redirects=False,
                     timeout=_aiohttp.ClientTimeout(total=8),
                 )
-                if redirect_result.status not in {301, 302, 307, 308}:
+                is_redirect = redirect_result.status in {301, 302, 307, 308}
+                # Also accept non-redirect responses that include a Location
+                # header pointing to HTTPS (some servers do this).
+                location = redirect_result.headers.get("location", "")
+                redirects_to_https = location.lower().startswith("https://")
+                # Check for meta-refresh or JS redirect to HTTPS in the body
+                body_text = redirect_result.text() if hasattr(redirect_result, 'text') else ""
+                has_meta_redirect = (
+                    'https://' in body_text.lower()
+                    and ('http-equiv="refresh"' in body_text.lower()
+                         or 'window.location' in body_text.lower())
+                )
+                if not is_redirect and not redirects_to_https and not has_meta_redirect:
                     findings.append(
                         Finding(
                             id="HTTP-NOT-REDIRECTED-TO-HTTPS",
@@ -719,12 +731,32 @@ def _path_severity(path: str) -> str:  # type: ignore[return]
 
 
 def _path_is_sensitive_content(body: str, path: str) -> bool:
-    """Return True when a nominally public path has sensitive content."""
+    """Return True when a nominally public path has genuinely sensitive content.
+
+    Standard public files (robots.txt, sitemap.xml, security.txt) are only
+    flagged when they reveal sensitive internal information.  A mere HTTP 200
+    for these well-known files is NOT a vulnerability.
+    """
     lower = body.lower()
     if "robots.txt" in path:
-        return "disallow:" in lower
+        # Only flag robots.txt if it reveals sensitive internal paths
+        # (admin panels, backup dirs, etc.) — normal Disallow rules are fine.
+        sensitive_indicators = (
+            "admin", "backup", "database", "phpmyadmin", "config",
+            "internal", ".env", "secret", "private", "wp-admin",
+        )
+        return any(ind in lower for ind in sensitive_indicators)
     if "security.txt" in path:
-        return "contact:" in lower or "policy:" in lower
+        # security.txt is an IETF standard (RFC 9116) — having one is a
+        # *best practice*, NOT a vulnerability.  Never flag it.
+        return False
+    if "sitemap.xml" in path:
+        # Sitemaps are standard public SEO files — never flag.
+        return False
+    if "crossdomain.xml" in path:
+        # Only flag crossdomain.xml if it has an overly permissive policy
+        # that allows any domain to make cross-origin requests.
+        return 'domain="*"' in lower or "domain='*'" in lower
     return True
 
 
@@ -856,6 +888,10 @@ def analyze_security_headers(
 
 _TRACKING_PREFIXES = ("_ga", "_gid", "_fbp", "_hjid", "__utma", "__utmb", "__utmc", "__utmz", "_gcl")
 _TRACKING_NAMES = {"NID", "IDE", "DSID", "1P_JAR", "CONSENT"}
+# Consent/preference cookies that intentionally need JavaScript access
+# (e.g., __Secure-STRP is Google's consent management cookie).
+_CONSENT_COOKIE_NAMES = {"__Secure-STRP", "__Secure-3PSIDTS", "__Secure-ENID"}
+_CONSENT_COOKIE_PREFIXES = ("__Secure-3P",)
 
 
 def analyze_cookies(url: str, raw_set_cookies: list[str]) -> list[Finding]:
@@ -880,6 +916,14 @@ def analyze_cookies(url: str, raw_set_cookies: list[str]) -> list[Finding]:
             name in _TRACKING_NAMES
             or any(name.startswith(p) for p in _TRACKING_PREFIXES)
         ):
+            continue
+
+        # Skip consent/preference cookies that intentionally need JS access
+        is_consent_cookie = (
+            name in _CONSENT_COOKIE_NAMES
+            or any(name.startswith(p) for p in _CONSENT_COOKIE_PREFIXES)
+        )
+        if is_consent_cookie:
             continue
 
         # Skip cookies that are already expired

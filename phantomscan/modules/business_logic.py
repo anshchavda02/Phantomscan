@@ -165,9 +165,35 @@ class BusinessLogicAnalyzer:
         for path in login_paths:
             url = f"{target}{path}"
             try:
+                # ── Pre-check: verify endpoint actually has a login form ──────
+                # Skip endpoints that redirect (login is handled elsewhere)
+                # or don't serve a form with password fields.
+                try:
+                    preflight = await self.http.get(
+                        url, retries=1, allow_redirects=False,
+                    )
+                    # If the endpoint redirects, the login page is elsewhere —
+                    # any timing difference is just redirect overhead, not
+                    # account enumeration.
+                    if preflight.status in (301, 302, 303, 307, 308):
+                        continue
+                    preflight_body = preflight.text().lower()
+                    # Require evidence of a login form (password field or
+                    # login-related form elements).
+                    has_login_form = (
+                        'type="password"' in preflight_body
+                        or "type='password'" in preflight_body
+                        or '"password"' in preflight_body
+                        or "<form" in preflight_body
+                    )
+                    if preflight.status != 200 and not has_login_form:
+                        continue
+                except Exception:
+                    continue
+
                 # Time a request with a definitely-invalid user
                 times_invalid: list[float] = []
-                for _ in range(3):
+                for _ in range(5):
                     t0 = time.perf_counter()
                     await self.http.post(
                         url,
@@ -192,8 +218,9 @@ class BusinessLogicAnalyzer:
                 avg_valid = sum(times_valid) / len(times_valid)
                 diff_ms = abs(avg_valid - avg_invalid) * 1000
 
-                # Require at least 500ms difference over multiple samples to eliminate network jitter FP
-                if diff_ms > 500:
+                # Require at least 800ms difference over multiple samples
+                # to eliminate network jitter and redirect overhead FPs
+                if diff_ms > 800:
                     findings.append({
                         "id": "BL-TIMING-ENUM",
                         "title": "Account Enumeration via Timing Side-Channel",

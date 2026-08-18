@@ -1367,8 +1367,17 @@ class TRPCProber:
                 response = await self.http.get(probe_url, retries=1)
                 body = response.text()
 
-                if ("TRPCError" in body or '"code":"NOT_FOUND"' in body or
-                        "trpc" in body.lower()):
+                # Only match genuine tRPC error responses — NOT pages
+                # that merely echo the URL path back (which contains "trpc").
+                # Require structured tRPC error patterns in JSON responses.
+                is_trpc = (
+                    "TRPCError" in body
+                    or '"code":"NOT_FOUND"' in body
+                    or '"code": "NOT_FOUND"' in body
+                    or ('"error"' in body and '"code"' in body
+                        and "TRPC" in body)
+                )
+                if is_trpc:
                     findings.append({
                         "id": "AI-TRPC-ENDPOINT",
                         "title": f"tRPC Endpoint Discovered: {base_path}",
