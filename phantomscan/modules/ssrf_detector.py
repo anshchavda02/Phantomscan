@@ -242,7 +242,17 @@ class SSRFDetector:
     @staticmethod
     def _contains_metadata(body: str, provider: str, baseline_body: str = "") -> bool:
         body_lower = body.lower()
-        if baseline_body and (body_lower == baseline_body or "<title>google</title>" in body_lower or "<!doctype html>" in body_lower):
+
+        # Cloud metadata responses are plain text or JSON — NEVER full HTML
+        # documents.  If the response contains HTML structure tags, the
+        # matched "signal" is just the reflected payload URL in the page's
+        # normal HTML output, not real metadata content.
+        if any(tag in body_lower for tag in ("<html", "<!doctype html", "<head>", "<title>")):
             return False
+
+        # If body matches baseline, it's just the normal page
+        if baseline_body and body_lower == baseline_body:
+            return False
+
         signals = _METADATA_SIGNALS.get(provider.split()[0], [])
         return any(s in body_lower for s in signals)

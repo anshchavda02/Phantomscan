@@ -258,13 +258,21 @@ class SQLiDetector:
 
             for attempt in range(2):
                 t0 = time.perf_counter()
-                try:
-                    await self._send_request(
-                        url, param, payload, timeout_seconds=15
-                    )
-                except asyncio.TimeoutError:
-                    pass  # timeout itself is a signal
+                resp = await self._send_request(
+                    url, param, payload, timeout_seconds=15
+                )
                 elapsed = time.perf_counter() - t0
+
+                # If the request failed (timeout, connection error, etc.),
+                # do NOT count it as evidence of SQL injection delay.
+                # A network timeout is an error, not proof of SLEEP() execution.
+                if resp is None:
+                    attempt_details.append(
+                        f"Attempt {attempt + 1}: {elapsed:.2f}s "
+                        f"— FAILED (timeout/error, not counted)"
+                    )
+                    await asyncio.sleep(1)
+                    continue
 
                 # Require response to take at least baseline_avg + 4.5s
                 # plus 2 standard deviations of baseline variance

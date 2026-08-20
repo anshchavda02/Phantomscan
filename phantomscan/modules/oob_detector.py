@@ -160,16 +160,42 @@ class OOBDetector:
             url = param_info.get("url", target)
             param_name = param_info.get("name", "cmd")
 
+            # Establish baseline timing with a benign value
+            baseline_times: list[float] = []
+            for _ in range(2):
+                try:
+                    t0 = time.perf_counter()
+                    resp = await self.http.get(
+                        url, params={param_name: "phantomscan_benign"},
+                        retries=1,
+                    )
+                    elapsed = time.perf_counter() - t0
+                    if resp is not None:
+                        baseline_times.append(elapsed)
+                except Exception:
+                    pass
+
+            if len(baseline_times) < 1:
+                continue  # can't establish baseline for this URL
+            baseline_avg = sum(baseline_times) / len(baseline_times)
+
             for payload in _BLIND_CMDI_PAYLOADS:
                 try:
                     t0 = time.perf_counter()
-                    await self.http.get(
+                    resp = await self.http.get(
                         url, params={param_name: payload},
                         retries=1,
                     )
                     elapsed = time.perf_counter() - t0
 
-                    if elapsed >= 4.5:
+                    # Only count if we got an actual HTTP response (not a
+                    # timeout/connection error) AND the delay is significant
+                    # above baseline
+                    if (
+                        resp is not None
+                        and elapsed >= 4.5
+                        and elapsed >= baseline_avg + 3.5
+                    ):
                         findings.append({
                             "id": "BLIND-CMDI-TIME",
                             "title": "Blind Command Injection (Time-Based)",
@@ -180,6 +206,7 @@ class OOBDetector:
                             "evidence": (
                                 f"Parameter: {param_name}\n"
                                 f"Payload: {payload}\n"
+                                f"Baseline avg: {baseline_avg:.2f}s\n"
                                 f"Response delay: {elapsed:.2f}s "
                                 f"(expected ~5s for sleep command)"
                             ),
