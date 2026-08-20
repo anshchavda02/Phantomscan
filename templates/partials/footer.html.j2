@@ -2,18 +2,18 @@
 <footer style="margin-top: 64px; padding: 48px 24px; border-top: 1px solid var(--border); background: var(--surface); text-align: center; color: var(--text-muted);">
     <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 16px;">
         <div style="width: 20px; height: 20px; border-radius: 4px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; color: white;">PS</div>
-        <div style="font-weight: 800; letter-spacing: 0.05em; font-size: 14px;">
+        <div style="font-weight: 800; letter-spacing: 0.05em; font-size: 14px; color: var(--text);">
             PHANTOMSCAN
         </div>
     </div>
     
-    <p style="font-size: 12px; max-width: 600px; margin: 0 auto 24px auto; line-height: 1.6;">
+    <p style="font-size: 12px; max-width: 600px; margin: 0 auto 24px auto; line-height: 1.6; color: var(--text-muted);">
         This report contains confidential information intended only for the authorized recipient. 
         The findings represented here are a point-in-time snapshot of the target's security posture 
         and may not reflect current conditions.
     </p>
     
-    <div style="font-size: 11px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;">
+    <div style="font-size: 11px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; color: var(--text-muted);">
         <span>Generated: {{ scan.timestamp | format_date }}</span>
         <span>|</span>
         <span>Version: {{ report_version }}</span>
@@ -22,7 +22,7 @@
     </div>
 
     {% if scan_metadata and (scan_metadata.circuit_breakers_opened or scan_metadata.degradation_active) %}
-    <div style="max-width: 600px; margin: 16px auto 0 auto; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--med); border-radius: 6px; padding: 10px 16px; font-size: 11px; color: var(--med); text-align: left;">
+    <div style="max-width: 600px; margin: 16px auto 0 auto; background: var(--med-bg); border: 1px solid var(--med-border); border-radius: 6px; padding: 10px 16px; font-size: 11px; color: var(--med); text-align: left;">
         <div style="font-weight: 700; margin-bottom: 4px;">⚠️ Degradation Notice & Service Status</div>
         {% if scan_metadata.circuit_breakers_opened %}
         <div>• <strong>Circuit Breakers Tripped:</strong> {{ scan_metadata.circuit_breakers_opened | join(', ') }} — Dependent enrichment sections were skipped or used cached data.</div>
@@ -34,12 +34,13 @@
         {% endif %}
     </div>
     {% endif %}
+
     <!-- v2.1 Local LLM Endpoint Config for Embedded Chat (Module 14) -->
-    <div style="max-width: 500px; margin: 24px auto 0 auto; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px;">
+    <div class="interactive-only" style="max-width: 500px; margin: 24px auto 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px;">
         <div style="font-weight: 700; color: var(--text); margin-bottom: 8px;">⚙️ AI Assistant Settings (Module 14)</div>
         <div style="display: flex; gap: 8px;">
             <input type="text" id="llm-endpoint-input" placeholder="e.g. http://localhost:11434/api/chat (Ollama)" style="flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 6px 10px; font-size: 11px;" value="">
-            <button class="btn btn-secondary" style="font-size: 11px;" onclick="saveLlmEndpoint()">Save Endpoint</button>
+            <button class="btn btn-secondary" style="font-size: 11px; background: var(--surface); color: var(--text); border: 1px solid var(--border);" onclick="saveLlmEndpoint()">Save Endpoint</button>
         </div>
         <div style="color: var(--text-muted); font-size: 10px; margin-top: 6px; text-align: left;">
             Configures local Ollama endpoint for interactive AI finding chat. If empty, falls back to static security FAQs.

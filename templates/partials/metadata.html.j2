@@ -26,14 +26,14 @@
             
             <div>
                 <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Engine Diagnostics</h4>
-                <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); max-height: 150px; overflow-y: auto;">
+                <div class="diagnostics-terminal" style="padding: 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; max-height: 150px; overflow-y: auto;">
                     {% for mod in scan.modules_executed %}
                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                         <span>[{{ mod.timestamp }}] {{ mod.engine }}::{{ mod.name }}</span>
-                        <span style="color: {% if mod.status == 'completed' %}var(--low){% elif mod.status == 'failed' %}var(--crit){% else %}var(--med){% endif %};">{{ mod.status|upper }}</span>
+                        <span style="color: {% if mod.status == 'completed' %}var(--low){% elif mod.status == 'failed' %}var(--crit){% else %}var(--med){% endif %}; font-weight: 600;">{{ mod.status|upper }}</span>
                     </div>
                     {% if mod.error %}
-                    <div style="color: var(--crit); margin-left: 12px; margin-bottom: 4px; border-left: 1px solid var(--crit); padding-left: 8px;">Error: {{ mod.error }}</div>
+                    <div style="color: var(--crit); margin-left: 12px; margin-bottom: 4px; border-left: 2px solid var(--crit); padding-left: 8px;">Error: {{ mod.error }}</div>
                     {% endif %}
                     {% endfor %}
                 </div>

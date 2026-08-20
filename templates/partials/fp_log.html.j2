@@ -20,7 +20,7 @@
             </thead>
             <tbody>
                 {% for fp in fp_log %}
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <tr style="border-bottom: 1px solid var(--border);">
                     <td style="padding: 8px; font-weight: 600;">{{ fp.title }}</td>
                     <td style="padding: 8px;">{{ fp.severity }}</td>
                     <td style="padding: 8px; color: var(--accent2);">{{ fp.reason }}</td>
