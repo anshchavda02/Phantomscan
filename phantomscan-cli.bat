@@ -1,4 +1,8 @@
 @echo off
 setlocal
-title PhantomScan
-"C:\Users\anshc\.gemini\antigravity-ide\scratch\Phantomscan-repo\.venv\Scripts\python.exe" "C:\Users\anshc\.gemini\antigravity-ide\scratch\Phantomscan-repo\phantomscan.py" %*
+title PhantomScan CLI
+if exist "%~dp0.venv\Scripts\python.exe" (
+    "%~dp0.venv\Scripts\python.exe" "%~dp0phantomscan.py" %*
+) else (
+    python "%~dp0phantomscan.py" %*
+)
