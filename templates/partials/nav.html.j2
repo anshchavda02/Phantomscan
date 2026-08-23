@@ -7,7 +7,12 @@
     </div>
     
     <div style="display: none;" class="desktop-nav">
-        <!-- Add pill tabs here for desktop -->
+        <a href="#summary" class="pill" style="text-decoration: none; color: var(--text-muted);">Summary</a>
+        <a href="#score" class="pill" style="text-decoration: none; color: var(--text-muted);">Score</a>
+        <a href="#findings" class="pill" style="text-decoration: none; color: var(--text-muted);">Findings ({{ findings|length }})</a>
+        <a href="#suppressed" class="pill" style="text-decoration: none; color: var(--accent-light); border-color: var(--accent-glow); display: flex; align-items: center; gap: 4px;">
+            👻 Suppressed ({{ fp_log|length }})
+        </a>
     </div>
     
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -43,4 +48,5 @@
     <a href="#findings" class="sidebar-dot" title="All Findings" data-target="findings"></a>
     <a href="#privacy" class="sidebar-dot" title="Privacy & PII" data-target="privacy"></a>
     <a href="#expiry-calendar" class="sidebar-dot" title="Expiry Calendar" data-target="expiry-calendar"></a>
+    <a href="#suppressed" class="sidebar-dot" title="Suppressed (False Positives)" data-target="suppressed"></a>
 </div>

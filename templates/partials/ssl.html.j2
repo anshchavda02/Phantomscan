@@ -14,8 +14,8 @@
             </div>
             <div style="display: flex; flex-direction: column;">
                 <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Expires In</span>
-                <span style="font-size: 20px; font-weight: 700; color: {% if intel.ssl.expiry_days > 30 %}var(--low){% elif intel.ssl.expiry_days > 7 %}var(--med){% else %}var(--crit){% endif %};">
-                    {{ intel.ssl.expiry_days }} days
+                <span style="font-size: 20px; font-weight: 700; color: {% if intel.ssl.expiry_days is not none and intel.ssl.expiry_days > 30 %}var(--low){% elif intel.ssl.expiry_days is not none and intel.ssl.expiry_days > 7 %}var(--med){% elif intel.ssl.expiry_days is not none %}var(--crit){% else %}inherit{% endif %};">
+                    {{ intel.ssl.expiry_days if intel.ssl.expiry_days is not none else 'N/A' }} {% if intel.ssl.expiry_days is not none %}days{% endif %}
                 </span>
             </div>
         </div>

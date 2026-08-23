@@ -1,34 +1,255 @@
-<!-- False Positives / Suppressed Section -->
-{% if fp_log %}
+<!-- False Positives / Suppressed Findings Section -->
 <section id="suppressed" class="section">
-    <div class="section-header">
-        <div style="font-size: 24px; color: var(--text-muted);">👻</div>
-        <h2>SUPPRESSED FINDINGS (FALSE POSITIVES)</h2>
+    <div class="section-header" style="justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="font-size: 24px; color: var(--text-muted);">👻</div>
+            <h2 style="margin: 0;">SUPPRESSED FINDINGS (FALSE POSITIVES & QUALITY GATING)</h2>
+            <span class="pill" style="background: rgba(124, 58, 237, 0.1); border-color: var(--accent); color: var(--accent-light); font-weight: 700;">
+                {{ fp_log | length }} Suppressed
+            </span>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="text" id="fp-search-box" placeholder="Filter false positives..." 
+                   onkeyup="filterSuppressedFindings()" 
+                   style="background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; font-size: 12px; min-width: 220px;">
+        </div>
     </div>
 
-    <div class="card" style="border-left: 4px solid var(--text-muted); opacity: 0.8;">
-        <p style="color: var(--text-muted); margin-bottom: 16px;">The following items were identified during the scan but have been suppressed based on rules or manual analyst override.</p>
-        
-        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
-            <thead>
-                <tr style="border-bottom: 1px solid var(--border-light); color: var(--text-muted);">
-                    <th style="padding: 8px;">Finding Title</th>
-                    <th style="padding: 8px;">Original Severity</th>
-                    <th style="padding: 8px;">Reason for Suppression</th>
-                    <th style="padding: 8px;">Suppressed By</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for fp in fp_log %}
-                <tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 8px; font-weight: 600;">{{ fp.title }}</td>
-                    <td style="padding: 8px;">{{ fp.severity }}</td>
-                    <td style="padding: 8px; color: var(--accent2);">{{ fp.reason }}</td>
-                    <td style="padding: 8px;">{{ fp.author or 'System Rule' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- FP Analytics & Gate Intelligence Cards -->
+    <div class="grid-4" style="margin-bottom: 24px;">
+        <div class="card" style="display: flex; flex-direction: column; gap: 4px; padding: 16px;">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Total Raw Candidates</div>
+            <div style="font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--text);">
+                {{ (findings | length) + (fp_log | length) }}
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted);">Evaluated by scanner modules</div>
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column; gap: 4px; padding: 16px; border-left: 3px solid var(--low);">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Confirmed Real Findings</div>
+            <div style="font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--low);">
+                {{ findings | length }}
+            </div>
+            <div style="font-size: 11px; color: var(--low);">Passed deterministic validation</div>
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column; gap: 4px; padding: 16px; border-left: 3px solid var(--accent-light);">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Suppressed False Positives</div>
+            <div style="font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--accent-light);">
+                {{ fp_log | length }}
+            </div>
+            <div style="font-size: 11px; color: var(--accent-light);">Filtered by gate & platform rules</div>
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column; gap: 4px; padding: 16px; border-left: 3px solid var(--accent2);">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">FP Elimination Rate</div>
+            <div style="font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--accent2);">
+                {% if (findings | length) + (fp_log | length) > 0 %}
+                    {{ (((fp_log | length) / ((findings | length) + (fp_log | length))) * 100) | round(1) }}%
+                {% else %}
+                    0.0%
+                {% endif %}
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted);">Score protected from inflation</div>
+        </div>
     </div>
+
+    {% if fp_log and fp_log | length > 0 %}
+    <!-- Filter Category Pills -->
+    <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;" id="fp-filter-buttons">
+        <button class="pill" onclick="setFPFilter('all')" id="fp-btn-all" style="cursor: pointer; background: var(--accent); color: #fff; border-color: var(--accent);">
+            All Suppressed ({{ fp_log | length }})
+        </button>
+        <button class="pill" onclick="setFPFilter('gate')" id="fp-btn-gate" style="cursor: pointer;">
+            FindingGate Invariants
+        </button>
+        <button class="pill" onclick="setFPFilter('platform')" id="fp-btn-platform" style="cursor: pointer;">
+            Platform & Catch-All
+        </button>
+        <button class="pill" onclick="setFPFilter('confidence')" id="fp-btn-confidence" style="cursor: pointer;">
+            Confidence Floor
+        </button>
+    </div>
+
+    <!-- Suppressed Findings Table & Inspector -->
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 16px 20px; background: rgba(0,0,0,0.15); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; font-size: 13px; color: var(--text-muted);">
+                AUDIT LOG: CANDIDATE VULNERABILITIES REJECTED DURING POST-PROCESSING
+            </span>
+            <span style="font-size: 12px; color: var(--text-muted);">Click any row to inspect raw evidence & diagnostic rationale</span>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;" id="fp-table">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-light); background: rgba(0,0,0,0.1);">
+                        <th style="padding: 12px 16px; width: 40px;">#</th>
+                        <th style="padding: 12px 16px;">Candidate Vulnerability</th>
+                        <th style="padding: 12px 16px; width: 110px;">Original Severity</th>
+                        <th style="padding: 12px 16px;">Target Endpoint</th>
+                        <th style="padding: 12px 16px;">Suppression Mechanism & Rationale</th>
+                        <th style="padding: 12px 16px; width: 80px; text-align: center;">Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fp in fp_log %}
+                    {% set fp_reason = fp.suppression_reason or fp.gate_rejection_reason or fp.reason or 'Filtered by Quality Invariant' %}
+                    {% set fp_type = 'gate' if (fp.gate_rejection_reason or 'field' in fp_reason|lower or 'evidence' in fp_reason|lower or 'confidence' in fp_reason|lower and 'invalid' in fp_reason|lower) else ('confidence' if 'confidence' in fp_reason|lower else 'platform') %}
+                    
+                    <tr class="fp-row" data-type="{{ fp_type }}" data-search="{{ (fp.title ~ ' ' ~ fp.target ~ ' ' ~ fp_reason) | lower }}" 
+                        style="border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s ease;"
+                        onclick="toggleFPDetails('fp-detail-{{ loop.index }}')">
+                        
+                        <td style="padding: 12px 16px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">{{ loop.index }}</td>
+                        
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px;">
+                                <span>{{ fp.title or fp.id or 'Unnamed Candidate' }}</span>
+                            </div>
+                            {% if fp.id %}
+                            <div style="font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px;">
+                                ID: {{ fp.id }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        
+                        <td style="padding: 12px 16px;">
+                            <span class="pill badge-{{ (fp.severity | lower) if fp.severity else 'medium' }}" style="font-size: 10px; padding: 2px 8px; text-transform: uppercase;">
+                                {{ fp.severity or 'medium' }}
+                            </span>
+                        </td>
+                        
+                        <td style="padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent2); word-break: break-all; max-width: 250px;">
+                            {{ fp.target or scan.target }}
+                        </td>
+                        
+                        <td style="padding: 12px 16px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span class="pill" style="font-size: 10px; padding: 2px 6px; background: {% if fp_type == 'gate' %}rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);{% elif fp_type == 'platform' %}rgba(6, 182, 212, 0.15); color: #38bdf8; border-color: rgba(6, 182, 212, 0.3);{% else %}rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3);{% endif %}">
+                                    {{ 'FINDING_GATE' if fp_type == 'gate' else ('PLATFORM_RULE' if fp_type == 'platform' else 'CONFIDENCE') }}
+                                </span>
+                                <span style="color: var(--text-muted); font-weight: 500;">{{ fp_reason }}</span>
+                            </div>
+                        </td>
+                        
+                        <td style="padding: 12px 16px; text-align: center;">
+                            <button style="padding: 2px 8px; font-size: 11px; background: transparent; border-color: var(--border-light);" onclick="event.stopPropagation(); toggleFPDetails('fp-detail-{{ loop.index }}')">
+                                🔍 View
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Expandable Details Drawer -->
+                    <tr id="fp-detail-{{ loop.index }}" class="fp-detail-row hidden" style="background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border-light);">
+                        <td colspan="6" style="padding: 16px 20px;">
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+                                    <div>
+                                        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">
+                                            Why this finding was suppressed:
+                                        </div>
+                                        <div style="font-size: 13px; color: var(--accent-light); font-weight: 600;">
+                                            {{ fp_reason }}
+                                        </div>
+                                    </div>
+
+                                    <div style="display: flex; gap: 8px;">
+                                        {% if fp.confidence %}
+                                        <span class="pill" style="font-size: 11px;">Confidence: {{ fp.confidence | upper }}</span>
+                                        {% endif %}
+                                        {% if fp.verification_method %}
+                                        <span class="pill" style="font-size: 11px;">Method: {{ fp.verification_method }}</span>
+                                        {% endif %}
+                                        {% if fp.category %}
+                                        <span class="pill" style="font-size: 11px;">Category: {{ fp.category }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {% if fp.evidence %}
+                                <div>
+                                    <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+                                        Raw Candidate Evidence (Evaluated by Scanner):
+                                    </div>
+                                    <pre class="evidence" style="margin: 0; max-height: 180px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); padding: 10px; border-radius: 6px; font-size: 11px; color: var(--text);">{{ fp.evidence }}</pre>
+                                </div>
+                                {% endif %}
+
+                                {% if fp.recommendation %}
+                                <div style="font-size: 11px; color: var(--text-dim);">
+                                    <strong>Original Remediation Guidance:</strong> {{ fp.recommendation }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function toggleFPDetails(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.classList.toggle('hidden');
+            }
+        }
+
+        function setFPFilter(type) {
+            // Update active button styles
+            var buttons = document.querySelectorAll('#fp-filter-buttons button');
+            buttons.forEach(function(btn) {
+                btn.style.background = 'var(--surface)';
+                btn.style.color = 'var(--text)';
+                btn.style.borderColor = 'var(--border)';
+            });
+            var activeBtn = document.getElementById('fp-btn-' + type);
+            if (activeBtn) {
+                activeBtn.style.background = 'var(--accent)';
+                activeBtn.style.color = '#ffffff';
+                activeBtn.style.borderColor = 'var(--accent)';
+            }
+
+            // Filter rows
+            var rows = document.querySelectorAll('#fp-table tbody tr.fp-row');
+            var details = document.querySelectorAll('#fp-table tbody tr.fp-detail-row');
+            details.forEach(function(d) { d.classList.add('hidden'); });
+
+            rows.forEach(function(row) {
+                var rowType = row.getAttribute('data-type');
+                if (type === 'all' || rowType === type) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function filterSuppressedFindings() {
+            var query = document.getElementById('fp-search-box').value.toLowerCase().trim();
+            var rows = document.querySelectorAll('#fp-table tbody tr.fp-row');
+            rows.forEach(function(row) {
+                var searchData = row.getAttribute('data-search') || '';
+                if (!query || searchData.indexOf(query) !== -1) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+    </script>
+    {% else %}
+    <!-- Zero Suppressed State -->
+    <div class="card" style="text-align: center; padding: 36px 20px; border: 1px dashed var(--border-light); background: rgba(0,0,0,0.1);">
+        <div style="font-size: 36px; margin-bottom: 12px;">🛡️</div>
+        <h3 style="margin: 0 0 8px 0; color: var(--text);">Zero False Positives Triggered</h3>
+        <p style="margin: 0; color: var(--text-muted); font-size: 13px; max-width: 600px; margin: 0 auto;">
+            All findings generated during this assessment satisfied strict multi-layer verification gates, catch-all baseline differential checks, and evidence thresholds. No candidate findings required suppression.
+        </p>
+    </div>
+    {% endif %}
 </section>
-{% endif %}

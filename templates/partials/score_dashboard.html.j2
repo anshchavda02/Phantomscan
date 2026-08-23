@@ -48,9 +48,17 @@
                 <span style="color: var(--text-muted);">Medium Findings</span>
                 <span class="pill badge-medium">{{ findings | selectattr('severity', 'equalto', 'medium') | list | length }}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
                 <span style="color: var(--text-muted);">Low/Info Findings</span>
                 <span class="pill badge-low">{{ (findings | selectattr('severity', 'equalto', 'low') | list | length) + (findings | selectattr('severity', 'equalto', 'info') | list | length) }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <a href="#suppressed" style="color: var(--accent-light); text-decoration: none; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                    👻 Suppressed False Positives
+                </a>
+                <span class="pill" style="background: rgba(124, 58, 237, 0.15); color: var(--accent-light); border-color: var(--accent-glow);">
+                    {{ fp_log | length }}
+                </span>
             </div>
         </div>
     </div>

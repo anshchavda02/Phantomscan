@@ -15,8 +15,8 @@
         </div>
         <div class="intel-row">
             <span class="intel-label">Expires</span>
-            <span class="intel-value" style="color: {% if intel.whois.days_remaining > 180 %}var(--low){% elif intel.whois.days_remaining > 90 %}var(--med){% else %}var(--crit){% endif %};">
-                {{ intel.whois.expiry_date[:10] if intel.whois.expiry_date else 'N/A' }} ({{ intel.whois.days_remaining }}d)
+            <span class="intel-value" style="color: {% if intel.whois.days_remaining is not none and intel.whois.days_remaining > 180 %}var(--low){% elif intel.whois.days_remaining is not none and intel.whois.days_remaining > 90 %}var(--med){% elif intel.whois.days_remaining is not none %}var(--crit){% else %}inherit{% endif %};">
+                {{ intel.whois.expiry_date[:10] if intel.whois.expiry_date else 'N/A' }}{% if intel.whois.days_remaining is not none %} ({{ intel.whois.days_remaining }}d){% endif %}
             </span>
         </div>
         <div class="intel-row">
