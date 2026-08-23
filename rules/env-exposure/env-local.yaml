@@ -1,32 +1,32 @@
-id: exposed-env-file
+id: env-local-exposed
 info:
-  name: Exposed .env file
+  name: Exposed .env.local File
   author: phantomscan
   severity: high
-  description: The server is exposing a .env file which may contain sensitive credentials, API keys, and database passwords.
-  tags: config,exposure,sensitive
+  description: The .env.local file is publicly accessible and contains local environment configuration and keys.
+  tags: env,exposure,config,sensitive
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/
 
 requests:
   - method: GET
     path:
-      - "{{BaseURL}}/.env"
-      - "{{BaseURL}}/api/.env"
-
+      - "{{BaseURL}}/.env.local"
+      - "{{BaseURL}}/api/.env.local"
     matchers-condition: and
     matchers:
       - type: status
-        status:
-          - 200
-
+        status: [200]
       - type: word
         words:
           - "DB_PASSWORD"
           - "APP_SECRET"
           - "AWS_ACCESS_KEY"
           - "API_KEY"
+          - "DATABASE_URL"
+          - "SECRET_KEY"
         condition: or
         part: body
-
       - type: word
         negative: true
         words:

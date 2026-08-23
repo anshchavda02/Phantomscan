@@ -1,0 +1,36 @@
+id: env-production-exposed
+info:
+  name: Exposed .env.production File
+  author: phantomscan
+  severity: high
+  description: The .env.production file is publicly accessible and contains production credentials and keys.
+  tags: env,exposure,config,sensitive
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.env.production"
+      - "{{BaseURL}}/api/.env.production"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "DB_PASSWORD"
+          - "APP_SECRET"
+          - "AWS_ACCESS_KEY"
+          - "API_KEY"
+          - "DATABASE_URL"
+          - "SECRET_KEY"
+          - "NODE_ENV=production"
+        condition: or
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<!DOCTYPE"
+          - "<html"
+        part: body

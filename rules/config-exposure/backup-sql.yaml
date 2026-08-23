@@ -1,0 +1,36 @@
+id: backup-sql-exposed
+info:
+  name: Exposed Database SQL Backup
+  author: phantomscan
+  severity: critical
+  description: A database SQL dump backup file is publicly accessible, potentially exposing entire database contents, user records, and password hashes.
+  tags: backup,exposure,database,sensitive
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/backup.sql"
+      - "{{BaseURL}}/dump.sql"
+      - "{{BaseURL}}/database.sql"
+      - "{{BaseURL}}/db.sql"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "CREATE TABLE"
+          - "INSERT INTO"
+          - "MySQL dump"
+          - "PostgreSQL database dump"
+        condition: or
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<!DOCTYPE html"
+          - "<title>Login</title>"
+        condition: or
+        part: body

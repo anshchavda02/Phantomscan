@@ -537,7 +537,8 @@ async def scan_one(
         include_low=include_low,
         fp_log_path=root / "reports" / f"fp_log_{safe_target}_{ts_str}.json",
     )
-    final_score = score(final_findings, observations)
+    platform = load_known_platform(root / "data", root_domain(target.host))
+    final_score = score(final_findings, observations, platform=platform)
     final_grade = grade(final_score)
     finished = utc_now()
 

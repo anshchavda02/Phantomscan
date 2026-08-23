@@ -520,50 +520,53 @@ async def deep_analyze_web(
     if target.target_type == "cidr":
         return []
 
-    findings: list[Finding] = []
     base = base_url.rstrip("/")
+    findings: list[Finding] = []
+    from urllib.parse import urlparse
+    parsed = urlparse(base_url)
+    if parsed.scheme and parsed.netloc:
+        web_root = f"{parsed.scheme}://{parsed.netloc}"
+    else:
+        web_root = base_url.rstrip("/")
 
-    import aiohttp as _aiohttp
+    from modules.sensitive_path_scanner import SensitivePathScanner
+    from modules.catch_all_detector import CatchAllDetector
+    from modules.template_scanner import TemplateScanner
+    from pathlib import Path
 
     async with http_client() as client:
-        # ── Sensitive path probing (concurrent) ───────────────────────────────
-        sem = asyncio.Semaphore(10)
+        # ── Sensitive path probing (concurrent with body verification) ────────
+        detector = CatchAllDetector(http_client=client)
+        catch_all = await detector.detect(web_root)
 
-        async def probe_path(path: str) -> Finding | None:
-            async with sem:
-                try:
-                    r = await client.get(
-                        base + path,
-                        retries=1,
-                        timeout=_aiohttp.ClientTimeout(total=8),
-                    )
-                    if r.status == 200:
-                        path_leaf = path.lstrip("/")
-                        is_expected = any(p in path_leaf for p in _EXPECTED_PUBLIC)
-                        if is_expected and not _path_is_sensitive_content(r.text(), path):
-                            return None
-                        return Finding(
-                            id=f"SENSITIVE-PATH-{path.replace('/', '-').strip('-').upper()}",
-                            title=f"Sensitive path accessible: {path}",
-                            severity=_path_severity(path),
-                            confidence="high",
-                            category="web",
-                            target=base + path,
-                            evidence=f"HTTP 200 response from {base}{path}",
-                            recommendation=f"Restrict or remove public access to {path}.",
-                        )
-                except Exception:
-                    return None
+        scanner = SensitivePathScanner(http_client=client)
+        path_findings = await scanner.scan(web_root, catch_all=catch_all)
+        for r in path_findings:
+            findings.append(r)
+            log.info("Sensitive path found: %s", r.target)
 
-        path_results = await asyncio.gather(*[probe_path(p) for p in _SENSITIVE_PATHS])
-        for r in path_results:
-            if r:
-                findings.append(r)
-                log.info("Sensitive path found: %s", r.target)
+        # ── YAML Template engine scanning ─────────────────────────────────────
+        try:
+            rules_dir = Path(__file__).parent.parent / "rules"
+            if rules_dir.exists():
+                tmpl_scanner = TemplateScanner(http_client=client)
+                tmpl_findings = await tmpl_scanner.scan(
+                    target=web_root,
+                    template_dir=rules_dir,
+                    tags=None,
+                    severity=["critical", "high", "medium"],
+                    catch_all=catch_all,
+                )
+                for tf in tmpl_findings:
+                    findings.append(tf)
+                    log.info("Template vulnerability found: %s (%s)", tf.title, tf.target)
+        except Exception as e:
+            log.debug("Template scanning error: %s", e)
 
         # ── Fetch the main page for body analysis ─────────────────────────────
         try:
-            main = await client.get(base + "/", retries=1)
+            main_url = base_url if (parsed.path and parsed.path != "/") else (web_root + "/")
+            main = await client.get(main_url, retries=1)
             body = main.text()
             headers = main.headers
 

@@ -1,0 +1,28 @@
+id: git-head-exposed
+info:
+  name: Exposed .git/HEAD File
+  author: phantomscan
+  severity: critical
+  description: The .git/HEAD file is publicly accessible, confirming source code repository exposure.
+  tags: git,exposure,sensitive
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/HEAD"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "ref: refs/heads/"
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<!DOCTYPE"
+          - "<html"
+        part: body

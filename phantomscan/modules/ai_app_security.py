@@ -1719,9 +1719,15 @@ class ServerlessAbuseDetector:
                 except Exception:
                     pass
 
-        base = target.rstrip("/")
+        from urllib.parse import urlparse
+        parsed_target = urlparse(target)
+        if parsed_target.scheme and parsed_target.netloc:
+            base = f"{parsed_target.scheme}://{parsed_target.netloc}"
+        else:
+            base = target.rstrip("/")
+
         for path in candidates:
-            url = base + path
+            url = base.rstrip("/") + ("/" + path.lstrip("/"))
             result = await self._probe_endpoint(url)
             if result:
                 findings.append(result)
@@ -1957,17 +1963,40 @@ class EnvDebugScanner:
     async def scan(self, target: str) -> list[dict[str, Any]]:
         """Probe each path and return findings for exposed resources."""
         findings: list[dict[str, Any]] = []
-        base = target.rstrip("/")
+        from urllib.parse import urlparse
+        parsed = urlparse(target)
+        if parsed.scheme and parsed.netloc:
+            base = f"{parsed.scheme}://{parsed.netloc}"
+        else:
+            base = target.rstrip("/")
 
         for path in self.PATHS_TO_CHECK:
             url = base + path
             try:
                 resp = await self.http.get(url, retries=1)
-                if resp.status != 200:
+                status = getattr(resp, "status", getattr(resp, "status_code", 0))
+                if status != 200:
                     continue
 
-                body = resp.text()
-                finding = self._classify(path, url, body)
+                if hasattr(resp, "text"):
+                    if callable(resp.text):
+                        body = resp.text()
+                    else:
+                        body = str(resp.text)
+                elif hasattr(resp, "body"):
+                    if isinstance(resp.body, bytes):
+                        body = resp.body.decode("utf-8", errors="ignore")
+                    else:
+                        body = str(resp.body)
+                else:
+                    body = str(resp)
+
+                headers = getattr(resp, "headers", {})
+                ct = ""
+                if isinstance(headers, dict):
+                    ct = headers.get("content-type", headers.get("Content-Type", "")).lower()
+
+                finding = self._classify(path, url, body, ct)
                 if finding:
                     findings.append(finding)
 
@@ -1977,9 +2006,14 @@ class EnvDebugScanner:
         return findings
 
     def _classify(
-        self, path: str, url: str, body: str,
+        self, path: str, url: str, body: str, content_type: str = ""
     ) -> dict[str, Any] | None:
         """Classify a 200-OK response for a sensitive path."""
+        from modules.response_validator import ResponseContentValidator
+
+        if ResponseContentValidator.is_html_page(body, content_type):
+            return None
+
         if path.startswith("/.env"):
             found_keys = [
                 line.split("=")[0].strip()
@@ -1987,7 +2021,8 @@ class EnvDebugScanner:
                 if "=" in line
                 and any(sk in line.upper() for sk in self._SENSITIVE_ENV_KEYS)
             ]
-            if found_keys or "=" in body:
+            has_env_pattern = bool(re.search(r"^[A-Z0-9_]+=.+", body, re.MULTILINE))
+            if found_keys or has_env_pattern:
                 return {
                     "id": "AI-ENV-FILE-EXPOSED",
                     "title": f".env File Publicly Accessible: {path}",
@@ -2009,27 +2044,28 @@ class EnvDebugScanner:
                 }
 
         if path in ("/.git/config", "/.git/HEAD"):
-            return {
-                "id": "AI-GIT-EXPOSED",
-                "title": ".git Directory Exposed",
-                "severity": "high",
-                "confidence": "high",
-                "category": MODULE_GROUP,
-                "target": url,
-                "evidence": (
-                    f"URL: {url}\n"
-                    "The .git directory is publicly accessible, potentially "
-                    "exposing full source code history, commit messages, "
-                    "and any secrets ever committed."
-                ),
-                "recommendation": (
-                    "Block access to .git/ in your web server configuration "
-                    "or deployment settings."
-                ),
-                "references": ["CWE-538"],
-            }
+            if "ref: refs/" in body or "[core]" in body or "[remote" in body or "repositoryformatversion" in body:
+                return {
+                    "id": "AI-GIT-EXPOSED",
+                    "title": ".git Directory Exposed",
+                    "severity": "high",
+                    "confidence": "high",
+                    "category": MODULE_GROUP,
+                    "target": url,
+                    "evidence": (
+                        f"URL: {url}\n"
+                        "The .git directory is publicly accessible, potentially "
+                        "exposing full source code history, commit messages, "
+                        "and any secrets ever committed."
+                    ),
+                    "recommendation": (
+                        "Block access to .git/ in your web server configuration "
+                        "or deployment settings."
+                    ),
+                    "references": ["CWE-538"],
+                }
 
-        if path in ("/api/debug", "/api/_debug", "/debug", "/__debug__"):
+        if path in ("/api/debug", "/api/_debug", "/debug", "/__debug__", "/api/health/env", "/api/config"):
             return {
                 "id": "AI-DEBUG-ENDPOINT",
                 "title": f"Debug Endpoint Accessible: {path}",
@@ -2052,25 +2088,26 @@ class EnvDebugScanner:
             }
 
         if path == "/package.json":
-            return {
-                "id": "AI-PACKAGE-JSON-EXPOSED",
-                "title": "package.json Publicly Accessible",
-                "severity": "low",
-                "confidence": "high",
-                "category": MODULE_GROUP,
-                "target": url,
-                "evidence": (
-                    f"URL: {url}\n"
-                    "package.json is readable, exposing exact dependency "
-                    "versions (useful for CVE targeting) and potentially "
-                    "custom scripts."
-                ),
-                "recommendation": (
-                    "Block access to package.json from the public web "
-                    "server or exclude it from the deployment build."
-                ),
-                "references": ["CWE-200"],
-            }
+            if '"dependencies"' in body or '"devDependencies"' in body or '"name"' in body:
+                return {
+                    "id": "AI-PACKAGE-JSON-EXPOSED",
+                    "title": "package.json Publicly Accessible",
+                    "severity": "low",
+                    "confidence": "high",
+                    "category": MODULE_GROUP,
+                    "target": url,
+                    "evidence": (
+                        f"URL: {url}\n"
+                        "package.json is readable, exposing exact dependency "
+                        "versions (useful for CVE targeting) and potentially "
+                        "custom scripts."
+                    ),
+                    "recommendation": (
+                        "Block access to package.json from the public web "
+                        "server or exclude it from the deployment build."
+                    ),
+                    "references": ["CWE-200"],
+                }
 
         return None
 

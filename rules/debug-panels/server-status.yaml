@@ -1,0 +1,33 @@
+id: apache-server-status
+info:
+  name: Exposed Apache Server Status
+  author: phantomscan
+  severity: low
+  description: Apache /server-status page is publicly accessible, leaking active client IP addresses, requested URLs, worker status, and system performance metrics.
+  tags: apache,server-status,info-leak,exposure
+  reference:
+    - https://httpd.apache.org/docs/2.4/mod/mod_status.html
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/server-status"
+      - "{{BaseURL}}/server-status?auto"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "Apache Server Status for"
+          - "Server Version:"
+          - "Total Accesses:"
+        condition: or
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<title>Login</title>"
+          - "<title>404 Not Found</title>"
+        condition: or
+        part: body

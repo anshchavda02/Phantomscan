@@ -9,4 +9,5 @@ engines/go/bin/
 engines/rust/target/
 node_modules/
 *.zip
+*.pptx
 .DS_Store

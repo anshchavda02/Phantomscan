@@ -37,23 +37,38 @@ VALID_VERIFICATION_METHODS = {
 class Finding:
     """A normalized security finding."""
 
-    id: str
-    title: str
-    severity: Severity
-    confidence: Confidence
-    category: str
-    target: str
-    evidence: str
-    recommendation: str
+    id: str = ""
+    title: str = ""
+    severity: Severity = "info"
+    confidence: Confidence = "low"
+    category: str = "web"
+    target: str = ""
+    evidence: str = ""
+    recommendation: str = ""
     references: list[str] = field(default_factory=list)
     verification_method: str = ""
     module: str = ""
     cwe: str = ""
+    description: str = ""
 
     def __post_init__(self) -> None:
         """Validate fields."""
         valid_severities = {"critical", "high", "medium", "low", "info"}
         valid_confidences = {"high", "medium", "low"}
+
+        # Normalise severity and confidence to lowercase if passed as uppercase/mixed
+        sev = str(self.severity).lower() if self.severity else "info"
+        conf = str(self.confidence).lower() if self.confidence else "low"
+        object.__setattr__(self, "severity", sev)
+        object.__setattr__(self, "confidence", conf)
+
+        if not self.id and self.title:
+            import re
+            gen_id = "FINDING-" + re.sub(r"[^A-Z0-9]+", "-", self.title.upper()).strip("-")[:30]
+            object.__setattr__(self, "id", gen_id)
+        if not self.recommendation and self.description:
+            object.__setattr__(self, "recommendation", self.description)
+
         if self.severity not in valid_severities:
             raise ValueError(f"Invalid severity: {self.severity}")
         if self.confidence not in valid_confidences:
@@ -79,6 +94,7 @@ class Finding:
             verification_method=data.get("verification_method", ""),
             module=data.get("module", ""),
             cwe=data.get("cwe", ""),
+            description=data.get("description", ""),
         )
 
     def to_dict(self) -> dict[str, Any]:

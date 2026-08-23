@@ -1,0 +1,32 @@
+id: elmah-axd-exposed
+info:
+  name: Exposed ELMAH Error Log
+  author: phantomscan
+  severity: high
+  description: ASP.NET ELMAH error logging panel is publicly accessible without authentication, exposing application exceptions, stack traces, and internal variables.
+  tags: aspnet,panel,debug,exposure,sensitive
+  reference:
+    - https://elmah.github.io/
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/elmah.axd"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "Error Log for"
+          - "Error Logging Modules and Handlers"
+          - "HTTP Exceptions"
+        condition: or
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<title>Login"
+          - "Sign in"
+        condition: or
+        part: body

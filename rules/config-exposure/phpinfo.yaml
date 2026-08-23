@@ -1,0 +1,35 @@
+id: phpinfo-exposed
+info:
+  name: Exposed phpinfo Page
+  author: phantomscan
+  severity: medium
+  description: The phpinfo.php diagnostic page is publicly accessible, leaking PHP version, server environment variables, extensions, and system paths.
+  tags: php,exposure,misconfig,sensitive
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/phpinfo.php"
+      - "{{BaseURL}}/info.php"
+      - "{{BaseURL}}/php_info.php"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "PHP Version"
+          - "PHP License"
+          - "System"
+        condition: and
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<title>Login</title>"
+          - "<title>Sign in</title>"
+          - "<title>404"
+        condition: or
+        part: body

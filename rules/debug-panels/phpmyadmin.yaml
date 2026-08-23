@@ -1,0 +1,32 @@
+id: phpmyadmin-panel-exposed
+info:
+  name: Exposed phpMyAdmin Panel
+  author: phantomscan
+  severity: medium
+  description: phpMyAdmin database administration interface is publicly accessible, increasing exposure to brute force and authentication attacks.
+  tags: panel,phpmyadmin,database,exposure
+  reference:
+    - https://www.phpmyadmin.net/
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/phpmyadmin/"
+      - "{{BaseURL}}/pma/"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "phpMyAdmin"
+          - "pma_username"
+        condition: and
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<title>404 Not Found"
+          - "Student Portal"
+        condition: or
+        part: body

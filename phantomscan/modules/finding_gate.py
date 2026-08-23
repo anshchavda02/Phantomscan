@@ -31,7 +31,7 @@ _VALID_CONFIDENCES = {"high", "medium", "low"}
 
 
 def gate_finding(
-    candidate: dict[str, Any],
+    candidate: Any,
     fp_log: list[dict[str, Any]] | None = None,
 ) -> Optional[dict[str, Any]]:
     """Validate and optionally adjust a candidate finding dict.
@@ -42,6 +42,11 @@ def gate_finding(
     Rejected findings are logged with a reason.  If *fp_log* is provided,
     rejected entries are appended to it for audit purposes.
     """
+    if hasattr(candidate, "to_dict"):
+        candidate = candidate.to_dict()
+    elif not isinstance(candidate, dict):
+        candidate = dict(candidate)
+
     title = str(candidate.get("title", ""))
 
     # ── Check 1: mandatory fields present ─────────────────────────────────

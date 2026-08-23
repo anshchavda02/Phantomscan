@@ -1,0 +1,32 @@
+id: git-config-exposed
+info:
+  name: Exposed .git/config File
+  author: phantomscan
+  severity: high
+  description: The .git/config file is publicly accessible, exposing remote repository URLs, branch names, and potential credentials.
+  tags: git,exposure,config,sensitive
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/config"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "[core]"
+        part: body
+      - type: regex
+        regex:
+          - "repositoryformatversion\\s*=\\s*\\d"
+        part: body
+      - type: word
+        negative: true
+        words:
+          - "<!DOCTYPE"
+          - "<html"
+        part: body

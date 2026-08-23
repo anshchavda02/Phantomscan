@@ -45,7 +45,7 @@ async def verify_clean_target(client: RobustHTTPClient, target_url: str) -> bool
     obs, findings = await fetch_headers(target, timeout=10, logger=logger)
     
     for f in findings:
-        gated = gate_finding(f)
+        gated = gate_finding(f.to_dict() if hasattr(f, "to_dict") else f)
         if gated:
             if gated.get("severity") in ("critical", "high"):
                 logger.error(
