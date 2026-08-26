@@ -1,24 +1,24 @@
 <!-- Manual Verification Checklist Section -->
 {% if checklist and checklist.categories %}
 <section id="checklist" class="section">
-    <div class="section-header">
-        <div style="font-size: 24px; color: var(--accent);">✅</div>
-        <h2>MANUAL VERIFICATION CHECKLIST</h2>
+    <div class="section-header" style="border-left-color: var(--accent);">
+        <svg class="sec-icon" style="color: var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <h2>Manual Verification Checklist</h2>
     </div>
 
-    <div class="card" style="border-left: 4px solid var(--accent);">
-        <p style="color: var(--text-muted); margin-bottom: 16px;">The following items could not be fully automated and require manual verification by a security analyst.</p>
+    <div class="card" style="border-left: 3px solid var(--accent);">
+        <p style="color: var(--text-muted); margin-bottom: 14px; font-size: 12.5px;">The following items could not be fully automated and require manual verification by a security analyst.</p>
         
-        <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
             {% for cat in checklist.categories %}
                 {% for item in cat.get('items', []) %}
-            <div style="display: flex; gap: 12px; align-items: flex-start; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; border-left: 2px solid var(--border-light);">
-                <input type="checkbox" style="margin-top: 4px; accent-color: var(--accent);">
+            <div style="display: flex; gap: 10px; align-items: flex-start; padding: 10px; background: var(--surface); border-radius: 4px; border: 1px solid var(--border);">
+                <input type="checkbox" style="margin-top: 3px; accent-color: var(--accent);">
                 <div>
-                    <div style="font-weight: 600; margin-bottom: 4px;">{{ item.task }}</div>
-                    <div style="font-size: 12px; color: var(--text-muted);">Context: {{ item.context }}</div>
+                    <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px;">{{ item.task }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Context: {{ item.context }}</div>
                     {% if item.module %}
-                    <span class="pill" style="margin-top: 8px; font-size: 10px;">{{ item.module }}</span>
+                    <span class="pill" style="margin-top: 6px; font-size: 9px;">{{ item.module }}</span>
                     {% endif %}
                 </div>
             </div>
@@ -26,8 +26,8 @@
             {% endfor %}
         </div>
         
-        <div style="margin-top: 16px; text-align: right;">
-            <button class="pill" style="background: var(--surface); color: var(--text); border-color: var(--border); cursor: pointer;" onclick="window.printReport()">🖨️ Print Report</button>
+        <div style="margin-top: 14px; text-align: right;">
+            <button class="pill" style="background: var(--surface); color: var(--text); border-color: var(--border); cursor: pointer;" onclick="window.printReport()">Print Report</button>
         </div>
     </div>
 </section>

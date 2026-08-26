@@ -1,40 +1,43 @@
 <!-- Target Intelligence Panel -->
 <style>
     .intel-section {
-        background: linear-gradient(180deg, #070d14 0%, #080e18 100%);
+        background: var(--surface);
+        border: 1px solid var(--border);
         border-top: 2px solid var(--accent2);
-        padding: 48px 24px;
-        margin: 0 -24px 64px -24px;
+        border-radius: 6px;
+        padding: 28px 20px;
+        margin-bottom: 40px;
     }
-    
     .light-mode .intel-section {
-        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        background: #ffffff;
+        border-color: #dce1ea;
     }
 
     .intel-header {
         display: flex;
         align-items: center;
-        gap: 16px;
-        margin-bottom: 24px;
+        gap: 12px;
+        margin-bottom: 20px;
     }
 
     .intel-title {
-        font-size: 24px;
-        letter-spacing: 0.15em;
+        font-size: 15px;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--accent2);
         margin: 0;
     }
 
     .intel-subtitle {
-        color: var(--text-muted);
-        font-size: 14px;
+        color: var(--text-dim);
+        font-size: 11px;
+        margin-top: 2px;
     }
 
     .intel-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
+        gap: 14px;
     }
 
     @media (max-width: 1200px) {
@@ -45,57 +48,77 @@
     }
 
     .intel-card {
-        background: rgba(12, 12, 26, 0.4);
+        background: var(--card);
         border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 16px;
-        transition: all 0.3s;
+        border-radius: 5px;
+        padding: 14px;
+        color: var(--text);
+        transition: border-color 0.15s;
+    }
+    .intel-card:hover {
+        border-color: var(--border-light);
     }
     .light-mode .intel-card {
-        background: rgba(255, 255, 255, 0.6);
+        background: #ffffff;
+        border-color: #dce1ea;
+        color: #0f172a;
     }
     
     .intel-card-header {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         font-weight: 700;
-        margin-bottom: 12px;
-        font-size: 16px;
+        margin-bottom: 10px;
+        font-size: 11px;
         cursor: pointer;
+        user-select: none;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
     }
     
     .intel-card-content {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
     }
     
     .intel-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 8px 0;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        font-size: 13px;
+        padding: 5px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        font-size: 11.5px;
     }
     .intel-row:last-child {
         border-bottom: none;
     }
     .intel-label {
         color: var(--text-muted);
+        font-weight: 500;
     }
     .intel-value {
-        font-weight: 500;
+        color: var(--text);
+        font-weight: 600;
         text-align: right;
+    }
+    .light-mode .intel-label {
+        color: #475569;
+    }
+    .light-mode .intel-value {
+        color: #0f172a;
+    }
+    .light-mode .intel-row {
+        border-bottom-color: rgba(0, 0, 0, 0.04);
     }
 </style>
 
 <div id="intel" class="intel-section section">
     <div class="intel-header">
-        <div style="font-size: 32px;">🎯</div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
         <div>
-            <h2 class="intel-title">TARGET INTELLIGENCE</h2>
+            <h2 class="intel-title">Target Intelligence</h2>
             <div class="intel-subtitle">
                 Domain registered {% if intel.whois.registration_date %}{{ intel.whois.registration_date[:4] }}{% else %}Unknown{% endif %} &middot; 
                 Hosted in {{ intel.ip_info[0].country if intel.ip_info else 'Unknown' }} &middot; 

@@ -2,55 +2,60 @@
 <style>
     .filter-controls {
         display: flex;
-        gap: 12px;
-        margin-bottom: 24px;
-        background: rgba(12, 12, 26, 0.6);
-        padding: 16px;
-        border-radius: 8px;
+        gap: 8px;
+        margin-bottom: 20px;
+        background: var(--surface);
+        padding: 12px;
+        border-radius: 5px;
         border: 1px solid var(--border);
+        flex-wrap: wrap;
     }
     
     .light-mode .filter-controls {
-        background: rgba(255, 255, 255, 0.6);
+        background: #ffffff;
+        border-color: #dce1ea;
     }
 
     .filter-btn {
-        background: transparent;
+        background: var(--card);
         border: 1px solid var(--border);
-        padding: 6px 12px;
-        border-radius: 20px;
+        padding: 5px 12px;
+        border-radius: 3px;
         color: var(--text-muted);
         cursor: pointer;
-        transition: all 0.2s;
-        font-size: 12px;
+        transition: all 0.15s;
+        font-size: 11px;
         font-weight: 600;
+        letter-spacing: 0.02em;
     }
 
     .filter-btn.active {
-        background: var(--accent2);
-        color: white;
-        border-color: var(--accent2);
+        background: var(--accent);
+        color: #ffffff;
+        border-color: var(--accent);
     }
     
-    .filter-btn[data-filter="critical"].active { background: var(--crit); border-color: var(--crit); }
-    .filter-btn[data-filter="high"].active { background: var(--high); border-color: var(--high); }
-    .filter-btn[data-filter="medium"].active { background: var(--med); border-color: var(--med); }
-    .filter-btn[data-filter="low"].active { background: var(--low); border-color: var(--low); }
+    .filter-btn[data-filter="critical"].active { background: var(--crit); border-color: var(--crit); color: #ffffff; }
+    .filter-btn[data-filter="high"].active { background: var(--high); border-color: var(--high); color: #ffffff; }
+    .filter-btn[data-filter="medium"].active { background: var(--med); border-color: var(--med); color: #000000; }
+    .filter-btn[data-filter="low"].active { background: var(--low); border-color: var(--low); color: #ffffff; }
 
     .search-box {
         flex: 1;
+        min-width: 200px;
         position: relative;
     }
 
     .search-box input {
         width: 100%;
-        background: var(--surface);
+        background: var(--card);
         border: 1px solid var(--border);
-        padding: 8px 16px 8px 36px;
-        border-radius: 8px;
+        padding: 6px 12px 6px 30px;
+        border-radius: 4px;
         color: var(--text);
         font-family: inherit;
-        transition: border-color 0.2s;
+        font-size: 12px;
+        transition: border-color 0.15s;
     }
     
     .search-box input:focus {
@@ -59,41 +64,44 @@
     }
     
     .search-box::before {
-        content: "🔍";
+        content: "\1F50D";
         position: absolute;
-        left: 12px;
+        left: 10px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 14px;
-        opacity: 0.5;
+        font-size: 12px;
+        opacity: 0.4;
     }
 </style>
 
 <section id="findings" class="section">
-    <div class="section-header">
-        <div style="font-size: 24px; color: var(--accent);">🔬</div>
-        <h2>DETAILED FINDINGS</h2>
+    <div class="section-header" style="border-left-color: var(--accent3);">
+        <svg class="sec-icon" style="color: var(--accent3);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <h2>Detailed Findings</h2>
+        <span class="pill" style="font-size: 11px; margin-left: auto;">
+            {{ findings | length }} Confirmed
+        </span>
     </div>
     
     <div class="filter-controls">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="critical">Critical</button>
-        <button class="filter-btn" data-filter="high">High</button>
-        <button class="filter-btn" data-filter="medium">Medium</button>
-        <button class="filter-btn" data-filter="low">Low/Info</button>
+        <button class="filter-btn active" data-filter="all" onclick="window.setFindingFilter(this, 'all')">All ({{ findings|length }})</button>
+        <button class="filter-btn" data-filter="critical" onclick="window.setFindingFilter(this, 'critical')">Critical ({{ findings | selectattr('severity', 'equalto', 'critical') | list | length }})</button>
+        <button class="filter-btn" data-filter="high" onclick="window.setFindingFilter(this, 'high')">High ({{ findings | selectattr('severity', 'equalto', 'high') | list | length }})</button>
+        <button class="filter-btn" data-filter="medium" onclick="window.setFindingFilter(this, 'medium')">Medium ({{ findings | selectattr('severity', 'equalto', 'medium') | list | length }})</button>
+        <button class="filter-btn" data-filter="low" onclick="window.setFindingFilter(this, 'low')">Low/Info ({{ (findings | selectattr('severity', 'equalto', 'low') | list | length) + (findings | selectattr('severity', 'equalto', 'info') | list | length) }})</button>
         
         <div class="search-box">
-            <input type="text" id="finding-search" placeholder="Search findings, descriptions, endpoints (Press '/' to focus)...">
+            <input type="text" id="finding-search" oninput="window.filterFindings(this.value)" placeholder="Search findings...">
         </div>
         
-        <button class="collapse-btn" id="expand-all-btn" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 16px; cursor: pointer; color: var(--text);">Expand All</button>
+        <button class="collapse-btn" id="expand-all-btn" onclick="window.toggleExpandAll()" style="font-size: 11px;">Expand All</button>
     </div>
 
     <div id="findings-container">
         {% if findings_grouped %}
         {% for group_name, group_findings in findings_grouped.items() %}
-        <div class="module-group" style="margin-bottom: 48px;">
-            <h3 style="margin-bottom: 16px; border-bottom: 1px solid var(--border-light); padding-bottom: 8px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+        <div class="module-group" style="margin-bottom: 40px;">
+            <h3 style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; font-size: 13px; letter-spacing: 0.06em;">
                 <span>{{ group_name | upper }}</span>
                 <span class="pill">{{ group_findings|length }} Findings</span>
             </h3>
@@ -104,84 +112,75 @@
                 {% include 'partials/finding_card.html.j2' %}
             {% endfor %}
             {% else %}
-            <p style="color: var(--text-muted);">None found</p>
+            <p style="color: var(--text-dim); padding: 8px 0; font-size: 12px;">No findings for this category</p>
             {% endif %}
         </div>
         {% endfor %}
         {% else %}
-        <p style="color: var(--text-muted); padding: 24px;">None found</p>
+        <div class="card" style="text-align: center; padding: 36px 20px;">
+            <p style="color: var(--text-dim); margin: 0;">No security findings identified.</p>
+        </div>
         {% endif %}
     </div>
 </section>
 
 <script>
-    // Filtering and Search Logic
-    const filterBtns = document.querySelectorAll('.filter-btn');
-    const searchInput = document.getElementById('finding-search');
-    const expandAllBtn = document.getElementById('expand-all-btn');
-    const findingsContainer = document.getElementById('findings-container');
-    const allCards = findingsContainer?.querySelectorAll('.finding-card');
-    const moduleGroups = findingsContainer?.querySelectorAll('.module-group');
-
+(function() {
     let allExpanded = false;
 
-    if (expandAllBtn) {
-        expandAllBtn.addEventListener('click', () => {
-            allExpanded = !allExpanded;
-            expandAllBtn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
-            
-            allCards?.forEach(card => {
-                const body = card.querySelector('.finding-body');
-                if (allExpanded) {
-                    body.classList.remove('hidden');
-                } else {
-                    body.classList.add('hidden');
-                }
-            });
-        });
-    }
+    window.setFindingFilter = function(btn, severity) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        if (window.state) window.state.currentFilter = severity;
+        window.applyFindingFilters();
+    };
 
-    function applyFilters() {
-        if(!allCards) return;
-        
-        const query = state.searchQuery.toLowerCase();
-        const severityFilter = state.currentFilter;
-        
-        allCards.forEach(card => {
-            const severity = card.dataset.severity;
-            const textContent = card.textContent.toLowerCase();
-            
-            let severityMatch = severityFilter === 'all' || 
-                               severity === severityFilter || 
-                               (severityFilter === 'low' && severity === 'info');
-                               
-            let searchMatch = query === '' || textContent.includes(query);
-            
-            if (severityMatch && searchMatch) {
+    window.filterFindings = function(query) {
+        if (window.state) window.state.searchQuery = query || '';
+        window.applyFindingFilters();
+    };
+
+    window.toggleExpandAll = function() {
+        allExpanded = !allExpanded;
+        const btn = document.getElementById('expand-all-btn');
+        if (btn) btn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+
+        document.querySelectorAll('.finding-card .finding-body').forEach(body => {
+            if (allExpanded) {
+                body.classList.remove('hidden');
+            } else {
+                body.classList.add('hidden');
+            }
+        });
+    };
+
+    window.applyFindingFilters = function() {
+        const query = ((window.state && window.state.searchQuery) || '').toLowerCase().trim();
+        const filter = (window.state && window.state.currentFilter) || 'all';
+
+        const cards = document.querySelectorAll('.finding-card');
+        cards.forEach(card => {
+            const cardSev = (card.dataset.severity || '').toLowerCase();
+            const text = (card.textContent || '').toLowerCase();
+
+            const sevMatch = (filter === 'all') || 
+                             (cardSev === filter) || 
+                             (filter === 'low' && (cardSev === 'low' || cardSev === 'info'));
+
+            const searchMatch = !query || text.indexOf(query) !== -1;
+
+            if (sevMatch && searchMatch) {
                 card.style.display = 'block';
             } else {
                 card.style.display = 'none';
             }
         });
-        
-        // Hide empty module groups
-        moduleGroups?.forEach(group => {
-            const visibleCards = Array.from(group.querySelectorAll('.finding-card')).filter(card => card.style.display !== 'none');
-            group.style.display = visibleCards.length > 0 ? 'block' : 'none';
-        });
-    }
 
-    filterBtns?.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            filterBtns.forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            state.currentFilter = e.target.dataset.filter;
-            applyFilters();
+        // Toggle empty module groups
+        document.querySelectorAll('.module-group').forEach(group => {
+            const visible = Array.from(group.querySelectorAll('.finding-card')).some(c => c.style.display !== 'none');
+            group.style.display = visible ? 'block' : 'none';
         });
-    });
-
-    searchInput?.addEventListener('input', (e) => {
-        state.searchQuery = e.target.value;
-        applyFilters();
-    });
+    };
+})();
 </script>

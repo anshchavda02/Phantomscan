@@ -1,25 +1,25 @@
 <!-- Diff Summary Section -->
 {% if diff and (diff.new_findings or diff.resolved_findings) %}
 <section id="diff" class="section">
-    <div class="section-header">
-        <div style="font-size: 24px; color: var(--accent3);">🔄</div>
-        <h2>CHANGE LOG</h2>
+    <div class="section-header" style="border-left-color: var(--accent3);">
+        <svg class="sec-icon" style="color: var(--accent3);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <h2>Change Log &amp; Diff Summary</h2>
     </div>
 
     <div class="grid-2">
         {% if diff.new_findings %}
-        <div class="card" style="border-top: 4px solid var(--crit);">
-            <h3 style="color: var(--crit); display: flex; align-items: center; gap: 8px;">
-                <span>⚠️ New Findings</span>
-                <span class="pill" style="background: var(--crit-bg); color: var(--crit); margin-left: auto;">+{{ diff.new_findings|length }}</span>
+        <div class="card" style="border-top: 3px solid var(--crit);">
+            <h3 style="color: var(--crit); display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <span>New Findings</span>
+                <span class="pill badge-critical" style="margin-left: auto; font-size: 10px;">+{{ diff.new_findings|length }}</span>
             </h3>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px;">
                 {% for finding in diff.new_findings %}
-                <div style="padding: 12px; background: rgba(0,0,0,0.2); border-left: 2px solid {{ finding.severity | severity_color }}; border-radius: 4px;">
-                    <div style="font-weight: 600; margin-bottom: 4px;">{{ finding.title }}</div>
-                    <div style="display: flex; gap: 8px;">
-                        <span class="pill" style="background: {{ finding.severity | severity_bg }}; color: {{ finding.severity | severity_color }}; font-size: 10px;">{{ finding.severity }}</span>
-                        <span style="font-size: 11px; color: var(--text-muted);">{{ finding.category }}</span>
+                <div style="padding: 10px; background: var(--surface); border-left: 2px solid {{ finding.severity | severity_color }}; border-radius: 4px;">
+                    <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px;">{{ finding.title }}</div>
+                    <div style="display: flex; gap: 6px;">
+                        <span class="pill badge-{{ finding.severity|lower }}" style="font-size: 10px;">{{ finding.severity }}</span>
+                        <span style="font-size: 11px; color: var(--text-dim);">{{ finding.category }}</span>
                     </div>
                 </div>
                 {% endfor %}
@@ -28,16 +28,16 @@
         {% endif %}
 
         {% if diff.resolved_findings %}
-        <div class="card" style="border-top: 4px solid var(--low);">
-            <h3 style="color: var(--low); display: flex; align-items: center; gap: 8px;">
-                <span>✅ Resolved Findings</span>
-                <span class="pill" style="background: var(--low-bg); color: var(--low); margin-left: auto;">-{{ diff.resolved_findings|length }}</span>
+        <div class="card" style="border-top: 3px solid var(--low);">
+            <h3 style="color: var(--low); display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                <span>Resolved Findings</span>
+                <span class="pill badge-low" style="margin-left: auto; font-size: 10px;">-{{ diff.resolved_findings|length }}</span>
             </h3>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px;">
                 {% for finding in diff.resolved_findings %}
-                <div style="padding: 12px; background: rgba(0,0,0,0.2); border-left: 2px solid var(--low); border-radius: 4px; opacity: 0.8;">
-                    <div style="font-weight: 600; margin-bottom: 4px; text-decoration: line-through;">{{ finding.title }}</div>
-                    <div style="font-size: 11px; color: var(--text-muted);">Resolved since last scan</div>
+                <div style="padding: 10px; background: var(--surface); border-left: 2px solid var(--low); border-radius: 4px; opacity: 0.8;">
+                    <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px; text-decoration: line-through;">{{ finding.title }}</div>
+                    <div style="font-size: 11px; color: var(--text-dim);">Resolved since last scan</div>
                 </div>
                 {% endfor %}
             </div>

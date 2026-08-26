@@ -1,37 +1,38 @@
 <!-- Open Ports Panel -->
-<div class="intel-card" style="border-left: 3px solid var(--mod-network);">
-    <div class="intel-card-header" style="color: var(--mod-network);" onclick="this.nextElementSibling.classList.toggle('hidden')">
-        <span>🔌 OPEN PORTS</span>
+<div class="intel-card" style="border-left: 2px solid var(--mod-network);">
+    <div class="intel-card-header" style="color: var(--mod-network);" onclick="window.toggleCollapsible(this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        <span>OPEN PORTS</span>
         <span style="margin-left: auto;" class="pill">{{ intel.open_ports|length }} Open</span>
     </div>
     <div class="intel-card-content">
         {% if intel.open_ports %}
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 12px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
                 {% for port in intel.open_ports[:16] %}
                     {% set risk_color = 'var(--low)' %}
                     {% if port.risk == 'monitor' %}{% set risk_color = 'var(--med)' %}
                     {% elif port.risk == 'risky' %}{% set risk_color = 'var(--high)' %}
                     {% elif port.risk == 'critical' %}{% set risk_color = 'var(--crit)' %}{% endif %}
                     
-                    <div style="background: {{ risk_color }}; color: white; padding: 4px; text-align: center; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;" title="{{ port.service }}">
+                    <div style="background: {{ risk_color }}; color: #ffffff; padding: 4px 10px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;" title="{{ port.service }}">
                         {{ port.port }}
                     </div>
                 {% endfor %}
             </div>
             {% if intel.open_ports|length > 16 %}
-            <div class="text-center" style="font-size: 11px; color: var(--text-muted); margin-top: -8px; margin-bottom: 8px;">+ {{ intel.open_ports|length - 16 }} more ports</div>
+            <div class="text-center" style="font-size: 10px; color: var(--text-dim); margin-top: -4px; margin-bottom: 6px;">+ {{ intel.open_ports|length - 16 }} more ports</div>
             {% endif %}
             
-            <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                <span class="intel-label">Top Services</span>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+                <span class="intel-label">Services</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
                 {% for port in intel.open_ports[:3] %}
                     <span class="pill" style="font-size: 10px;">{{ port.service or 'unknown' }}</span>
                 {% endfor %}
                 </div>
             </div>
         {% else %}
-            <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+            <div class="text-center" style="color: var(--text-dim); font-size: 11px; padding: 8px 0;">
                 No open ports detected
             </div>
         {% endif %}

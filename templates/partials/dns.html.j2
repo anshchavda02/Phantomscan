@@ -1,44 +1,45 @@
 <!-- DNS Records Panel -->
-<div class="intel-card" style="border-left: 3px solid var(--mod-recon);">
-    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="this.nextElementSibling.classList.toggle('hidden')">
-        <span>📋 DNS RECORDS</span>
+<div class="intel-card" style="border-left: 2px solid var(--mod-recon);">
+    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="window.toggleCollapsible(this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>DNS RECORDS</span>
         <span style="margin-left: auto;" class="pill">{{ (intel.dns.A|length) + (intel.dns.MX|length) + (intel.dns.TXT|length) }}</span>
     </div>
     <div class="intel-card-content">
         {% if intel.dns.A %}
-        <div class="intel-row" style="flex-direction: column; align-items: flex-start;">
-            <span class="intel-label" style="margin-bottom: 4px;">A Records</span>
-            <code style="word-break: break-all;">{{ intel.dns.A | join(', ') }}</code>
+        <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+            <span class="intel-label">A Records</span>
+            <code style="word-break: break-all; width: 100%; display: block;">{{ intel.dns.A | join(', ') }}</code>
         </div>
         {% endif %}
         
         {% if intel.dns.MX %}
-        <div class="intel-row" style="flex-direction: column; align-items: flex-start;">
-            <span class="intel-label" style="margin-bottom: 4px;">MX Records</span>
-            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+        <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+            <span class="intel-label">MX Records</span>
+            <div style="display: flex; flex-direction: column; gap: 3px; width: 100%;">
                 {% for mx in intel.dns.MX[:3] %}
-                <code>{{ mx }}</code>
+                <code style="display: block;">{{ mx }}</code>
                 {% endfor %}
                 {% if intel.dns.MX|length > 3 %}
-                <span class="intel-label" style="font-size: 11px;">+ {{ intel.dns.MX|length - 3 }} more</span>
+                <span class="intel-label" style="font-size: 10px;">+ {{ intel.dns.MX|length - 3 }} more</span>
                 {% endif %}
             </div>
         </div>
         {% endif %}
         
         {% if intel.dns.TXT %}
-        <div class="intel-row" style="flex-direction: column; align-items: flex-start;">
-            <span class="intel-label" style="margin-bottom: 4px;">TXT Records</span>
-            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; max-height: 100px; overflow-y: auto;">
+        <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
+            <span class="intel-label">TXT Records</span>
+            <div style="display: flex; flex-direction: column; gap: 3px; width: 100%; max-height: 100px; overflow-y: auto;">
                 {% for txt in intel.dns.TXT %}
-                <code style="font-size: 11px; padding: 4px; background: rgba(255,255,255,0.05); border-radius: 4px;">{{ txt }}</code>
+                <code style="font-size: 11px; display: block;">{{ txt }}</code>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
         
         {% if not intel.dns.A and not intel.dns.MX and not intel.dns.TXT %}
-        <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+        <div class="text-center" style="color: var(--text-dim); font-size: 11px; padding: 8px 0;">
             No records resolved
         </div>
         {% endif %}

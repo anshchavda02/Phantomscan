@@ -1,39 +1,39 @@
 <!-- Compliance Section -->
 {% if compliance and compliance.frameworks %}
 <section id="compliance" class="section">
-    <div class="section-header">
-        <div style="font-size: 24px; color: var(--accent2);">⚖️</div>
-        <h2>COMPLIANCE MAPPING</h2>
+    <div class="section-header" style="border-left-color: var(--mod-web);">
+        <svg class="sec-icon" style="color: var(--mod-web);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h2>Compliance Mapping</h2>
     </div>
 
     <div class="grid-3">
         {% for results in compliance.frameworks %}
-        <div class="card" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;">{{ results.name | upper }}</h3>
+                <h3 style="margin: 0; font-size: 14px;">{{ results.name | upper }}</h3>
                 {% set total = results.passed + results.failed %}
                 {% set pass_rate = ((results.passed / total) * 100) | round(0) if total > 0 else 100 %}
                 
-                <div class="pill" style="border-color: {% if pass_rate == 100 %}var(--low-border){% elif pass_rate >= 80 %}var(--med-border){% else %}var(--crit-border){% endif %}; color: {% if pass_rate == 100 %}var(--low){% elif pass_rate >= 80 %}var(--med){% else %}var(--crit){% endif %};">
-                    {{ pass_rate }}% Pass Rate
+                <div class="pill" style="font-size: 10px; border-color: {% if pass_rate == 100 %}var(--low-border){% elif pass_rate >= 80 %}var(--med-border){% else %}var(--crit-border){% endif %}; color: {% if pass_rate == 100 %}var(--low){% elif pass_rate >= 80 %}var(--med){% else %}var(--crit){% endif %};">
+                    {{ pass_rate }}% Pass
                 </div>
             </div>
             
-            <div style="display: flex; gap: 12px; margin-top: 8px;">
-                <div style="flex: 1; text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">
-                    <div style="font-size: 24px; font-weight: 700; color: var(--low); font-family: 'JetBrains Mono', monospace;">{{ results.passed }}</div>
-                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Passed</div>
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <div style="flex: 1; text-align: center; background: var(--surface); padding: 8px; border-radius: 4px; border: 1px solid var(--border);">
+                    <div style="font-size: 20px; font-weight: 700; color: var(--low); font-family: 'JetBrains Mono', monospace;">{{ results.passed }}</div>
+                    <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Passed</div>
                 </div>
-                <div style="flex: 1; text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">
-                    <div style="font-size: 24px; font-weight: 700; color: var(--crit); font-family: 'JetBrains Mono', monospace;">{{ results.failed }}</div>
-                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Failed</div>
+                <div style="flex: 1; text-align: center; background: var(--surface); padding: 8px; border-radius: 4px; border: 1px solid var(--border);">
+                    <div style="font-size: 20px; font-weight: 700; color: var(--crit); font-family: 'JetBrains Mono', monospace;">{{ results.failed }}</div>
+                    <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Failed</div>
                 </div>
             </div>
             
             {% if results.failing_controls %}
-            <div style="margin-top: 8px;">
-                <h4 style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Failing Controls</h4>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <div style="margin-top: 4px;">
+                <h4 style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Failing Controls</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
                     {% for control in results.failing_controls %}
                     <span class="pill" style="font-size: 10px; font-family: 'JetBrains Mono', monospace; background: var(--crit-bg); color: var(--crit); border-color: var(--crit-border);">{{ control }}</span>
                     {% endfor %}

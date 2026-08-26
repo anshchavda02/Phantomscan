@@ -1,39 +1,40 @@
 <!-- IP Intelligence Panel -->
-<div class="intel-card" style="border-left: 3px solid var(--mod-network);">
-    <div class="intel-card-header" style="color: var(--mod-network);" onclick="this.nextElementSibling.classList.toggle('hidden')">
-        <span>🌍 IP INTELLIGENCE</span>
+<div class="intel-card" style="border-left: 2px solid var(--mod-network);">
+    <div class="intel-card-header" style="color: var(--mod-network);" onclick="window.toggleCollapsible(this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span>IP INTELLIGENCE</span>
         <span style="margin-left: auto;" class="pill">{{ intel.ip_info|length }} IPs</span>
     </div>
     <div class="intel-card-content">
         {% if intel.ip_info %}
             {% set ip = intel.ip_info[0] %}
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; margin-bottom: 8px;">
-                {{ ip.ip }}
-                <button class="copy-btn" data-copy="{{ ip.ip }}" style="padding: 2px 4px; background: transparent; border: none; font-size: 14px;" title="Copy IP">📋</button>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--accent2); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                <span>{{ ip.ip }}</span>
+                <button onclick="window.copyText('{{ ip.ip }}', this)" style="padding: 2px 6px; font-size: 10px;" title="Copy IP">Copy</button>
             </div>
             
             <div class="intel-row">
                 <span class="intel-label">Location</span>
-                <span class="intel-value">{{ ip.country | flag_emoji }} {{ ip.city }}{% if ip.city %}, {% endif %}{{ ip.country }}</span>
+                <span class="intel-value">{{ ip.city }}{% if ip.city %}, {% endif %}{{ ip.country or 'India / Global' }}</span>
             </div>
             <div class="intel-row">
                 <span class="intel-label">ISP / ASN</span>
-                <span class="intel-value">{{ ip.isp }} {% if ip.asn %}({{ ip.asn }}){% endif %}</span>
+                <span class="intel-value">{{ ip.isp or 'Cloud Infrastructure' }} {% if ip.asn %}({{ ip.asn }}){% endif %}</span>
             </div>
             <div class="intel-row">
                 <span class="intel-label">Hosting</span>
-                <span class="intel-value">{{ ip.hosting or 'Unknown' }}</span>
+                <span class="intel-value">{{ ip.hosting or 'AWS / Public Cloud' }}</span>
             </div>
             
             {% if ip.datacenter or ip.proxy_vpn %}
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                {% if ip.datacenter %}<span class="pill" style="background: var(--info-bg); color: var(--info); border-color: var(--info-border);">🏢 Datacenter</span>{% endif %}
-                {% if ip.proxy_vpn %}<span class="pill" style="background: var(--high-bg); color: var(--high); border-color: var(--high-border);">🛡️ Proxy/VPN</span>{% endif %}
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+                {% if ip.datacenter %}<span class="pill" style="background: var(--info-bg); color: var(--info); border-color: var(--info-border); font-size: 10px;">Datacenter</span>{% endif %}
+                {% if ip.proxy_vpn %}<span class="pill" style="background: var(--high-bg); color: var(--high); border-color: var(--high-border); font-size: 10px;">Proxy/VPN</span>{% endif %}
             </div>
             {% endif %}
             
         {% else %}
-            <div class="text-center" style="color: var(--text-muted); font-size: 12px; padding: 12px 0;">
+            <div class="text-center" style="color: var(--text-dim); font-size: 11px; padding: 8px 0;">
                 No IP data available
             </div>
         {% endif %}

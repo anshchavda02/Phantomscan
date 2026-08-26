@@ -1,14 +1,14 @@
 <!-- Scan Metadata & Engine Logs Section -->
 <section id="metadata" class="section">
-    <div class="section-header">
-        <div style="font-size: 24px; color: var(--text-muted);">⚙️</div>
-        <h2>SCAN METADATA</h2>
+    <div class="section-header" style="border-left-color: var(--text-dim);">
+        <svg class="sec-icon" style="color: var(--text-dim);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <h2>Scan Metadata</h2>
     </div>
 
     <div class="card">
         <div class="grid-2">
             <div>
-                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Scan Configuration</h4>
+                <h4 style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Scan Configuration</h4>
                 <div class="intel-row"><span class="intel-label">Profile</span><span class="intel-value">{{ scan.profile }}</span></div>
                 <div class="intel-row"><span class="intel-label">Report Version</span><span class="intel-value">{{ report_version }}</span></div>
                 <div class="intel-row"><span class="intel-label">Scan ID</span><span class="intel-value" style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">{{ scan.scan_id }}</span></div>
@@ -25,15 +25,15 @@
             </div>
             
             <div>
-                <h4 style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Engine Diagnostics</h4>
-                <div class="diagnostics-terminal" style="padding: 12px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; max-height: 150px; overflow-y: auto;">
+                <h4 style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Engine Diagnostics</h4>
+                <div style="padding: 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; max-height: 140px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border);">
                     {% for mod in scan.modules_executed %}
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
                         <span>[{{ mod.timestamp }}] {{ mod.engine }}::{{ mod.name }}</span>
                         <span style="color: {% if mod.status == 'completed' %}var(--low){% elif mod.status == 'failed' %}var(--crit){% else %}var(--med){% endif %}; font-weight: 600;">{{ mod.status|upper }}</span>
                     </div>
                     {% if mod.error %}
-                    <div style="color: var(--crit); margin-left: 12px; margin-bottom: 4px; border-left: 2px solid var(--crit); padding-left: 8px;">Error: {{ mod.error }}</div>
+                    <div style="color: var(--crit); margin-left: 8px; margin-bottom: 3px; border-left: 2px solid var(--crit); padding-left: 6px;">Error: {{ mod.error }}</div>
                     {% endif %}
                     {% endfor %}
                 </div>

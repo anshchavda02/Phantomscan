@@ -1,47 +1,190 @@
 <!-- Executive Summary Section -->
 <section id="summary" class="section">
     <div class="section-header">
-        <div style="font-size: 24px; color: var(--accent);">📋</div>
-        <h2>EXECUTIVE SUMMARY</h2>
+        <svg class="sec-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <h2>Executive Summary</h2>
     </div>
 
     <div class="grid-2">
-        <div class="card" style="display: flex; flex-direction: column; gap: 16px;">
-            <p>
+        <div class="card" style="display: flex; flex-direction: column; gap: 14px;">
+            <p style="font-size: 13px; line-height: 1.6;">
                 PhantomScan performed an automated {{ scan.profile }} security assessment against <strong>{{ scan.target }}</strong> on {{ scan.timestamp | format_date }}.
                 The assessment took {{ scan.duration_seconds | round(1) }} seconds and executed {{ scan.modules_executed|length }} distinct security modules.
             </p>
             
-            <div style="padding: 16px; background: rgba(0,0,0,0.2); border-left: 4px solid {% if score.value >= 80 %}var(--low){% elif score.value >= 60 %}var(--med){% else %}var(--crit){% endif %}; border-radius: 4px;">
-                <h4 style="margin: 0 0 8px 0; color: var(--text);">Risk Conclusion</h4>
-                <p style="margin: 0; color: var(--text-muted);">
+            <div style="padding: 14px; background: var(--surface); border-left: 3px solid {% if score.value >= 80 %}var(--low){% elif score.value >= 60 %}var(--med){% else %}var(--crit){% endif %}; border-radius: 4px;">
+                <h4 style="margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Risk Conclusion</h4>
+                <p style="margin: 0; color: var(--text); font-size: 12.5px;">
                     {% if score.value >= 80 %}
-                        The overall security posture is <strong>strong</strong>. Only minor issues were identified.
+                        The overall security posture is <strong>strong</strong>. Only minor or informational issues were identified.
                     {% elif score.value >= 60 %}
-                        The overall security posture is <strong>moderate</strong>. Several vulnerabilities were identified that should be addressed.
+                        The overall security posture is <strong>moderate</strong>. Several vulnerabilities were identified that should be addressed in priority order.
                     {% else %}
-                        The overall security posture is <strong>weak</strong>. Critical vulnerabilities were identified requiring immediate remediation.
+                        The overall security posture is <strong>weak</strong>. Critical/High vulnerabilities were identified requiring immediate remediation.
                     {% endif %}
                 </p>
             </div>
             
             {% if engagement.business_impact %}
             <div>
-                <h4 style="margin-bottom: 8px;">Business Impact</h4>
-                <p style="color: var(--text-muted); font-style: italic;">{{ engagement.business_impact }}</p>
+                <h4 style="margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Business Impact</h4>
+                <p style="color: var(--text-muted); font-style: italic; font-size: 12.5px;">{{ engagement.business_impact }}</p>
             </div>
             {% endif %}
         </div>
         
-        <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
-            <h3 style="text-align: center; margin-bottom: 16px;">Finding Severity Distribution</h3>
-            <div style="height: 240px; position: relative; overflow: hidden;">
-                <canvas id="severityDonutChart"></canvas>
-                <div style="position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
-                    <div style="font-size: 28px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1;">{{ findings|length }}</div>
-                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Total</div>
+        <!-- Severity Donut (Interactive Native SVG) -->
+        <div class="card" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <h3 style="text-align: center; margin-bottom: 10px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em;">Severity Distribution</h3>
+            
+            {% set c_crit = findings | selectattr('severity', 'equalto', 'critical') | list | length %}
+            {% set c_high = findings | selectattr('severity', 'equalto', 'high') | list | length %}
+            {% set c_med = findings | selectattr('severity', 'equalto', 'medium') | list | length %}
+            {% set c_low = findings | selectattr('severity', 'equalto', 'low') | list | length %}
+            {% set c_info = findings | selectattr('severity', 'equalto', 'info') | list | length %}
+            {% set c_total = findings | length %}
+
+            <div style="height: 170px; width: 100%; max-width: 240px; position: relative; display: flex; align-items: center; justify-content: center;" id="donut-wrapper">
+                <div id="donut-tooltip" style="position: absolute; background: var(--card); border: 1px solid var(--border-light); color: var(--text); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-family: 'JetBrains Mono', monospace; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 30; box-shadow: 0 4px 12px rgba(0,0,0,0.5); white-space: nowrap;"></div>
+                <svg viewBox="0 0 100 100" style="width: 150px; height: 150px; transform: rotate(-90deg);" id="donut-svg">
+                    <!-- Background Circle -->
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="10"></circle>
+                    
+                    {% if c_total > 0 %}
+                        {% set circ = 238.76 %}
+                        {% set pct_crit = (c_crit / c_total) * circ %}
+                        {% set pct_high = (c_high / c_total) * circ %}
+                        {% set pct_med = (c_med / c_total) * circ %}
+                        {% set pct_low = (c_low / c_total) * circ %}
+                        {% set pct_info = (c_info / c_total) * circ %}
+                        
+                        {% if c_crit > 0 %}
+                        <circle class="donut-slice" data-severity="Critical" data-count="{{ c_crit }}" data-color="#ef4444" data-pct="{{ ((c_crit / c_total) * 100)|round(1) }}%" cx="50" cy="50" r="38" fill="none" stroke="#ef4444" stroke-width="10" stroke-dasharray="{{ pct_crit }} {{ circ - pct_crit }}" stroke-dashoffset="0" style="cursor: pointer; transition: stroke-width 0.15s, opacity 0.15s;"></circle>
+                        {% endif %}
+                        
+                        {% if c_high > 0 %}
+                        <circle class="donut-slice" data-severity="High" data-count="{{ c_high }}" data-color="#f97316" data-pct="{{ ((c_high / c_total) * 100)|round(1) }}%" cx="50" cy="50" r="38" fill="none" stroke="#f97316" stroke-width="10" stroke-dasharray="{{ pct_high }} {{ circ - pct_high }}" stroke-dashoffset="{{ -pct_crit }}" style="cursor: pointer; transition: stroke-width 0.15s, opacity 0.15s;"></circle>
+                        {% endif %}
+                        
+                        {% if c_med > 0 %}
+                        <circle class="donut-slice" data-severity="Medium" data-count="{{ c_med }}" data-color="#eab308" data-pct="{{ ((c_med / c_total) * 100)|round(1) }}%" cx="50" cy="50" r="38" fill="none" stroke="#eab308" stroke-width="10" stroke-dasharray="{{ pct_med }} {{ circ - pct_med }}" stroke-dashoffset="{{ -(pct_crit + pct_high) }}" style="cursor: pointer; transition: stroke-width 0.15s, opacity 0.15s;"></circle>
+                        {% endif %}
+                        
+                        {% if c_low > 0 %}
+                        <circle class="donut-slice" data-severity="Low" data-count="{{ c_low }}" data-color="#22c55e" data-pct="{{ ((c_low / c_total) * 100)|round(1) }}%" cx="50" cy="50" r="38" fill="none" stroke="#22c55e" stroke-width="10" stroke-dasharray="{{ pct_low }} {{ circ - pct_low }}" stroke-dashoffset="{{ -(pct_crit + pct_high + pct_med) }}" style="cursor: pointer; transition: stroke-width 0.15s, opacity 0.15s;"></circle>
+                        {% endif %}
+                        
+                        {% if c_info > 0 %}
+                        <circle class="donut-slice" data-severity="Info" data-count="{{ c_info }}" data-color="#3b82f6" data-pct="{{ ((c_info / c_total) * 100)|round(1) }}%" cx="50" cy="50" r="38" fill="none" stroke="#3b82f6" stroke-width="10" stroke-dasharray="{{ pct_info }} {{ circ - pct_info }}" stroke-dashoffset="{{ -(pct_crit + pct_high + pct_med + pct_low) }}" style="cursor: pointer; transition: stroke-width 0.15s, opacity 0.15s;"></circle>
+                        {% endif %}
+                    {% else %}
+                        <circle cx="50" cy="50" r="38" fill="none" stroke="#22c55e" stroke-width="10" stroke-dasharray="238.76 0"></circle>
+                    {% endif %}
+                </svg>
+
+                <div style="position: absolute; text-align: center; pointer-events: none;" id="donut-center-box">
+                    <div id="donut-center-count" style="font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1; color: var(--text); transition: color 0.15s;">{{ c_total }}</div>
+                    <div id="donut-center-label" style="font-size: 9px; color: var(--text-dim); text-transform: uppercase; margin-top: 2px; transition: color 0.15s;">Findings</div>
                 </div>
+            </div>
+
+            <!-- Legend Pills with Hover Interactivity -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px;" id="donut-legend">
+                <span class="pill badge-critical donut-legend-item" data-severity="Critical" data-count="{{ c_crit }}" data-color="#ef4444" style="font-size: 10px; padding: 2px 6px; cursor: pointer;">CRIT: {{ c_crit }}</span>
+                <span class="pill badge-high donut-legend-item" data-severity="High" data-count="{{ c_high }}" data-color="#f97316" style="font-size: 10px; padding: 2px 6px; cursor: pointer;">HIGH: {{ c_high }}</span>
+                <span class="pill badge-medium donut-legend-item" data-severity="Medium" data-count="{{ c_med }}" data-color="#eab308" style="font-size: 10px; padding: 2px 6px; cursor: pointer;">MED: {{ c_med }}</span>
+                <span class="pill badge-low donut-legend-item" data-severity="Low" data-count="{{ c_low }}" data-color="#22c55e" style="font-size: 10px; padding: 2px 6px; cursor: pointer;">LOW: {{ c_low }}</span>
+                <span class="pill badge-info donut-legend-item" data-severity="Info" data-count="{{ c_info }}" data-color="#3b82f6" style="font-size: 10px; padding: 2px 6px; cursor: pointer;">INFO: {{ c_info }}</span>
             </div>
         </div>
     </div>
 </section>
+
+<!-- Donut Interactivity Script -->
+<script>
+(function() {
+    const totalFindings = {{ findings | length }};
+    const donutWrapper = document.getElementById('donut-wrapper');
+    const donutTooltip = document.getElementById('donut-tooltip');
+    const centerCount = document.getElementById('donut-center-count');
+    const centerLabel = document.getElementById('donut-center-label');
+    const slices = document.querySelectorAll('.donut-slice');
+    const legendItems = document.querySelectorAll('.donut-legend-item');
+
+    function highlightSeverity(sev, count, color, pct, e) {
+        if (centerCount) {
+            centerCount.textContent = count;
+            centerCount.style.color = color;
+        }
+        if (centerLabel) {
+            centerLabel.textContent = sev;
+            centerLabel.style.color = color;
+        }
+        slices.forEach(s => {
+            if (s.dataset.severity === sev) {
+                s.style.strokeWidth = '13';
+                s.style.opacity = '1';
+            } else {
+                s.style.strokeWidth = '10';
+                s.style.opacity = '0.35';
+            }
+        });
+        if (donutTooltip && donutWrapper) {
+            const countNum = parseInt(count) || 0;
+            const itemText = countNum === 1 ? 'finding' : 'findings';
+            donutTooltip.innerHTML = `<strong>${sev}</strong>: <span style="color:${color};font-weight:700;">${count}</span> ${itemText} (${pct || (totalFindings > 0 ? Math.round((countNum/totalFindings)*100)+'%' : '0%')})`;
+            donutTooltip.style.opacity = '1';
+            if (e && e.offsetX) {
+                donutTooltip.style.left = e.offsetX + 'px';
+                donutTooltip.style.top = (e.offsetY - 20) + 'px';
+            } else {
+                donutTooltip.style.left = '50%';
+                donutTooltip.style.top = '15%';
+                donutTooltip.style.transform = 'translate(-50%, -50%)';
+            }
+        }
+    }
+
+    function resetSeverity() {
+        if (centerCount) {
+            centerCount.textContent = totalFindings;
+            centerCount.style.color = 'var(--text)';
+        }
+        if (centerLabel) {
+            centerLabel.textContent = 'Findings';
+            centerLabel.style.color = 'var(--text-dim)';
+        }
+        slices.forEach(s => {
+            s.style.strokeWidth = '10';
+            s.style.opacity = '1';
+        });
+        if (donutTooltip) {
+            donutTooltip.style.opacity = '0';
+        }
+    }
+
+    slices.forEach(slice => {
+        slice.addEventListener('mouseenter', (e) => {
+            highlightSeverity(slice.dataset.severity, slice.dataset.count, slice.dataset.color, slice.dataset.pct, e);
+        });
+        slice.addEventListener('mousemove', (e) => {
+            if (donutTooltip) {
+                donutTooltip.style.left = e.offsetX + 'px';
+                donutTooltip.style.top = (e.offsetY - 20) + 'px';
+                donutTooltip.style.transform = 'translate(-50%, -100%)';
+            }
+        });
+        slice.addEventListener('mouseleave', resetSeverity);
+    });
+
+    legendItems.forEach(item => {
+        item.addEventListener('mouseenter', (e) => {
+            const count = item.dataset.count;
+            const countNum = parseInt(count) || 0;
+            const pct = totalFindings > 0 ? (Math.round((countNum / totalFindings) * 100) + '%') : '0%';
+            highlightSeverity(item.dataset.severity, count, item.dataset.color, pct, e);
+        });
+        item.addEventListener('mouseleave', resetSeverity);
+    });
+})();
+</script>
