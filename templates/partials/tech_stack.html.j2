@@ -1,29 +1,23 @@
-<!-- Technology Stack Panel -->
-<div class="intel-card" style="border-left: 2px solid var(--mod-web);">
-    <div class="intel-card-header" style="color: var(--mod-web);" onclick="window.toggleCollapsible(this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        <span>TECHNOLOGY STACK</span>
-        <span style="margin-left: auto;" class="pill">{{ intel.tech_stack|length }} detected</span>
+<!-- Technology Stack Card -->
+{% if intel.tech_stack %}
+<div class="intel-card">
+    <div class="intel-card-header" onclick="window.toggleCollapsible(this)" style="border-left: 2px solid #6366f1; color: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        TECHNOLOGIES
+        <span class="pill count-pill" style="font-size: 9px; padding: 1px 6px;">{{ intel.tech_stack | length }}</span>
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="intel-card-content">
-        {% if intel.tech_stack %}
-            <div style="display: flex; flex-wrap: wrap; gap: 5px; max-height: 180px; overflow-y: auto;">
-                {% for tech in intel.tech_stack %}
-                <div class="pill" style="padding: 3px 6px; border-radius: 3px; border-left: 2px solid {% if tech.cves > 0 %}var(--crit){% else %}var(--border-glow){% endif %}; display: flex; align-items: center; gap: 5px;">
-                    <span style="font-weight: 600; color: var(--text);">{{ tech.name }}</span>
-                    {% if tech.version %}
-                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {% if tech.cves > 0 %}var(--crit){% else %}var(--text-muted){% endif %};">{{ tech.version }}</span>
-                    {% endif %}
-                    {% if tech.cves > 0 %}
-                    <span style="font-size: 9px; background: var(--crit); color: white; padding: 1px 4px; border-radius: 2px;">{{ tech.cves }} CVEs</span>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="text-center" style="color: var(--text-dim); font-size: 11px; padding: 8px 0;">
-                No technologies identified
-            </div>
-        {% endif %}
+        <div style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 180px; overflow-y: auto;">
+            {% for tech in intel.tech_stack %}
+            <span class="pill" style="font-size: 10px; padding: 3px 8px; background: rgba(99,102,241,0.08); border-color: {% if tech.cves and tech.cves > 0 %}var(--sev-critical-bd){% else %}rgba(99,102,241,0.2){% endif %};">
+                {{ tech.name }}{% if tech.version %} <span style="color: var(--text-tertiary);">{{ tech.version }}</span>{% endif %}
+                {% if tech.cves and tech.cves > 0 %}
+                <span style="font-size: 8px; background: var(--sev-critical); color: #fff; padding: 0 4px; border-radius: 2px; margin-left: 4px;">{{ tech.cves }} CVEs</span>
+                {% endif %}
+            </span>
+            {% endfor %}
+        </div>
     </div>
 </div>
+{% endif %}

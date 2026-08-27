@@ -1,42 +1,31 @@
-<!-- IP Intelligence Panel -->
-<div class="intel-card" style="border-left: 2px solid var(--mod-network);">
-    <div class="intel-card-header" style="color: var(--mod-network);" onclick="window.toggleCollapsible(this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span>IP INTELLIGENCE</span>
-        <span style="margin-left: auto;" class="pill">{{ intel.ip_info|length }} IPs</span>
+<!-- IP Intelligence Card -->
+{% if intel.ip_info %}
+<div class="intel-card">
+    <div class="intel-card-header" onclick="window.toggleCollapsible(this)" style="border-left: 2px solid #f97316; color: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        IP INTELLIGENCE
+        <span class="pill count-pill" style="font-size: 9px; padding: 1px 6px;">{{ intel.ip_info | length }}</span>
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="intel-card-content">
-        {% if intel.ip_info %}
-            {% set ip = intel.ip_info[0] %}
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--accent2); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
-                <span>{{ ip.ip }}</span>
-                <button onclick="window.copyText('{{ ip.ip }}', this)" style="padding: 2px 6px; font-size: 10px;" title="Copy IP">Copy</button>
-            </div>
-            
-            <div class="intel-row">
-                <span class="intel-label">Location</span>
-                <span class="intel-value">{{ ip.city }}{% if ip.city %}, {% endif %}{{ ip.country or 'India / Global' }}</span>
-            </div>
-            <div class="intel-row">
-                <span class="intel-label">ISP / ASN</span>
-                <span class="intel-value">{{ ip.isp or 'Cloud Infrastructure' }} {% if ip.asn %}({{ ip.asn }}){% endif %}</span>
-            </div>
-            <div class="intel-row">
-                <span class="intel-label">Hosting</span>
-                <span class="intel-value">{{ ip.hosting or 'AWS / Public Cloud' }}</span>
-            </div>
-            
-            {% if ip.datacenter or ip.proxy_vpn %}
-            <div style="display: flex; gap: 6px; margin-top: 6px;">
-                {% if ip.datacenter %}<span class="pill" style="background: var(--info-bg); color: var(--info); border-color: var(--info-border); font-size: 10px;">Datacenter</span>{% endif %}
-                {% if ip.proxy_vpn %}<span class="pill" style="background: var(--high-bg); color: var(--high); border-color: var(--high-border); font-size: 10px;">Proxy/VPN</span>{% endif %}
-            </div>
+        {% for ip_item in intel.ip_info %}
+        {% set ip_addr = ip_item.ip if ip_item.ip is defined else (ip_item.address if ip_item.address is defined else ip_item) %}
+        <div style="{% if not loop.first %}margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);{% endif %}">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">{{ ip_addr }}</div>
+            {% if ip_item.asn %}
+            <div class="intel-row"><span class="intel-label">ASN</span><span class="intel-value" style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{{ ip_item.asn }}</span></div>
             {% endif %}
-            
-        {% else %}
-            <div class="text-center" style="color: var(--text-dim); font-size: 11px; padding: 8px 0;">
-                No IP data available
-            </div>
-        {% endif %}
+            {% if ip_item.org or ip_item.organization %}
+            <div class="intel-row"><span class="intel-label">Org</span><span class="intel-value">{{ ip_item.org or ip_item.organization }}</span></div>
+            {% endif %}
+            {% if ip_item.hosting %}
+            <div class="intel-row"><span class="intel-label">Provider</span><span class="intel-value">{{ ip_item.hosting }}</span></div>
+            {% endif %}
+            {% if ip_item.country %}
+            <div class="intel-row"><span class="intel-label">Location</span><span class="intel-value">{{ ip_item.country | country_flag }} {{ ip_item.city | default('') }}{% if ip_item.city %}, {% endif %}{{ ip_item.country }}</span></div>
+            {% endif %}
+        </div>
+        {% endfor %}
     </div>
 </div>
+{% endif %}

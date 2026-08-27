@@ -1,24 +1,24 @@
 <!-- Security Score Dashboard Section -->
 <section id="score" class="section">
-    <div class="section-header" style="border-left-color: var(--accent2);">
-        <svg class="sec-icon" style="color: var(--accent2);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <h2>Security Score &amp; Metrics</h2>
+    <div class="section-label" style="margin-bottom: 20px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span style="color: var(--teal);">SECURITY SCORE &amp; METRICS</span>
     </div>
 
     <div class="grid-3">
         <!-- Main Score Card -->
         <div class="card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; overflow: hidden; padding: 20px 14px;">
-            <h3 style="color: var(--text-dim); margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;">Overall Grade</h3>
-            <div style="font-size: 72px; font-weight: 800; line-height: 1; color: {% if score.value >= 80 %}var(--low){% elif score.value >= 60 %}var(--med){% else %}var(--crit){% endif %}; font-family: 'Syne', sans-serif;">
+            <h3 style="color: var(--text-tertiary); margin-bottom: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Syne', sans-serif;">Overall Grade</h3>
+            <div style="font-size: 72px; font-weight: 800; line-height: 1; color: {% if score.value >= 80 %}var(--sev-low){% elif score.value >= 60 %}var(--sev-medium){% else %}var(--sev-critical){% endif %}; font-family: 'Syne', sans-serif;">
                 {{ score.grade | default('B') }}
             </div>
             <div style="font-size: 20px; font-weight: 700; margin-top: -4px; font-family: 'JetBrains Mono', monospace;">
-                <span id="animated-score">{{ score.value | default(0) }}</span><span style="color: var(--text-dim);">/100</span>
+                <span id="animated-score">{{ score.value | default(0) }}</span><span style="color: var(--text-tertiary);">/100</span>
                 <span id="final-score-val" style="display: none;">{{ score.value | default(0) }}</span>
             </div>
-            
+
             {% if score.trend != 'none' %}
-            <div class="mt-4 pill" style="margin-top: 8px; background: var(--surface); border-color: {% if score.trend == 'up' %}var(--low){% else %}var(--crit){% endif %}; color: {% if score.trend == 'up' %}var(--low){% else %}var(--crit){% endif %}; font-size: 10px;">
+            <div class="pill" style="margin-top: 8px; background: var(--surface); border-color: {% if score.trend == 'up' %}var(--sev-low-bd){% else %}var(--sev-critical-bd){% endif %}; color: {% if score.trend == 'up' %}var(--sev-low){% else %}var(--sev-critical){% endif %}; font-size: 10px;">
                 {{ 'Improved' if score.trend == 'up' else 'Posture Baseline' }}
             </div>
             {% endif %}
@@ -26,7 +26,7 @@
 
         <!-- Category Breakdown Radar Chart (Interactive Native SVG) -->
         <div class="card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 14px; position: relative;">
-            <h3 style="margin-bottom: 6px; font-size: 11px; font-weight: 700; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.06em; text-align: center;">
+            <h3 style="margin-bottom: 6px; font-size: 10px; font-weight: 700; color: var(--teal); text-transform: uppercase; letter-spacing: 0.06em; text-align: center; font-family: 'Syne', sans-serif;">
                 Category Breakdown
             </h3>
 
@@ -39,24 +39,19 @@
 
             {% set p0_x = 150.0 %}
             {% set p0_y = 135.0 - (s_web / 100.0) * 80.0 %}
-
             {% set p1_x = 150.0 + (s_net / 100.0) * 80.0 * 0.866025 %}
             {% set p1_y = 135.0 - (s_net / 100.0) * 80.0 * 0.5 %}
-
             {% set p2_x = 150.0 + (s_ssl / 100.0) * 80.0 * 0.866025 %}
             {% set p2_y = 135.0 + (s_ssl / 100.0) * 80.0 * 0.5 %}
-
             {% set p3_x = 150.0 %}
             {% set p3_y = 135.0 + (s_email / 100.0) * 80.0 %}
-
             {% set p4_x = 150.0 - (s_api / 100.0) * 80.0 * 0.866025 %}
             {% set p4_y = 135.0 + (s_api / 100.0) * 80.0 * 0.5 %}
-
             {% set p5_x = 150.0 - (s_auth / 100.0) * 80.0 * 0.866025 %}
             {% set p5_y = 135.0 - (s_auth / 100.0) * 80.0 * 0.5 %}
 
             <div style="width: 100%; max-width: 280px; height: 220px; display: flex; align-items: center; justify-content: center; position: relative;" id="radar-wrapper">
-                <div id="radar-tooltip" style="position: absolute; background: var(--card); border: 1px solid var(--accent2); color: var(--text); padding: 5px 10px; border-radius: 4px; font-size: 11px; font-family: 'JetBrains Mono', monospace; pointer-events: none; opacity: 0; transition: opacity 0.15s, transform 0.15s; transform: translate(-50%, -100%); margin-top: -10px; z-index: 30; box-shadow: 0 4px 12px rgba(0,0,0,0.5); white-space: nowrap;"></div>
+                <div id="radar-tooltip" style="position: absolute; background: var(--card); border: 1px solid var(--teal); color: var(--text-primary); padding: 5px 10px; border-radius: var(--r-compact); font-size: 11px; font-family: 'JetBrains Mono', monospace; pointer-events: none; opacity: 0; transition: opacity 0.15s, transform 0.15s; transform: translate(-50%, -100%); margin-top: -10px; z-index: 30; box-shadow: var(--shadow-md); white-space: nowrap;"></div>
                 <svg viewBox="0 0 300 270" style="width: 100%; height: 100%; overflow: visible;" id="category-radar-svg">
                     <polygon points="150,119 163.9,127 163.9,143 150,151 136.1,143 136.1,127" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"></polygon>
                     <polygon points="150,103 177.7,119 177.7,151 150,167 122.3,151 122.3,119" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"></polygon>
@@ -71,58 +66,35 @@
                     <line x1="150" y1="135" x2="80.7" y2="175" stroke="rgba(255,255,255,0.1)" stroke-width="1"></line>
                     <line x1="150" y1="135" x2="80.7" y2="95" stroke="rgba(255,255,255,0.1)" stroke-width="1"></line>
 
-                    <text x="150" y="52" fill="#5a6478" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">100</text>
-                    <text x="150" y="68" fill="#5a6478" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">80</text>
-                    <text x="150" y="84" fill="#5a6478" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">60</text>
-                    <text x="150" y="100" fill="#5a6478" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">40</text>
-                    <text x="150" y="116" fill="#5a6478" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">20</text>
+                    <text x="150" y="52" fill="var(--text-tertiary)" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">100</text>
+                    <text x="150" y="68" fill="var(--text-tertiary)" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">80</text>
+                    <text x="150" y="84" fill="var(--text-tertiary)" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">60</text>
+                    <text x="150" y="100" fill="var(--text-tertiary)" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">40</text>
+                    <text x="150" y="116" fill="var(--text-tertiary)" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">20</text>
 
-                    <polygon id="radar-polygon" 
-                             points="{{ p0_x|round(1) }},{{ p0_y|round(1) }} {{ p1_x|round(1) }},{{ p1_y|round(1) }} {{ p2_x|round(1) }},{{ p2_y|round(1) }} {{ p3_x|round(1) }},{{ p3_y|round(1) }} {{ p4_x|round(1) }},{{ p4_y|round(1) }} {{ p5_x|round(1) }},{{ p5_y|round(1) }}" 
-                             fill="rgba(13, 148, 136, 0.2)" 
-                             stroke="#0d9488" 
-                             stroke-width="2" 
+                    <polygon id="radar-polygon"
+                             points="{{ p0_x|round(1) }},{{ p0_y|round(1) }} {{ p1_x|round(1) }},{{ p1_y|round(1) }} {{ p2_x|round(1) }},{{ p2_y|round(1) }} {{ p3_x|round(1) }},{{ p3_y|round(1) }} {{ p4_x|round(1) }},{{ p4_y|round(1) }} {{ p5_x|round(1) }},{{ p5_y|round(1) }}"
+                             fill="rgba(13, 148, 136, 0.2)"
+                             stroke="#0d9488"
+                             stroke-width="2"
                              stroke-linejoin="round"></polygon>
 
                     <!-- Interactive Vertex Groups -->
-                    <g class="radar-vertex" data-index="0" data-cat="Web Security" data-score="{{ s_web }}">
-                        <title>Web Security: {{ s_web }} / 100 pts</title>
-                        <circle id="hit-0" cx="{{ p0_x|round(1) }}" cy="{{ p0_y|round(1) }}" r="18" fill="rgba(0,0,0,0.001)" pointer-events="all" style="cursor: pointer;"></circle>
-                        <circle id="dot-0" cx="{{ p0_x|round(1) }}" cy="{{ p0_y|round(1) }}" r="3.5" fill="#ffffff" stroke="#0d9488" stroke-width="2" style="transition: all 0.15s; pointer-events: none;"></circle>
+                    {% for idx, px, py, cat, sc in [(0, p0_x, p0_y, 'Web Security', s_web), (1, p1_x, p1_y, 'Network Security', s_net), (2, p2_x, p2_y, 'SSL / TLS Security', s_ssl), (3, p3_x, p3_y, 'Email Security', s_email), (4, p4_x, p4_y, 'API Security', s_api), (5, p5_x, p5_y, 'Authentication', s_auth)] %}
+                    <g class="radar-vertex" data-index="{{ idx }}" data-cat="{{ cat }}" data-score="{{ sc }}">
+                        <title>{{ cat }}: {{ sc }} / 100 pts</title>
+                        <circle id="hit-{{ idx }}" cx="{{ px|round(1) }}" cy="{{ py|round(1) }}" r="18" fill="rgba(0,0,0,0.001)" pointer-events="all" style="cursor: pointer;"></circle>
+                        <circle id="dot-{{ idx }}" cx="{{ px|round(1) }}" cy="{{ py|round(1) }}" r="3.5" fill="#ffffff" stroke="#0d9488" stroke-width="2" style="transition: all 0.15s; pointer-events: none;"></circle>
                     </g>
-                    <g class="radar-vertex" data-index="1" data-cat="Network Security" data-score="{{ s_net }}">
-                        <title>Network Security: {{ s_net }} / 100 pts</title>
-                        <circle id="hit-1" cx="{{ p1_x|round(1) }}" cy="{{ p1_y|round(1) }}" r="18" fill="rgba(0,0,0,0.001)" pointer-events="all" style="cursor: pointer;"></circle>
-                        <circle id="dot-1" cx="{{ p1_x|round(1) }}" cy="{{ p1_y|round(1) }}" r="3.5" fill="#ffffff" stroke="#0d9488" stroke-width="2" style="transition: all 0.15s; pointer-events: none;"></circle>
-                    </g>
-                    <g class="radar-vertex" data-index="2" data-cat="SSL / TLS Security" data-score="{{ s_ssl }}">
-                        <title>SSL / TLS Security: {{ s_ssl }} / 100 pts</title>
-                        <circle id="hit-2" cx="{{ p2_x|round(1) }}" cy="{{ p2_y|round(1) }}" r="18" fill="rgba(0,0,0,0.001)" pointer-events="all" style="cursor: pointer;"></circle>
-                        <circle id="dot-2" cx="{{ p2_x|round(1) }}" cy="{{ p2_y|round(1) }}" r="3.5" fill="#ffffff" stroke="#0d9488" stroke-width="2" style="transition: all 0.15s; pointer-events: none;"></circle>
-                    </g>
-                    <g class="radar-vertex" data-index="3" data-cat="Email Security" data-score="{{ s_email }}">
-                        <title>Email Security: {{ s_email }} / 100 pts</title>
-                        <circle id="hit-3" cx="{{ p3_x|round(1) }}" cy="{{ p3_y|round(1) }}" r="18" fill="rgba(0,0,0,0.001)" pointer-events="all" style="cursor: pointer;"></circle>
-                        <circle id="dot-3" cx="{{ p3_x|round(1) }}" cy="{{ p3_y|round(1) }}" r="3.5" fill="#ffffff" stroke="#0d9488" stroke-width="2" style="transition: all 0.15s; pointer-events: none;"></circle>
-                    </g>
-                    <g class="radar-vertex" data-index="4" data-cat="API Security" data-score="{{ s_api }}">
-                        <title>API Security: {{ s_api }} / 100 pts</title>
-                        <circle id="hit-4" cx="{{ p4_x|round(1) }}" cy="{{ p4_y|round(1) }}" r="18" fill="rgba(0,0,0,0.001)" pointer-events="all" style="cursor: pointer;"></circle>
-                        <circle id="dot-4" cx="{{ p4_x|round(1) }}" cy="{{ p4_y|round(1) }}" r="3.5" fill="#ffffff" stroke="#0d9488" stroke-width="2" style="transition: all 0.15s; pointer-events: none;"></circle>
-                    </g>
-                    <g class="radar-vertex" data-index="5" data-cat="Authentication" data-score="{{ s_auth }}">
-                        <title>Authentication: {{ s_auth }} / 100 pts</title>
-                        <circle id="hit-5" cx="{{ p5_x|round(1) }}" cy="{{ p5_y|round(1) }}" r="18" fill="rgba(0,0,0,0.001)" pointer-events="all" style="cursor: pointer;"></circle>
-                        <circle id="dot-5" cx="{{ p5_x|round(1) }}" cy="{{ p5_y|round(1) }}" r="3.5" fill="#ffffff" stroke="#0d9488" stroke-width="2" style="transition: all 0.15s; pointer-events: none;"></circle>
-                    </g>
+                    {% endfor %}
 
                     <!-- Interactive Labels -->
-                    <text id="label-0" class="radar-label" data-index="0" x="150" y="38" fill="var(--text)" font-size="12" font-weight="700" text-anchor="middle" font-family="'Inter', sans-serif" style="cursor: pointer;">Web</text>
-                    <text id="label-1" class="radar-label" data-index="1" x="228" y="93" fill="var(--text)" font-size="12" font-weight="700" text-anchor="start" font-family="'Inter', sans-serif" style="cursor: pointer;">Network</text>
-                    <text id="label-2" class="radar-label" data-index="2" x="228" y="182" fill="var(--text)" font-size="12" font-weight="700" text-anchor="start" font-family="'Inter', sans-serif" style="cursor: pointer;">SSL</text>
-                    <text id="label-3" class="radar-label" data-index="3" x="150" y="235" fill="var(--text)" font-size="12" font-weight="700" text-anchor="middle" font-family="'Inter', sans-serif" style="cursor: pointer;">Email</text>
-                    <text id="label-4" class="radar-label" data-index="4" x="72" y="182" fill="var(--text)" font-size="12" font-weight="700" text-anchor="end" font-family="'Inter', sans-serif" style="cursor: pointer;">API</text>
-                    <text id="label-5" class="radar-label" data-index="5" x="72" y="93" fill="var(--text)" font-size="12" font-weight="700" text-anchor="end" font-family="'Inter', sans-serif" style="cursor: pointer;">Auth</text>
+                    <text id="label-0" class="radar-label" data-index="0" x="150" y="38" fill="var(--text-primary)" font-size="12" font-weight="700" text-anchor="middle" font-family="'Inter', sans-serif" style="cursor: pointer;">Web</text>
+                    <text id="label-1" class="radar-label" data-index="1" x="228" y="93" fill="var(--text-primary)" font-size="12" font-weight="700" text-anchor="start" font-family="'Inter', sans-serif" style="cursor: pointer;">Network</text>
+                    <text id="label-2" class="radar-label" data-index="2" x="228" y="182" fill="var(--text-primary)" font-size="12" font-weight="700" text-anchor="start" font-family="'Inter', sans-serif" style="cursor: pointer;">SSL</text>
+                    <text id="label-3" class="radar-label" data-index="3" x="150" y="235" fill="var(--text-primary)" font-size="12" font-weight="700" text-anchor="middle" font-family="'Inter', sans-serif" style="cursor: pointer;">Email</text>
+                    <text id="label-4" class="radar-label" data-index="4" x="72" y="182" fill="var(--text-primary)" font-size="12" font-weight="700" text-anchor="end" font-family="'Inter', sans-serif" style="cursor: pointer;">API</text>
+                    <text id="label-5" class="radar-label" data-index="5" x="72" y="93" fill="var(--text-primary)" font-size="12" font-weight="700" text-anchor="end" font-family="'Inter', sans-serif" style="cursor: pointer;">Auth</text>
                 </svg>
             </div>
         </div>
@@ -130,24 +102,24 @@
         <!-- Quick Stats -->
         <div class="card" style="display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
-                <span style="color: var(--text-muted); font-size: 12px; font-weight: 500;">Critical Findings</span>
+                <span style="color: var(--text-secondary); font-size: 12px; font-weight: 500;">Critical Findings</span>
                 <span class="pill badge-critical" style="min-width: 24px; text-align: center;">{{ findings | selectattr('severity', 'equalto', 'critical') | list | length }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
-                <span style="color: var(--text-muted); font-size: 12px; font-weight: 500;">High Findings</span>
+                <span style="color: var(--text-secondary); font-size: 12px; font-weight: 500;">High Findings</span>
                 <span class="pill badge-high" style="min-width: 24px; text-align: center;">{{ findings | selectattr('severity', 'equalto', 'high') | list | length }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
-                <span style="color: var(--text-muted); font-size: 12px; font-weight: 500;">Medium Findings</span>
+                <span style="color: var(--text-secondary); font-size: 12px; font-weight: 500;">Medium Findings</span>
                 <span class="pill badge-medium" style="min-width: 24px; text-align: center;">{{ findings | selectattr('severity', 'equalto', 'medium') | list | length }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
-                <span style="color: var(--text-muted); font-size: 12px; font-weight: 500;">Low/Info Findings</span>
+                <span style="color: var(--text-secondary); font-size: 12px; font-weight: 500;">Low/Info Findings</span>
                 <span class="pill badge-low" style="min-width: 24px; text-align: center;">{{ (findings | selectattr('severity', 'equalto', 'low') | list | length) + (findings | selectattr('severity', 'equalto', 'info') | list | length) }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <a href="#suppressed" style="color: var(--accent-light); text-decoration: none; font-size: 12px; font-weight: 600;">Suppressed False Positives</a>
-                <span class="pill" style="background: var(--accent-glow) !important; color: var(--accent-light) !important; border-color: var(--accent) !important; font-weight: 700; min-width: 24px; text-align: center;">
+                <a href="#suppressed" style="color: var(--brand-light); text-decoration: none; font-size: 12px; font-weight: 600;">Suppressed False Positives</a>
+                <span class="pill" style="background: var(--brand-glow) !important; color: var(--brand-light) !important; border-color: var(--brand) !important; font-weight: 700; min-width: 24px; text-align: center;">
                     {{ fp_log | length }}
                 </span>
             </div>
@@ -224,7 +196,6 @@
         }
     }
 
-    // Attach mouse proximity tracker on radar SVG
     if (radarSvg) {
         radarSvg.addEventListener('mousemove', (e) => {
             const svgRect = radarSvg.getBoundingClientRect();
@@ -232,7 +203,7 @@
             const mouseSvgY = ((e.clientY - svgRect.top) / svgRect.height) * 270;
 
             let closestIdx = -1;
-            let minDist = 35; // 35 SVG units threshold
+            let minDist = 35;
 
             for (let i = 0; i < 6; i++) {
                 const dot = document.getElementById('dot-' + i);

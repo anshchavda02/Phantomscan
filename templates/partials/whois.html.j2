@@ -1,28 +1,36 @@
-<!-- WHOIS Panel -->
-<div class="intel-card" style="border-left: 2px solid var(--mod-recon);">
-    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="window.toggleCollapsible(this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        <span>WHOIS</span>
-        <span style="margin-left: auto;">{{ intel.whois.country | flag_emoji }}</span>
+<!-- WHOIS Intelligence Card -->
+{% if intel.whois %}
+<div class="intel-card">
+    <div class="intel-card-header" onclick="window.toggleCollapsible(this)" style="border-left: 2px solid var(--teal); color: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        WHOIS
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="intel-card-content">
-        <div class="intel-row">
-            <span class="intel-label">Registrar</span>
-            <span class="intel-value">{{ intel.whois.registrar or 'N/A' }}</span>
-        </div>
-        <div class="intel-row">
-            <span class="intel-label">Registered</span>
-            <span class="intel-value">{{ intel.whois.registration_date[:10] if intel.whois.registration_date else 'N/A' }}</span>
-        </div>
-        <div class="intel-row">
-            <span class="intel-label">Expires</span>
-            <span class="intel-value" style="color: {% if intel.whois.days_remaining is not none and intel.whois.days_remaining > 180 %}var(--low){% elif intel.whois.days_remaining is not none and intel.whois.days_remaining > 90 %}var(--med){% elif intel.whois.days_remaining is not none %}var(--crit){% else %}var(--text){% endif %}; font-weight: 700;">
-                {{ intel.whois.expiry_date[:10] if intel.whois.expiry_date else 'N/A' }}{% if intel.whois.days_remaining is not none %} ({{ intel.whois.days_remaining }}d){% endif %}
-            </span>
-        </div>
-        <div class="intel-row">
-            <span class="intel-label">DNSSEC</span>
-            <span class="intel-value" style="color: {% if intel.whois.dnssec %}var(--low){% else %}var(--crit){% endif %};">{{ 'Enabled' if intel.whois.dnssec else 'Disabled' }}</span>
-        </div>
+        {% if intel.whois.registrar %}
+        <div class="intel-row"><span class="intel-label">Registrar</span><span class="intel-value">{{ intel.whois.registrar }}</span></div>
+        {% endif %}
+        {% if intel.whois.registrant_org or intel.whois.organization %}
+        <div class="intel-row"><span class="intel-label">Organization</span><span class="intel-value">{{ intel.whois.registrant_org or intel.whois.organization }}</span></div>
+        {% endif %}
+        {% if intel.whois.registration_date or intel.whois.creation_date %}
+        <div class="intel-row"><span class="intel-label">Created</span><span class="intel-value">{{ intel.whois.registration_date or intel.whois.creation_date }}</span></div>
+        {% endif %}
+        {% if intel.whois.expiry_date or intel.whois.expiration_date %}
+        <div class="intel-row"><span class="intel-label">Expires</span><span class="intel-value">{{ intel.whois.expiry_date or intel.whois.expiration_date }}</span></div>
+        {% endif %}
+        {% if intel.whois.updated_date %}
+        <div class="intel-row"><span class="intel-label">Updated</span><span class="intel-value">{{ intel.whois.updated_date }}</span></div>
+        {% endif %}
+        {% if intel.whois.name_servers %}
+        <div class="intel-row"><span class="intel-label">Nameservers</span><span class="intel-value" style="font-family: 'JetBrains Mono', monospace; font-size: 10px;">{{ intel.whois.name_servers | join(', ') }}</span></div>
+        {% endif %}
+        {% if intel.whois.dnssec is defined and intel.whois.dnssec %}
+        <div class="intel-row"><span class="intel-label">DNSSEC</span><span class="intel-value">Enabled</span></div>
+        {% endif %}
+        {% if intel.whois.country %}
+        <div class="intel-row"><span class="intel-label">Country</span><span class="intel-value">{{ intel.whois.country | country_flag }} {{ intel.whois.country }}</span></div>
+        {% endif %}
     </div>
 </div>
+{% endif %}

@@ -232,13 +232,16 @@ def parse_chains_from_findings(findings: list[Any]) -> list[Any]:
             if not steps:
                 steps = [evidence[:200]]
 
+            impact = str(getattr(f, 'impact', '') or (f.get('impact', '') if isinstance(f, dict) else '') or "Allows multi-stage unauthorized privilege escalation, lateral infrastructure traversal, or sensitive data exfiltration.")
+
             chains.append(ChainFinding(
                 id=fid,
                 name=name,
                 severity=sev,
                 description=desc,
                 components=[],
-                steps=steps
+                steps=steps,
+                impact=impact
             ))
     return chains
 
@@ -352,6 +355,7 @@ class ReportGenerator:
         self.env.filters['format_date'] = self.format_date
         self.env.filters['truncate_evidence'] = lambda s, n=500: s[:n] + '...' if len(s) > n else s
         self.env.filters['flag_emoji'] = self.country_to_flag
+        self.env.filters['country_flag'] = self.country_to_flag
         self.env.filters['mask_secret'] = lambda s: s[:8] + '***' if len(s) > 8 else '***'
         
         # Additional filters that the template might need

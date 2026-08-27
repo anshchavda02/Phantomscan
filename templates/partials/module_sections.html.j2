@@ -6,119 +6,116 @@
         margin-bottom: 20px;
         background: var(--surface);
         padding: 12px;
-        border-radius: 5px;
+        border-radius: var(--r-standard);
         border: 1px solid var(--border);
         flex-wrap: wrap;
+        align-items: center;
     }
-    
     .light-mode .filter-controls {
         background: #ffffff;
-        border-color: #dce1ea;
+        border-color: var(--border);
     }
-
     .filter-btn {
         background: var(--card);
         border: 1px solid var(--border);
         padding: 5px 12px;
-        border-radius: 3px;
-        color: var(--text-muted);
+        border-radius: var(--r-compact);
+        color: var(--text-secondary);
         cursor: pointer;
         transition: all 0.15s;
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.02em;
+        font-family: inherit;
     }
-
     .filter-btn.active {
-        background: var(--accent);
+        background: var(--brand);
         color: #ffffff;
-        border-color: var(--accent);
+        border-color: var(--brand);
     }
-    
-    .filter-btn[data-filter="critical"].active { background: var(--crit); border-color: var(--crit); color: #ffffff; }
-    .filter-btn[data-filter="high"].active { background: var(--high); border-color: var(--high); color: #ffffff; }
-    .filter-btn[data-filter="medium"].active { background: var(--med); border-color: var(--med); color: #000000; }
-    .filter-btn[data-filter="low"].active { background: var(--low); border-color: var(--low); color: #ffffff; }
+    .filter-btn[data-filter="critical"].active { background: var(--sev-critical); border-color: var(--sev-critical); color: #ffffff; }
+    .filter-btn[data-filter="high"].active { background: var(--sev-high); border-color: var(--sev-high); color: #ffffff; }
+    .filter-btn[data-filter="medium"].active { background: var(--sev-medium); border-color: var(--sev-medium); color: #000000; }
+    .filter-btn[data-filter="low"].active { background: var(--sev-low); border-color: var(--sev-low); color: #ffffff; }
 
     .search-box {
         flex: 1;
         min-width: 200px;
         position: relative;
     }
-
     .search-box input {
         width: 100%;
         background: var(--card);
         border: 1px solid var(--border);
-        padding: 6px 12px 6px 30px;
-        border-radius: 4px;
-        color: var(--text);
+        padding: 6px 12px 6px 32px;
+        border-radius: var(--r-compact);
+        color: var(--text-primary);
         font-family: inherit;
         font-size: 12px;
         transition: border-color 0.15s;
     }
-    
     .search-box input:focus {
         outline: none;
-        border-color: var(--accent);
+        border-color: var(--brand);
     }
-    
-    .search-box::before {
-        content: "\1F50D";
+    .search-box svg {
         position: absolute;
         left: 10px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 12px;
         opacity: 0.4;
     }
+    .light-mode .search-box input { background: #f8fafc; color: #111827; border-color: var(--border); }
 </style>
 
 <section id="findings" class="section">
-    <div class="section-header" style="border-left-color: var(--accent3);">
-        <svg class="sec-icon" style="color: var(--accent3);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <h2>Detailed Findings</h2>
-        <span class="pill" style="font-size: 11px; margin-left: auto;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 8px;">
+        <div class="section-label" style="margin-bottom: 0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sev-critical)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span style="color: var(--sev-critical);">DETAILED FINDINGS</span>
+        </div>
+        <span class="pill" style="font-size: 11px;">
             {{ findings | length }} Confirmed
         </span>
     </div>
-    
+
     <div class="filter-controls">
         <button class="filter-btn active" data-filter="all" onclick="window.setFindingFilter(this, 'all')">All ({{ findings|length }})</button>
         <button class="filter-btn" data-filter="critical" onclick="window.setFindingFilter(this, 'critical')">Critical ({{ findings | selectattr('severity', 'equalto', 'critical') | list | length }})</button>
         <button class="filter-btn" data-filter="high" onclick="window.setFindingFilter(this, 'high')">High ({{ findings | selectattr('severity', 'equalto', 'high') | list | length }})</button>
         <button class="filter-btn" data-filter="medium" onclick="window.setFindingFilter(this, 'medium')">Medium ({{ findings | selectattr('severity', 'equalto', 'medium') | list | length }})</button>
         <button class="filter-btn" data-filter="low" onclick="window.setFindingFilter(this, 'low')">Low/Info ({{ (findings | selectattr('severity', 'equalto', 'low') | list | length) + (findings | selectattr('severity', 'equalto', 'info') | list | length) }})</button>
-        
+
         <div class="search-box">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" id="finding-search" oninput="window.filterFindings(this.value)" placeholder="Search findings...">
         </div>
-        
-        <button class="collapse-btn" id="expand-all-btn" onclick="window.toggleExpandAll()" style="font-size: 11px;">Expand All</button>
+
+        <button class="filter-btn" id="expand-all-btn" onclick="window.toggleExpandAll()" style="font-size: 11px;">Expand All</button>
     </div>
 
     <div id="findings-container">
         {% if findings_grouped %}
         {% for group_name, group_findings in findings_grouped.items() %}
         <div class="module-group" style="margin-bottom: 40px;">
-            <h3 style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; font-size: 13px; letter-spacing: 0.06em;">
+            <h3 style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; font-size: 12px; letter-spacing: 0.06em; font-family: 'Syne', sans-serif;">
                 <span>{{ group_name | upper }}</span>
                 <span class="pill">{{ group_findings|length }} Findings</span>
             </h3>
-            
+
             {% if group_findings %}
             {% for finding in group_findings %}
                 {% set index = loop.index %}
                 {% include 'partials/finding_card.html.j2' %}
             {% endfor %}
             {% else %}
-            <p style="color: var(--text-dim); padding: 8px 0; font-size: 12px;">No findings for this category</p>
+            <p style="color: var(--text-tertiary); padding: 8px 0; font-size: 12px;">No findings for this category</p>
             {% endif %}
         </div>
         {% endfor %}
         {% else %}
         <div class="card" style="text-align: center; padding: 36px 20px;">
-            <p style="color: var(--text-dim); margin: 0;">No security findings identified.</p>
+            <p style="color: var(--text-tertiary); margin: 0;">No security findings identified.</p>
         </div>
         {% endif %}
     </div>
@@ -163,8 +160,8 @@
             const cardSev = (card.dataset.severity || '').toLowerCase();
             const text = (card.textContent || '').toLowerCase();
 
-            const sevMatch = (filter === 'all') || 
-                             (cardSev === filter) || 
+            const sevMatch = (filter === 'all') ||
+                             (cardSev === filter) ||
                              (filter === 'low' && (cardSev === 'low' || cardSev === 'info'));
 
             const searchMatch = !query || text.indexOf(query) !== -1;
@@ -176,7 +173,6 @@
             }
         });
 
-        // Toggle empty module groups
         document.querySelectorAll('.module-group').forEach(group => {
             const visible = Array.from(group.querySelectorAll('.finding-card')).some(c => c.style.display !== 'none');
             group.style.display = visible ? 'block' : 'none';

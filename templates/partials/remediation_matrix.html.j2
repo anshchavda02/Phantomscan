@@ -1,16 +1,12 @@
 <!-- Remediation Matrix Section -->
 {% if findings %}
 <section id="remediation" class="section">
-    <div class="section-header" style="border-left-color: var(--low);">
-        <svg class="sec-icon" style="color: var(--low);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-        <h2>Remediation Matrix</h2>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sev-low)" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        <span style="color: var(--sev-low);">REMEDIATION PRIORITY MATRIX</span>
     </div>
 
     <div class="card" style="padding: 0; overflow: hidden;">
-        <div style="padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 11.5px; color: var(--text-muted);">
-            Prioritized list of actionable remediation steps based on finding severity and exploitability.
-        </div>
-        
         <div style="overflow-x: auto;">
             <table>
                 <thead>
@@ -32,7 +28,7 @@
                                 </span>
                             </td>
                             <td>
-                                <a href="#finding-{{ loop.index }}-{{ finding.severity|lower }}" style="font-weight: 600; color: var(--text); text-decoration: none;">
+                                <a href="#finding-{{ loop.index }}-{{ finding.severity|lower }}" style="font-weight: 600; color: var(--text-primary); text-decoration: none;">
                                     {{ finding.title }}
                                 </a>
                             </td>
@@ -41,7 +37,7 @@
                                     {{ finding.category | upper }}
                                 </span>
                             </td>
-                            <td style="color: var(--text-muted); font-size: 12px;">
+                            <td style="color: var(--text-secondary); font-size: 12px;">
                                 {{ finding.recommendation | truncate_evidence(180) }}
                             </td>
                         </tr>

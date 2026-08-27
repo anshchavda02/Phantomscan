@@ -1,28 +1,28 @@
 <!-- CVE Section -->
 {% if cves %}
 <section id="cves" class="section">
-    <div class="section-header" style="border-left-color: var(--mod-cve);">
-        <svg class="sec-icon" style="color: var(--mod-cve);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <h2>Known Vulnerabilities (CVEs)</h2>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sev-critical)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span style="color: var(--sev-critical);">KNOWN VULNERABILITIES (CVEs)</span>
     </div>
 
-    <div class="card" style="border-left: 3px solid var(--mod-cve);">
+    <div class="card" style="border-left: 3px solid var(--sev-critical); padding: 14px;">
         <div style="display: flex; flex-direction: column; gap: 8px;">
             {% for cve in cves %}
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--surface); border-radius: 4px; border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--surface); border-radius: var(--r-compact); border: 1px solid var(--border); flex-wrap: wrap; gap: 8px;">
                 <div>
-                    <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 2px;">
-                        <a href="https://nvd.nist.gov/vuln/detail/{{ cve.id }}" target="_blank">{{ cve.id }}</a>
+                    <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <a href="https://nvd.nist.gov/vuln/detail/{{ cve.id }}" target="_blank" rel="noopener noreferrer" style="font-family: 'JetBrains Mono', monospace;">{{ cve.id }}</a>
                         {% if cve.epss and cve.epss > 0.5 %}
-                        <span class="pill badge-critical" style="margin-left: 6px; font-size: 9px;">High EPSS: {{ (cve.epss * 100) | round(1) }}%</span>
+                        <span class="pill badge-critical" style="font-size: 9px;">EPSS: {{ (cve.epss * 100) | round(1) }}%</span>
                         {% endif %}
                     </div>
-                    <div style="font-size: 11px; color: var(--text-muted);">CVSS: {{ cve.cvss }} | Component: {{ cve.component }}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary);">CVSS: {{ cve.cvss }} &middot; Component: {{ cve.component }}</div>
                 </div>
                 <div style="text-align: right;">
-                    <span class="pill badge-{{ cve.severity|lower }}" style="font-size: 10px;">{{ cve.severity }}</span>
+                    <span class="pill badge-{{ cve.severity|lower }}" style="font-size: 10px;">{{ cve.severity | upper }}</span>
                     {% if cve.exploitable %}
-                    <div style="margin-top: 2px; font-size: 10px; color: var(--crit); font-weight: 600;">Known Exploit</div>
+                    <div style="margin-top: 2px; font-size: 10px; color: var(--sev-critical); font-weight: 600;">Known Exploit</div>
                     {% endif %}
                 </div>
             </div>

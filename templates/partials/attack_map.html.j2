@@ -4,95 +4,62 @@
         margin-top: 20px;
         background: rgba(5, 7, 15, 0.6);
         border: 1px solid var(--border);
-        border-radius: 6px;
+        border-radius: var(--r-standard);
         height: 380px;
         position: relative;
         overflow: hidden;
     }
-    
     .light-mode .attack-map-container {
         background: rgba(248, 249, 251, 0.9);
-        border-color: #dce1ea;
+        border-color: var(--border);
     }
-    
-    #attack-map-svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-    }
-    
+    #attack-map-svg { width: 100%; height: 100%; display: block; }
     .map-tooltip {
         position: absolute;
         background: var(--card);
-        border: 1px solid var(--accent2);
-        color: var(--text);
+        border: 1px solid var(--teal);
+        color: var(--text-primary);
         padding: 6px 12px;
-        border-radius: 4px;
+        border-radius: var(--r-compact);
         font-size: 11px;
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.1s ease;
         z-index: 20;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        box-shadow: var(--shadow-md);
     }
-    
     .light-mode .map-tooltip {
         background: #ffffff;
         border-color: #0f766e;
         color: #0f172a;
     }
-    
     .map-legend {
-        position: absolute;
-        bottom: 12px;
-        left: 12px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        padding: 8px 12px;
-        border-radius: 4px;
-        font-size: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        z-index: 10;
-        color: var(--text-muted);
+        position: absolute; bottom: 12px; left: 12px;
+        background: var(--card); border: 1px solid var(--border);
+        padding: 8px 12px; border-radius: var(--r-compact);
+        font-size: 10px; display: flex; flex-direction: column;
+        gap: 4px; z-index: 10; color: var(--text-secondary);
     }
-    
     .light-mode .map-legend {
         background: rgba(255, 255, 255, 0.95);
-        border-color: #dce1ea;
+        border-color: var(--border);
         color: #475569;
     }
-    
     .map-controls {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        display: flex;
-        gap: 4px;
-        z-index: 10;
+        position: absolute; top: 12px; right: 12px;
+        display: flex; gap: 4px; z-index: 10;
     }
-    
     .map-controls button {
-        padding: 4px 10px;
-        font-size: 12px;
-        font-weight: 700;
-        background: var(--card);
-        border: 1px solid var(--border);
-        color: var(--text);
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.15s;
+        padding: 4px 10px; font-size: 12px; font-weight: 700;
+        background: var(--card); border: 1px solid var(--border);
+        color: var(--text-primary); border-radius: var(--r-compact);
+        cursor: pointer; transition: all 0.15s;
     }
     .map-controls button:hover {
-        background: var(--accent);
-        color: #ffffff;
-        border-color: var(--accent);
+        background: var(--brand); color: #ffffff; border-color: var(--brand);
     }
     .light-mode .map-controls button {
-        background: #ffffff;
-        border-color: #dce1ea;
-        color: #0f172a;
+        background: #ffffff; border-color: var(--border); color: #0f172a;
     }
 </style>
 
@@ -130,7 +97,7 @@
         }
 
         if (!d3Data || !d3Data.nodes || d3Data.nodes.length === 0) {
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;">Attack surface map nodes not available</div>';
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:12px;">Attack surface map nodes not available</div>';
             return;
         }
 
@@ -233,7 +200,7 @@
 
             node.on("mouseover", (event, d) => {
                 if (tooltip) {
-                    tooltip.innerHTML = `<strong>${d.name || d.id}</strong><br><span style="color:var(--text-dim);font-size:10px;">Type: ${d.type || 'Node'}</span>`;
+                    tooltip.innerHTML = `<strong>${d.name || d.id}</strong><br><span style="color:var(--text-tertiary);font-size:10px;">Type: ${d.type || 'Node'}</span>`;
                     tooltip.style.opacity = 1;
                     tooltip.style.left = (event.offsetX + 12) + "px";
                     tooltip.style.top = (event.offsetY - 12) + "px";
@@ -279,7 +246,7 @@
 
         } catch (err) {
             console.error("D3 Attack Map error:", err);
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;">Attack Map visual simulation initialized</div>';
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:12px;">Attack Map visual simulation initialized</div>';
         }
     }
 

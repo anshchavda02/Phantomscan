@@ -1,35 +1,22 @@
-<!-- Subdomains Panel -->
-<div class="intel-card" style="border-left: 2px solid var(--accent2);">
-    <div class="intel-card-header" style="color: var(--accent2);" onclick="window.toggleCollapsible(this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span>SUBDOMAINS</span>
-        <span style="margin-left: auto;" class="pill">{{ intel.subdomains|length }} Total</span>
+<!-- Subdomains Card -->
+{% if intel.subdomains %}
+<div class="intel-card">
+    <div class="intel-card-header" onclick="window.toggleCollapsible(this)" style="border-left: 2px solid #8b5cf6; color: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        SUBDOMAINS
+        <span class="pill count-pill" style="font-size: 9px; padding: 1px 6px;">{{ intel.subdomains | length }}</span>
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="intel-card-content">
-        {% set resolved = intel.subdomains | selectattr('ips') | list %}
-        {% set interesting = intel.subdomains | selectattr('interesting') | list %}
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
-            <div style="background: var(--surface); padding: 6px; border-radius: 4px; text-align: center; border: 1px solid var(--border);">
-                <div style="font-size: 16px; font-weight: 700;">{{ resolved|length }}</div>
-                <div style="font-size: 10px; color: var(--text-dim);">Resolved</div>
-            </div>
-            <div style="background: var(--surface); padding: 6px; border-radius: 4px; text-align: center; border: 1px solid var(--border);">
-                <div style="font-size: 16px; font-weight: 700; color: var(--crit);">{{ interesting|length }}</div>
-                <div style="font-size: 10px; color: var(--text-dim);">Interesting</div>
-            </div>
-        </div>
-        
-        <div style="display: flex; flex-direction: column; gap: 2px; max-height: 120px; overflow-y: auto;">
-            {% for sub in intel.subdomains[:6] %}
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 2px 0;">
-                <code style="border: none; background: transparent; padding: 0; font-size: 11px;">{{ sub.subdomain }}</code>
-                {% if sub.interesting %}<span class="pill badge-critical" style="font-size: 9px; padding: 1px 4px;">FLAG</span>{% endif %}
-            </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+            {% for sub in intel.subdomains[:20] %}
+            {% set sub_name = sub.subdomain if sub.subdomain is defined else (sub.name if sub.name is defined else sub) %}
+            <span class="pill" style="font-size: 10px; font-family: 'JetBrains Mono', monospace; padding: 3px 8px;">{{ sub_name }}</span>
             {% endfor %}
-            {% if intel.subdomains|length > 6 %}
-            <div class="text-center" style="font-size: 10px; color: var(--accent2); margin-top: 2px;">+ {{ intel.subdomains|length - 6 }} more</div>
-            {% endif %}
         </div>
+        {% if intel.subdomains | length > 20 %}
+        <div style="font-size: 10px; color: var(--text-tertiary); text-align: center; padding-top: 6px;">+ {{ intel.subdomains | length - 20 }} more subdomains</div>
+        {% endif %}
     </div>
 </div>
+{% endif %}

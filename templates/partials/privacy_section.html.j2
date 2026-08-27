@@ -1,13 +1,13 @@
 <!-- Privacy & PII Exposure Section -->
 <section id="privacy" class="section" style="clear: both; width: 100%;">
-    <div class="section-header">
-        <svg class="sec-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <h2>Privacy &amp; PII Exposure Analysis</h2>
-        <span class="pill" style="background: var(--low-bg); color: var(--low); border-color: var(--low-border); font-size: 10px;">GDPR / Privacy</span>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-light)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span style="color: var(--brand-light);">PRIVACY &amp; PII EXPOSURE ANALYSIS</span>
+        <span class="pill" style="background: var(--sev-low-bg); color: var(--sev-low); border-color: var(--sev-low-bd); font-size: 10px; margin-left: auto;">GDPR / Privacy</span>
     </div>
 
     <div class="card">
-        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
+        <p style="color: var(--text-secondary); font-size: 12.5px; margin-bottom: 16px;">
             Identifies exposed Personally Identifiable Information (PII) such as emails, SSNs, credit cards, phone numbers, AWS keys, and IBANs in HTTP responses. Evidence is safely masked.
         </p>
 
@@ -37,15 +37,15 @@
                         <td><strong>{{ pf.title }}</strong></td>
                         <td style="text-align: center;"><span class="pill badge-{{ pf.severity|lower }}">{{ pf.severity }}</span></td>
                         <td><pre class="evidence" style="margin: 0; font-size: 11px;">{{ pf.evidence }}</pre></td>
-                        <td style="text-align: center;"><span class="pill" style="background: var(--info-bg); color: var(--info); border-color: var(--info-border); font-size: 10px;">GDPR Art. 32</span></td>
+                        <td style="text-align: center;"><span class="pill" style="background: var(--sev-info-bg); color: var(--sev-info); border-color: var(--sev-info-bd); font-size: 10px;">GDPR Art. 32</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: var(--low-bg); border: 1px solid var(--low-border); border-radius: 4px; color: var(--low); font-size: 12px; font-weight: 500;">
-            <span style="font-size: 14px;">&#10003;</span>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: var(--sev-low-bg); border: 1px solid var(--sev-low-bd); border-radius: var(--r-compact); color: var(--sev-low); font-size: 12px; font-weight: 500;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             <span>No sensitive PII exposures detected in analyzed HTTP responses.</span>
         </div>
         {% endif %}

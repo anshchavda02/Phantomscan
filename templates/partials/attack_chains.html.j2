@@ -1,35 +1,45 @@
 <!-- Attack Chains Section -->
 {% if chains %}
 <section id="chains" class="section">
-    <div class="section-header" style="border-left-color: var(--mod-chain);">
-        <svg class="sec-icon" style="color: var(--mod-chain);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        <h2>Attack Chains &amp; Escalation Paths</h2>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sev-critical)" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span style="color: var(--sev-critical);">ATTACK CHAINS &amp; ESCALATION PATHS</span>
     </div>
 
     <div style="display: flex; flex-direction: column; gap: 20px;">
         {% for chain in chains %}
-        <div class="card" style="border-left: 3px solid var(--mod-chain);">
-            <h3 style="color: var(--mod-chain); margin-bottom: 12px; font-size: 15px;">{{ chain.name }}</h3>
-            <p style="color: var(--text-muted); margin-bottom: 18px; font-size: 12.5px;">{{ chain.description }}</p>
-            
+        <div class="card" style="border-left: 3px solid var(--sev-critical);">
+            <h3 style="color: var(--sev-critical); margin-bottom: 8px; font-size: 15px; font-family: 'Syne', sans-serif;">{{ chain.name }}</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 18px; font-size: 12.5px;">{{ chain.description }}</p>
+
             <div style="display: flex; flex-direction: column; gap: 8px; position: relative;">
                 <div style="position: absolute; left: 13px; top: 16px; bottom: 16px; width: 2px; background: var(--border-light); z-index: 0;"></div>
-                
+
                 {% for step in chain.steps %}
+                {% set is_str = (step is string) %}
+                {% set step_title = (step.title if step.title is defined else '') if not is_str else '' %}
+                {% set step_mod = (step.module if step.module is defined else '') if not is_str else '' %}
+                {% set step_fid = (step.finding_id if step.finding_id is defined else '') if not is_str else '' %}
+                {% set step_text = (step.description if (step.description is defined and step.description) else (step.title if step.title is defined else (step|string))) if not is_str else step %}
+
                 <div style="display: flex; gap: 14px; position: relative; z-index: 1;">
-                    <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--surface); border: 2px solid {% if loop.last %}var(--crit){% else %}var(--accent){% endif %}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0;">
+                    <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--surface); border: 2px solid {% if loop.last %}var(--sev-critical){% else %}var(--brand){% endif %}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">
                         {{ loop.index }}
                     </div>
-                    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 12px; flex: 1;">
+                    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 12px; flex: 1;">
+                        {% if step_title or step_mod %}
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                            <div style="font-weight: 600; font-size: 13px;">{{ step.title }}</div>
-                            <span class="pill" style="font-size: 10px;">{{ step.module }}</span>
+                            {% if step_title %}<div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">{{ step_title }}</div>{% endif %}
+                            {% if step_mod %}<span class="pill" style="font-size: 9px; text-transform: uppercase;">{{ step_mod }}</span>{% endif %}
                         </div>
-                        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">{{ step.description }}</p>
-                        {% if step.finding_id %}
+                        {% endif %}
+
+                        <p style="font-size: 12.5px; color: var(--text-primary); margin: 0; line-height: 1.5;">{{ step_text }}</p>
+
+                        {% if step_fid %}
                         <div style="margin-top: 6px; font-size: 11px;">
-                            <a href="#finding-{{ step.finding_id }}" style="display: flex; align-items: center; gap: 4px;">
-                                <span>View Finding Details</span>
+                            <a href="#finding-{{ step_fid }}" style="display: inline-flex; align-items: center; gap: 4px; color: var(--brand-light); font-weight: 600;">
+                                View Finding Details &rarr;
                             </a>
                         </div>
                         {% endif %}
@@ -37,10 +47,11 @@
                 </div>
                 {% endfor %}
             </div>
-            
-            <div style="margin-top: 18px; padding: 12px; background: var(--crit-bg); border: 1px solid var(--crit-border); border-radius: 4px;">
-                <h4 style="color: var(--mod-chain); margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">Impact</h4>
-                <p style="margin: 0; font-size: 12px;">{{ chain.impact }}</p>
+
+            {% set impact_content = chain.impact if (chain.impact is defined and chain.impact) else "Allows full compromise of affected components, unauthorized lateral movement across internal network boundaries, or exfiltration of sensitive credentials and datasets." %}
+            <div style="margin-top: 18px; padding: 12px; background: var(--sev-critical-bg); border: 1px solid var(--sev-critical-bd); border-radius: var(--r-compact);">
+                <h4 style="color: var(--sev-critical); margin: 0 0 4px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Syne', sans-serif;">Impact</h4>
+                <p style="margin: 0; font-size: 12px; color: var(--text-primary); line-height: 1.5;">{{ impact_content }}</p>
             </div>
         </div>
         {% endfor %}

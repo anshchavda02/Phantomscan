@@ -130,7 +130,8 @@ class ChainFinding:
     severity: str
     description: str
     components: List[Finding]
-    steps: List[str]
+    steps: List[Any]
+    impact: str = ""
 
 @dataclass(frozen=True)
 class CVEFinding(Finding):

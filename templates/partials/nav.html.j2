@@ -1,48 +1,126 @@
-<!-- Sticky Navigation Bar -->
-<div class="top-nav" style="position: sticky; top: 0; z-index: 50; height: 48px; background: var(--nav-bg); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px;">
-    <div style="display: flex; align-items: center; gap: 6px;">
-        <div style="width: 22px; height: 22px; border-radius: 3px; background: var(--accent); display: flex; align-items: center; justify-content: center;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <span style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; letter-spacing: 0.04em;">PHANTOM<span style="color: var(--accent-light);">SCAN</span></span>
-    </div>
-    
-    <div style="display: none;" class="desktop-nav">
-        <a href="#summary" class="pill" style="text-decoration: none;">Summary</a>
-        <a href="#score" class="pill" style="text-decoration: none;">Score</a>
-        <a href="#findings" class="pill" style="text-decoration: none;">Findings ({{ findings|length }})</a>
-        <a href="#suppressed" class="pill" style="text-decoration: none; border-color: var(--accent-glow); color: var(--accent-light);">Suppressed ({{ fp_log|length }})</a>
-    </div>
-    
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <div class="pill" style="background: {% if score.value >= 80 %}var(--low-bg){% elif score.value >= 60 %}var(--med-bg){% else %}var(--crit-bg){% endif %}; color: {% if score.value >= 80 %}var(--low){% elif score.value >= 60 %}var(--med){% else %}var(--crit){% endif %}; border-color: {% if score.value >= 80 %}var(--low-border){% elif score.value >= 60 %}var(--med-border){% else %}var(--crit-border){% endif %}; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
-            {{ score.value }}/100 &middot; {{ score.grade }}
-        </div>
-        <button id="theme-toggle" onclick="window.toggleTheme()" title="Toggle Theme" style="padding: 4px 8px; font-size: 13px;">&#9681;</button>
-        <button onclick="window.printReport()" title="Print / PDF Report" style="padding: 4px 10px; font-size: 11px; font-weight: 600;">PDF</button>
-        <button onclick="window.exportJSON()" title="Export JSON" style="padding: 4px 10px; font-size: 11px;">JSON</button>
-    </div>
-</div>
-
-<!-- Sidebar -->
+<!-- Top Navigation Bar -->
 <style>
-    @media (min-width: 1200px) {
-        .desktop-nav { display: flex !important; gap: 6px; }
-        .sidebar { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); z-index: 40; display: flex; flex-direction: column; gap: 10px; }
-        .sidebar-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-light); cursor: pointer; transition: all 0.2s; position: relative; }
-        .sidebar-dot:hover, .sidebar-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
-        .sidebar-dot::after { content: attr(title); position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: var(--card); color: var(--text-muted); padding: 3px 8px; border-radius: 3px; font-size: 10px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; border: 1px solid var(--border); }
-        .sidebar-dot:hover::after { opacity: 1; }
+    .top-nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+        height: 44px; background: var(--nav-bg); backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 var(--sp-lg);
     }
+    .nav-brand { display: flex; align-items: center; gap: 6px; }
+    .nav-logo {
+        width: 22px; height: 22px; border-radius: 2px; background: var(--brand);
+        display: flex; align-items: center; justify-content: center;
+        font-family: 'Syne', sans-serif; font-weight: 700; font-size: 9px; color: #fff;
+    }
+    .nav-wordmark { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; }
+    .nav-divider { width: 1px; height: 14px; background: var(--border); margin: 0 8px; }
+    .nav-target {
+        font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-tertiary);
+        max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .nav-pills { display: none; align-items: center; gap: 4px; }
+    .nav-pill {
+        padding: 4px 10px; font-size: 10px; font-weight: 500; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-secondary); border-radius: var(--r-compact);
+        text-decoration: none; transition: all 0.15s;
+    }
+    .nav-pill:hover, .nav-pill.active { background: var(--brand); color: #fff; }
+    .nav-actions { display: flex; align-items: center; gap: 8px; }
+    .nav-score-pill {
+        padding: 3px 10px; border-radius: 20px; font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; font-weight: 700;
+    }
+    .export-wrap { position: relative; }
+    .export-dropdown {
+        position: absolute; top: 100%; right: 0; margin-top: 4px;
+        background: var(--card); border: 1px solid var(--border-light);
+        border-radius: var(--r-standard); padding: 4px; min-width: 120px;
+        box-shadow: var(--shadow-md); z-index: 1010;
+    }
+    .export-dropdown a, .export-dropdown button {
+        display: block; width: 100%; text-align: left; padding: 6px 12px;
+        font-size: 11px; color: var(--text-secondary); background: transparent;
+        border: none; border-radius: var(--r-compact); cursor: pointer;
+        font-family: inherit; text-decoration: none;
+    }
+    .export-dropdown a:hover, .export-dropdown button:hover {
+        background: var(--brand-dim); color: var(--text-primary);
+    }
+    @media (min-width: 1100px) { .nav-pills { display: flex; } }
+    @media (max-width: 600px) { .nav-target { display: none; } }
+
+    /* Sidebar indicators */
+    .sidebar {
+        position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
+        z-index: 40; display: flex; flex-direction: column; gap: 8px;
+    }
+    .sidebar-indicator {
+        width: 3px; height: 20px; border-radius: 2px; background: var(--border-light);
+        cursor: pointer; transition: all 0.2s; position: relative; text-decoration: none;
+    }
+    .sidebar-indicator:hover, .sidebar-indicator.active {
+        background: var(--brand-light);
+        box-shadow: 0 0 8px var(--brand-glow);
+    }
+    .sidebar-indicator::after {
+        content: attr(data-label); position: absolute; right: 12px; top: 50%;
+        transform: translateY(-50%); background: var(--card); color: var(--text-secondary);
+        padding: 4px 10px; border-radius: var(--r-compact); font-size: 10px;
+        white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s;
+        border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        font-family: 'Inter', sans-serif; font-weight: 500;
+    }
+    .sidebar-indicator:hover::after { opacity: 1; }
     @media (max-width: 1199px) { .sidebar { display: none; } }
 </style>
+
+<nav class="top-nav">
+    <div class="nav-brand">
+        <div class="nav-logo">PS</div>
+        <span class="nav-wordmark">PHANTOM<span style="color: var(--brand-light);">SCAN</span></span>
+        <div class="nav-divider"></div>
+        <span class="nav-target">{{ scan.target }}</span>
+    </div>
+
+    <div class="nav-pills">
+        <a href="#intel" class="nav-pill">Intelligence</a>
+        <a href="#summary" class="nav-pill">Summary</a>
+        <a href="#score" class="nav-pill">Score</a>
+        <a href="#findings" class="nav-pill">Findings</a>
+        <a href="#metadata" class="nav-pill">Metadata</a>
+    </div>
+
+    <div class="nav-actions">
+        <div class="nav-score-pill" style="background: {% if score.value >= 80 %}var(--sev-low-bg){% elif score.value >= 60 %}var(--sev-medium-bg){% else %}var(--sev-critical-bg){% endif %}; color: {% if score.value >= 80 %}var(--sev-low){% elif score.value >= 60 %}var(--sev-medium){% else %}var(--sev-critical){% endif %}; border: 1px solid {% if score.value >= 80 %}var(--sev-low-bd){% elif score.value >= 60 %}var(--sev-medium-bd){% else %}var(--sev-critical-bd){% endif %};">
+            {{ score.value }}/100
+        </div>
+        <div class="nav-divider"></div>
+        <button id="theme-toggle" onclick="window.toggleTheme()" title="Toggle Theme" style="padding: 4px 6px; background: transparent; border: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <div class="export-wrap">
+            <button onclick="window.toggleExportDropdown(event)" style="font-size: 11px; font-weight: 600; padding: 4px 10px;">
+                Export
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="export-dropdown" class="export-dropdown hidden">
+                <button onclick="window.printReport()">PDF / Print</button>
+                <button onclick="window.exportJSON()">JSON Export</button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Sidebar Section Indicators -->
 <div class="sidebar">
-    <a href="#header" class="sidebar-dot" title="Header"></a>
-    <a href="#intel" class="sidebar-dot" title="Target Intelligence"></a>
-    <a href="#summary" class="sidebar-dot" title="Executive Summary"></a>
-    <a href="#score" class="sidebar-dot" title="Security Score"></a>
-    <a href="#findings" class="sidebar-dot" title="Findings"></a>
-    <a href="#privacy" class="sidebar-dot" title="Privacy"></a>
-    <a href="#expiry-calendar" class="sidebar-dot" title="Expiry Calendar"></a>
-    <a href="#suppressed" class="sidebar-dot" title="Suppressed"></a>
+    <a href="#header" class="sidebar-indicator" data-label="Header"></a>
+    <a href="#intel" class="sidebar-indicator" data-label="Intelligence"></a>
+    <a href="#summary" class="sidebar-indicator" data-label="Summary"></a>
+    <a href="#score" class="sidebar-indicator" data-label="Score"></a>
+    <a href="#findings" class="sidebar-indicator" data-label="Findings"></a>
+    <a href="#privacy" class="sidebar-indicator" data-label="Privacy"></a>
+    <a href="#expiry-calendar" class="sidebar-indicator" data-label="Expiry"></a>
+    <a href="#suppressed" class="sidebar-indicator" data-label="Suppressed"></a>
+    <a href="#metadata" class="sidebar-indicator" data-label="Metadata"></a>
 </div>

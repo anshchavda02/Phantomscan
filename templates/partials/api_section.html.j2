@@ -1,40 +1,40 @@
 <!-- API Security Section -->
 {% if api_data and (api_data.endpoints or api_data.auth_issues) %}
 <section id="api" class="section">
-    <div class="section-header" style="border-left-color: var(--mod-api);">
-        <svg class="sec-icon" style="color: var(--mod-api);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
-        <h2>API Security</h2>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+        <span style="color: var(--teal);">API SECURITY ANALYSIS</span>
     </div>
 
     <div class="grid-2">
-        <div class="card" style="border-left: 3px solid var(--mod-api);">
-            <h3 style="color: var(--mod-api); margin-bottom: 12px; font-size: 14px;">API Endpoints Discovered</h3>
+        <div class="card" style="border-left: 3px solid var(--teal);">
+            <h3 style="color: var(--teal); margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">API Endpoints Discovered</h3>
             <div style="display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto;">
                 {% for ep in api_data.endpoints %}
-                <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--surface); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; border: 1px solid var(--border);">
-                    <div>
-                        <span style="color: {% if ep.method == 'GET' %}var(--info){% elif ep.method == 'POST' %}var(--low){% elif ep.method in ['PUT','PATCH'] %}var(--med){% elif ep.method == 'DELETE' %}var(--crit){% else %}var(--text-muted){% endif %}; font-weight: 700; width: 45px; display: inline-block;">{{ ep.method }}</span>
-                        <span>{{ ep.path }}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface); border-radius: var(--r-compact); font-family: 'JetBrains Mono', monospace; font-size: 11px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: {% if ep.method == 'GET' %}var(--sev-info){% elif ep.method == 'POST' %}var(--sev-low){% elif ep.method in ['PUT','PATCH'] %}var(--sev-medium){% elif ep.method == 'DELETE' %}var(--sev-critical){% else %}var(--text-secondary){% endif %}; font-weight: 700; width: 45px; display: inline-block;">{{ ep.method }}</span>
+                        <span style="color: var(--text-primary);">{{ ep.path }}</span>
                     </div>
                     {% if not ep.authenticated %}
-                    <span class="pill badge-critical" style="font-size: 9px; padding: 1px 4px;">UNAUTH</span>
+                    <span class="pill badge-critical" style="font-size: 9px; padding: 1px 5px;">UNAUTH</span>
                     {% else %}
-                    <span class="pill badge-low" style="font-size: 9px; padding: 1px 4px;">AUTH</span>
+                    <span class="pill badge-low" style="font-size: 9px; padding: 1px 5px;">AUTH</span>
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
         </div>
-        
+
         {% if api_data.auth_issues %}
-        <div class="card" style="border-left: 3px solid var(--crit);">
-            <h3 style="color: var(--crit); margin-bottom: 12px; font-size: 14px;">Authentication Issues (BOLA/BFLA)</h3>
+        <div class="card" style="border-left: 3px solid var(--sev-critical);">
+            <h3 style="color: var(--sev-critical); margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">Authentication Issues (BOLA/BFLA)</h3>
             <div style="display: flex; flex-direction: column; gap: 6px;">
                 {% for issue in api_data.auth_issues %}
-                <div style="padding: 10px; background: var(--crit-bg); border: 1px solid var(--crit-border); border-radius: 4px;">
+                <div style="padding: 10px; background: var(--sev-critical-bg); border: 1px solid var(--sev-critical-bd); border-radius: var(--r-compact);">
                     <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px;">{{ issue.title }}</div>
                     <code style="font-size: 10px;">{{ issue.endpoint }}</code>
-                    <p style="margin: 6px 0 0 0; font-size: 11.5px; color: var(--text-muted);">{{ issue.description }}</p>
+                    <p style="margin: 6px 0 0 0; font-size: 11.5px; color: var(--text-secondary);">{{ issue.description }}</p>
                 </div>
                 {% endfor %}
             </div>

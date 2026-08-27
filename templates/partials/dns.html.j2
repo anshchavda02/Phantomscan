@@ -1,47 +1,60 @@
-<!-- DNS Records Panel -->
-<div class="intel-card" style="border-left: 2px solid var(--mod-recon);">
-    <div class="intel-card-header" style="color: var(--mod-recon);" onclick="window.toggleCollapsible(this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        <span>DNS RECORDS</span>
-        <span style="margin-left: auto;" class="pill">{{ (intel.dns.A|length) + (intel.dns.MX|length) + (intel.dns.TXT|length) }}</span>
+<!-- DNS Records Card -->
+{% if intel.dns %}
+{% set dns_count = ((intel.dns.A|length if intel.dns.A is defined else 0) + (intel.dns.MX|length if intel.dns.MX is defined else 0) + (intel.dns.TXT|length if intel.dns.TXT is defined else 0) + (intel.dns.NS|length if intel.dns.NS is defined else 0) + (intel.dns.CNAME|length if intel.dns.CNAME is defined else 0)) if intel.dns.A is defined else (intel.dns|length) %}
+<div class="intel-card">
+    <div class="intel-card-header" onclick="window.toggleCollapsible(this)" style="border-left: 2px solid #3b82f6; color: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        DNS RECORDS
+        <span class="pill count-pill" style="font-size: 9px; padding: 1px 6px;">{{ dns_count }}</span>
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="intel-card-content">
-        {% if intel.dns.A %}
-        <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
-            <span class="intel-label">A Records</span>
-            <code style="word-break: break-all; width: 100%; display: block;">{{ intel.dns.A | join(', ') }}</code>
-        </div>
-        {% endif %}
-        
-        {% if intel.dns.MX %}
-        <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
-            <span class="intel-label">MX Records</span>
-            <div style="display: flex; flex-direction: column; gap: 3px; width: 100%;">
-                {% for mx in intel.dns.MX[:3] %}
-                <code style="display: block;">{{ mx }}</code>
-                {% endfor %}
-                {% if intel.dns.MX|length > 3 %}
-                <span class="intel-label" style="font-size: 10px;">+ {{ intel.dns.MX|length - 3 }} more</span>
-                {% endif %}
+        {% if intel.dns.A is defined %}
+            {% if intel.dns.A %}
+            <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                <span class="intel-label" style="font-size: 10px;">A Records</span>
+                <code style="word-break: break-all; width: 100%; display: block; font-size: 10px;">{{ intel.dns.A | join(', ') }}</code>
             </div>
-        </div>
-        {% endif %}
-        
-        {% if intel.dns.TXT %}
-        <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
-            <span class="intel-label">TXT Records</span>
-            <div style="display: flex; flex-direction: column; gap: 3px; width: 100%; max-height: 100px; overflow-y: auto;">
-                {% for txt in intel.dns.TXT %}
-                <code style="font-size: 11px; display: block;">{{ txt }}</code>
-                {% endfor %}
+            {% endif %}
+            {% if intel.dns.MX %}
+            <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                <span class="intel-label" style="font-size: 10px;">MX Records</span>
+                <div style="display: flex; flex-direction: column; gap: 2px; width: 100%;">
+                    {% for mx in intel.dns.MX[:3] %}
+                    <code style="display: block; font-size: 10px;">{{ mx }}</code>
+                    {% endfor %}
+                    {% if intel.dns.MX|length > 3 %}
+                    <span style="font-size: 9px; color: var(--text-tertiary);">+ {{ intel.dns.MX|length - 3 }} more</span>
+                    {% endif %}
+                </div>
             </div>
-        </div>
-        {% endif %}
-        
-        {% if not intel.dns.A and not intel.dns.MX and not intel.dns.TXT %}
-        <div class="text-center" style="color: var(--text-dim); font-size: 11px; padding: 8px 0;">
-            No records resolved
-        </div>
+            {% endif %}
+            {% if intel.dns.TXT %}
+            <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                <span class="intel-label" style="font-size: 10px;">TXT Records</span>
+                <div style="display: flex; flex-direction: column; gap: 2px; width: 100%; max-height: 80px; overflow-y: auto;">
+                    {% for txt in intel.dns.TXT %}
+                    <code style="font-size: 10px; display: block; word-break: break-all;">{{ txt }}</code>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if intel.dns.CNAME %}
+            <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                <span class="intel-label" style="font-size: 10px;">CNAME</span>
+                <code style="font-size: 10px; display: block;">{{ intel.dns.CNAME | join(', ') }}</code>
+            </div>
+            {% endif %}
+        {% elif intel.dns is iterable %}
+            {% for record in intel.dns[:8] %}
+            <div class="intel-row">
+                <span class="intel-label" style="flex-shrink: 0;">
+                    <span class="pill" style="font-size: 8px; padding: 1px 4px; background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); color: #60a5fa;">{{ record.type or 'REC' }}</span>
+                </span>
+                <span class="intel-value" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; word-break: break-all; text-align: right; max-width: 180px; overflow: hidden; text-overflow: ellipsis;">{{ record.value or record }}</span>
+            </div>
+            {% endfor %}
         {% endif %}
     </div>
 </div>
+{% endif %}

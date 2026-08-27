@@ -1,29 +1,29 @@
 <!-- Attack Path Mapping Section -->
 {% if attack_paths and attack_paths.paths %}
 <section id="paths" class="section">
-    <div class="section-header" style="border-left-color: var(--crit);">
-        <svg class="sec-icon" style="color: var(--crit);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        <h2>Attack Path Mapping</h2>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sev-critical)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span style="color: var(--sev-critical);">ATTACK PATH MAPPING</span>
     </div>
 
-    <div class="card" style="border-left: 3px solid var(--crit);">
-        <p style="color: var(--text-muted); margin-bottom: 18px; font-size: 12.5px;">Identified paths that an attacker could take to compromise critical assets.</p>
-        
+    <div class="card" style="border-left: 3px solid var(--sev-critical);">
+        <p style="color: var(--text-secondary); margin-bottom: 18px; font-size: 12.5px;">Identified composite exploit vectors allowing multi-step infrastructure compromise.</p>
+
         <div style="display: flex; flex-direction: column; gap: 16px;">
             {% for path in attack_paths.paths %}
-            <div style="background: var(--surface); border-radius: 5px; padding: 14px; border: 1px solid var(--border);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h3 style="margin: 0; font-size: 14px;">Target: <span style="color: var(--crit);">{{ path.target_asset }}</span></h3>
-                    <div style="font-size: 10px; color: var(--text-dim);">Complexity: <span style="color: var(--text); font-weight: 600;">{{ path.complexity }}</span></div>
+            <div style="background: var(--surface); border-radius: var(--r-compact); padding: 14px; border: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+                    <h3 style="margin: 0; font-size: 13px; font-family: 'Syne', sans-serif;">Target: <span style="color: var(--sev-critical);">{{ path.target_asset }}</span></h3>
+                    <div style="font-size: 10px; color: var(--text-tertiary);">Complexity: <span style="color: var(--text-primary); font-weight: 600;">{{ path.complexity }}</span></div>
                 </div>
-                
+
                 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
                     {% for step in path.steps %}
-                    <div style="background: var(--card); border: 1px solid var(--border); padding: 6px 10px; border-radius: 4px; font-size: 11px;">
+                    <div style="background: var(--card); border: 1px solid var(--border); padding: 6px 10px; border-radius: var(--r-sharp); font-size: 11px; font-family: 'JetBrains Mono', monospace;">
                         {{ step }}
                     </div>
                     {% if not loop.last %}
-                    <div style="color: var(--accent); font-weight: 800; font-size: 11px;">&rarr;</div>
+                    <div style="color: var(--brand-light); font-weight: 800; font-size: 11px;">&rarr;</div>
                     {% endif %}
                     {% endfor %}
                 </div>

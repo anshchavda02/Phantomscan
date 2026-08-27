@@ -1,43 +1,146 @@
 <!-- Hero Header Section -->
-<section id="header" class="section" style="background: linear-gradient(180deg, #080b18 0%, var(--bg) 100%); border-bottom: 1px solid var(--border); padding: 0; margin-bottom: 0;">
-    <div style="max-width: 1320px; margin: 0 auto; padding: 40px 24px 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center;">
+<style>
+    .hero-section {
+        background: linear-gradient(160deg, #060c1a 0%, #060810 60%, #070a14 100%);
+        border-bottom: 1px solid var(--border);
+        padding: 0;
+        margin-bottom: 0;
+        margin-top: 44px;
+        position: relative;
+        overflow: hidden;
+    }
+    .light-mode .hero-section {
+        background: linear-gradient(160deg, #ffffff 0%, #f8fafc 60%, #f1f5f9 100%);
+        border-bottom-color: var(--border);
+    }
+    .hero-dot-grid {
+        fill: rgba(255,255,255,0.025);
+    }
+    .light-mode .hero-dot-grid {
+        fill: rgba(0,0,0,0.035);
+    }
+    .hero-identity-card {
+        background: rgba(255,255,255,0.025);
+        border: 1px solid var(--border-light);
+        border-radius: var(--r-large);
+        padding: 20px 24px;
+        transition: background 0.2s, border-color 0.2s;
+    }
+    .light-mode .hero-identity-card {
+        background: #ffffff;
+        border-color: var(--border);
+        box-shadow: var(--shadow-md);
+    }
+    .hero-engagement-bar {
+        border-top: 1px solid var(--border);
+        background: rgba(5,7,15,0.6);
+        padding: 8px 24px;
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        font-size: 11px;
+        color: var(--text-tertiary);
+    }
+    .light-mode .hero-engagement-bar {
+        background: #f8fafc;
+        border-top-color: var(--border);
+        color: var(--text-secondary);
+    }
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+    @media (max-width: 768px) {
+        .hero-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+        .hero-title { font-size: 28px !important; }
+    }
+</style>
+
+<section id="header" class="section hero-section">
+    <!-- Subtle dot grid overlay -->
+    <svg style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 1;" xmlns="http://www.w3.org/2000/svg">
+        <defs><pattern id="dot-grid" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.8" class="hero-dot-grid"/></pattern></defs>
+        <rect width="100%" height="100%" fill="url(#dot-grid)"/>
+    </svg>
+
+    <div class="hero-grid" style="max-width: 1280px; margin: 0 auto; padding: 40px 24px; display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: center; position: relative; z-index: 1;">
+        <!-- Left Column -->
         <div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                <span class="pill" style="font-size: 10px; background: var(--accent-glow); border-color: var(--accent); color: var(--accent-light);">v{{ report_version }}</span>
-                <button onclick="document.getElementById('modules-modal').style.display='flex'" class="pill" style="font-size: 10px; cursor: pointer; background: var(--accent2-glow); border-color: var(--accent2); color: var(--accent2); font-weight: 600;" title="View all modules">
-                    {{ scan.modules_executed | length }} MODULES EXECUTED
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+                <span class="pill" style="font-size: 10px; background: var(--brand-dim); border-color: rgba(26,86,219,0.3); color: var(--brand-light); font-weight: 700;">v{{ report_version }}</span>
+                <button onclick="document.getElementById('modules-modal').style.display='flex'" class="pill" style="font-size: 10px; cursor: pointer; background: var(--teal-dim); border-color: rgba(13,148,136,0.3); color: var(--teal-light); font-weight: 700;" title="View all executed modules">
+                    {{ scan.modules_executed | length }} MODULES
                 </button>
+                <span class="pill" style="font-size: 10px; background: var(--sev-info-bg); border-color: var(--sev-info-bd); color: var(--sev-info); font-weight: 700;">{{ scan.profile | upper }} SCAN</span>
             </div>
-            <h1 style="font-size: 36px; font-weight: 800; line-height: 1.05; letter-spacing: -0.025em; margin-bottom: 6px;">
-                Security<br>Assessment Report
+            <h1 class="hero-title" style="font-size: 38px; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 0; color: var(--text-primary);">
+                Security Assessment Report
             </h1>
-            <p style="color: var(--text-dim); font-size: 12px; font-style: italic;">Automated Deep Scan &middot; Point-in-Time Analysis</p>
+            <div style="font-size: 12px; color: var(--text-secondary); letter-spacing: 0.02em; margin-top: 10px; font-weight: 500;">
+                Automated Deep-Scan &middot; Point-in-Time Analysis
+            </div>
+            <div style="margin-top: 22px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-tertiary);">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Started {{ scan.timestamp | format_date }}
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-tertiary);">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+                    Scan ID: <code style="font-size: 10px; padding: 1px 5px;">{{ scan.scan_id }}</code>
+                </div>
+            </div>
         </div>
 
-        <div style="background: var(--card); border: 1px solid var(--border-light); border-radius: 6px; padding: 20px;">
-            <div style="font-size: 17px; font-weight: 700; word-break: break-all; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-family: 'JetBrains Mono', monospace;">
-                <span>{{ scan.target }}</span>
-                <button onclick="window.copyText('{{ scan.target }}', this)" style="padding: 3px 8px; font-size: 11px; flex-shrink: 0;" title="Copy">Copy</button>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
-                <div>
-                    <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;">Scan Profile</div>
-                    <div class="pill" style="font-size: 10px; background: var(--info-bg); color: var(--info); border-color: var(--info-border);">{{ scan.profile | upper }} SCAN</div>
-                </div>
-                <div>
-                    <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;">Duration</div>
-                    <div style="font-weight: 700; font-size: 14px; font-family: 'JetBrains Mono', monospace;">{{ scan.duration_seconds | round(1) }}s</div>
+        <!-- Right Column — Scan Identity Card -->
+        <div class="hero-identity-card">
+            <!-- Target -->
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 4px; font-weight: 600;">TARGET</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--text-primary); word-break: break-all;">{{ scan.target }}</span>
+                    <button onclick="window.copyText('{{ scan.target }}', this)" style="padding: 2px 8px; font-size: 9px; flex-shrink: 0; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--r-compact); cursor: pointer;" class="copy-btn">COPY</button>
                 </div>
             </div>
-            <div style="font-size: 10px; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 10px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
-                <span>Started: {{ scan.timestamp | format_date }}</span>
-                <span>ID: <code style="padding: 1px 4px; font-size: 10px;">{{ scan.scan_id }}</code></span>
+
+            <!-- Divider -->
+            <div style="border-top: 1px solid var(--border); margin-bottom: 16px;"></div>
+
+            <!-- 2x2 Metrics Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 2px; font-weight: 600;">PROFILE</div>
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">{{ scan.profile | capitalize }} Scan</div>
+                </div>
+                <div>
+                    <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 2px; font-weight: 600;">DURATION</div>
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">{{ scan.duration_seconds | round(1) }}s</div>
+                </div>
+                <div>
+                    <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 2px; font-weight: 600;">MODULES</div>
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                        {{ scan.modules_executed | length }} executed
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--sev-low); display: inline-block;"></span>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 2px; font-weight: 600;">ENGINE</div>
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Python &middot; Go &middot; Rust</div>
+                </div>
+            </div>
+
+            <!-- Status Row -->
+            <div style="border-top: 1px solid var(--border); padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--sev-low); font-weight: 600;">
+                    <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--sev-low); animation: pulse-dot 2s infinite;"></span>
+                    Scan complete
+                </div>
+                <div style="font-size: 10px; color: var(--text-tertiary);">Generated {{ generated_at }}</div>
             </div>
         </div>
     </div>
 
     {% if engagement.client %}
-    <div style="border-top: 1px solid var(--border); background: rgba(5, 7, 15, 0.6); padding: 8px 24px; display: flex; justify-content: center; gap: 20px; font-size: 11px; color: var(--text-dim);">
+    <div class="hero-engagement-bar">
         <span><strong>Client:</strong> {{ engagement.client }}</span>
         <span><strong>Assessor:</strong> {{ engagement.assessor }}</span>
         <span><strong>Type:</strong> {{ engagement.engagement_type }}</span>
@@ -47,36 +150,58 @@
 </section>
 
 <!-- Executed Modules Modal -->
-<div id="modules-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 24px;" onclick="if(event.target===this) this.style.display='none';">
-    <div style="background: var(--card); border: 1px solid var(--border-light); border-radius: 8px; width: 100%; max-width: 700px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
+<div id="modules-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.8); backdrop-filter: blur(12px); align-items: center; justify-content: center; padding: 24px;" onclick="if(event.target===this) this.style.display='none';">
+    <div style="background: var(--card); border: 1px solid var(--border-light); border-radius: var(--r-large); width: 100%; max-width: 720px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-lg);">
+        <!-- Modal Header -->
         <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
             <div>
-                <h3 style="margin: 0; font-size: 15px;">Executed Modules ({{ scan.modules_executed | length }})</h3>
-                <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Security testing modules run during this assessment</div>
+                <h3 style="margin: 0; font-size: 15px; font-weight: 700; font-family: 'Syne', sans-serif;">Executed Modules</h3>
+                <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 2px;">{{ scan.modules_executed | length }} security modules run across this assessment</div>
             </div>
-            <button onclick="document.getElementById('modules-modal').style.display='none'" style="background: transparent; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; padding: 4px 8px;">&times;</button>
+            <button onclick="document.getElementById('modules-modal').style.display='none'" style="background: transparent; border: none; font-size: 18px; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; line-height: 1;">&times;</button>
         </div>
-        <div style="overflow-y: auto; padding: 12px 20px; flex: 1;">
-            <table>
+
+        <!-- Engine Summary Bar -->
+        {% set python_count = scan.modules_executed | selectattr('engine', 'equalto', 'python') | list | length %}
+        {% set go_count = scan.modules_executed | selectattr('engine', 'equalto', 'go') | list | length %}
+        {% set rust_count = scan.modules_executed | selectattr('engine', 'equalto', 'rust') | list | length %}
+        <div style="padding: 10px 20px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 16px; background: var(--surface);">
+            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3b82f6;"></span> Python: {{ python_count }}</span>
+            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #06b6d4;"></span> Go: {{ go_count }}</span>
+            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #f97316;"></span> Rust: {{ rust_count }}</span>
+        </div>
+
+        <!-- Module Table -->
+        <div style="overflow-y: auto; padding: 0; flex: 1;">
+            <table style="margin: 0;">
                 <thead>
                     <tr>
-                        <th style="padding: 6px 10px; width: 36px;">#</th>
-                        <th style="padding: 6px 10px;">Module</th>
-                        <th style="padding: 6px 10px; width: 70px;">Engine</th>
-                        <th style="padding: 6px 10px; width: 90px;">Status</th>
+                        <th style="padding: 8px 12px; width: 36px;">#</th>
+                        <th style="padding: 8px 12px;">MODULE</th>
+                        <th style="padding: 8px 12px; width: 80px;">ENGINE</th>
+                        <th style="padding: 8px 12px; width: 90px;">STATUS</th>
+                        <th style="padding: 8px 12px; width: 80px;">DURATION</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for m in scan.modules_executed %}
                     <tr>
-                        <td style="padding: 6px 10px; color: var(--text-dim); font-family: monospace; font-size: 11px;">{{ loop.index }}</td>
-                        <td style="padding: 6px 10px; font-weight: 600; font-size: 12px;">{{ m.name }}</td>
-                        <td style="padding: 6px 10px;"><span class="pill" style="font-size: 9px;">{{ m.engine | upper }}</span></td>
-                        <td style="padding: 6px 10px;">
-                            <span class="pill" style="font-size: 9px; background: var(--low-bg); color: var(--low); border-color: var(--low-border);">
-                                {{ m.status | upper }}
-                            </span>
+                        <td style="padding: 7px 12px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; font-size: 10px;">{{ loop.index }}</td>
+                        <td style="padding: 7px 12px; font-weight: 600; font-size: 12px;">{{ m.name }}</td>
+                        <td style="padding: 7px 12px;">
+                            <span class="pill" style="font-size: 9px; padding: 2px 6px;
+                                {% if m.engine == 'python' %}background: rgba(59,130,246,0.1); color: #60a5fa; border-color: rgba(59,130,246,0.3);
+                                {% elif m.engine == 'go' %}background: rgba(6,182,212,0.1); color: #22d3ee; border-color: rgba(6,182,212,0.3);
+                                {% elif m.engine == 'rust' %}background: rgba(249,115,22,0.1); color: #fb923c; border-color: rgba(249,115,22,0.3);
+                                {% endif %}">{{ m.engine | upper }}</span>
                         </td>
+                        <td style="padding: 7px 12px;">
+                            <span class="pill" style="font-size: 9px; padding: 2px 6px;
+                                {% if m.status == 'completed' %}background: var(--sev-low-bg); color: var(--sev-low); border-color: var(--sev-low-bd);
+                                {% elif m.status == 'failed' %}background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical-bd);
+                                {% else %}background: var(--sev-medium-bg); color: var(--sev-medium); border-color: var(--sev-medium-bd);{% endif %}">{{ m.status | upper }}</span>
+                        </td>
+                        <td style="padding: 7px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-tertiary);">{% if m.duration %}{{ m.duration }}s{% else %}&mdash;{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

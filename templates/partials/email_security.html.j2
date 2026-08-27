@@ -1,32 +1,36 @@
-<!-- Email Security Panel -->
-<div class="intel-card" style="border-left: 2px solid {% if intel.email_security.score >= 8 %}var(--low){% elif intel.email_security.score >= 5 %}var(--med){% else %}var(--crit){% endif %};">
-    <div class="intel-card-header" style="color: {% if intel.email_security.score >= 8 %}var(--low){% elif intel.email_security.score >= 5 %}var(--med){% else %}var(--crit){% endif %};" onclick="window.toggleCollapsible(this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        <span>EMAIL SECURITY</span>
-        <span style="margin-left: auto;" class="pill">Score {{ intel.email_security.score }}/10</span>
+<!-- Email Security Card -->
+{% if intel.email_security %}
+<div class="intel-card">
+    <div class="intel-card-header" onclick="window.toggleCollapsible(this)" style="border-left: 2px solid #ea580c; color: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        EMAIL SECURITY
+        {% if intel.email_security.score is defined and intel.email_security.score %}
+        <span class="pill count-pill" style="font-size: 9px; padding: 1px 6px;">{{ intel.email_security.score }}/10</span>
+        {% endif %}
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="intel-card-content">
-        <div class="intel-row">
-            <span class="intel-label">Provider</span>
-            <span class="intel-value">{{ intel.email_security.provider or 'Unknown' }}</span>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
-            <div style="background: var(--surface); padding: 6px; border-radius: 4px; text-align: center; border: 1px solid var(--border); border-bottom: 2px solid {% if intel.email_security.spf %}var(--low){% else %}var(--crit){% endif %};">
-                <div style="font-weight: 700; font-size: 11px; color: {% if intel.email_security.spf %}var(--low){% else %}var(--crit){% endif %};">SPF</div>
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">{{ 'Pass' if intel.email_security.spf else 'Fail/Missing' }}</div>
+        {% if intel.email_security.provider %}
+        <div class="intel-row"><span class="intel-label">Provider</span><span class="intel-value">{{ intel.email_security.provider }}</span></div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px;">
+            <div style="background: var(--surface); padding: 6px; border-radius: var(--r-compact); text-align: center; border: 1px solid var(--border); border-bottom: 2px solid {% if intel.email_security.spf %}var(--sev-low){% else %}var(--sev-critical){% endif %};">
+                <div style="font-weight: 700; font-size: 11px; color: {% if intel.email_security.spf %}var(--sev-low){% else %}var(--sev-critical){% endif %};">SPF</div>
+                <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 2px;">{{ 'Pass' if intel.email_security.spf else 'Missing' }}</div>
             </div>
-            
-            <div style="background: var(--surface); padding: 6px; border-radius: 4px; text-align: center; border: 1px solid var(--border); border-bottom: 2px solid {% if intel.email_security.dmarc %}var(--low){% else %}var(--crit){% endif %};">
-                <div style="font-weight: 700; font-size: 11px; color: {% if intel.email_security.dmarc %}var(--low){% else %}var(--crit){% endif %};">DMARC</div>
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">{{ 'Pass' if intel.email_security.dmarc else 'Fail/Missing' }}</div>
+
+            <div style="background: var(--surface); padding: 6px; border-radius: var(--r-compact); text-align: center; border: 1px solid var(--border); border-bottom: 2px solid {% if intel.email_security.dmarc %}var(--sev-low){% else %}var(--sev-critical){% endif %};">
+                <div style="font-weight: 700; font-size: 11px; color: {% if intel.email_security.dmarc %}var(--sev-low){% else %}var(--sev-critical){% endif %};">DMARC</div>
+                <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 2px;">{{ 'Pass' if intel.email_security.dmarc else 'Missing' }}</div>
             </div>
         </div>
-        
+
         {% if intel.email_security.domain %}
-        <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center;">
-            Root domain: {{ intel.email_security.domain }}
+        <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 6px; text-align: center;">
+            Domain: {{ intel.email_security.domain }}
         </div>
         {% endif %}
     </div>
 </div>
+{% endif %}

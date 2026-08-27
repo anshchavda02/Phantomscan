@@ -1,46 +1,55 @@
 <!-- Diff Summary Section -->
-{% if diff and (diff.new_findings or diff.resolved_findings) %}
+{% set new_items = diff.new_list if (diff.new_list is defined and diff.new_list) else (diff.new_findings if (diff.new_findings is iterable and not diff.new_findings is string) else []) %}
+{% set res_items = diff.resolved_list if (diff.resolved_list is defined and diff.resolved_list) else (diff.resolved_findings if (diff.resolved_findings is iterable and not diff.resolved_findings is string) else []) %}
+{% set new_count = new_items|length if new_items else (diff.new_findings if (diff.new_findings is number) else 0) %}
+{% set res_count = res_items|length if res_items else (diff.resolved_findings if (diff.resolved_findings is number) else 0) %}
+
+{% if diff and (new_count > 0 or res_count > 0 or new_items or res_items) %}
 <section id="diff" class="section">
-    <div class="section-header" style="border-left-color: var(--accent3);">
-        <svg class="sec-icon" style="color: var(--accent3);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        <h2>Change Log &amp; Diff Summary</h2>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-light)" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <span style="color: var(--brand-light);">POSTURE DELTA &amp; DIFF SUMMARY</span>
     </div>
 
     <div class="grid-2">
-        {% if diff.new_findings %}
-        <div class="card" style="border-top: 3px solid var(--crit);">
-            <h3 style="color: var(--crit); display: flex; align-items: center; gap: 8px; font-size: 14px;">
+        {% if new_count > 0 or new_items %}
+        <div class="card" style="border-left: 3px solid var(--sev-critical);">
+            <h3 style="color: var(--sev-critical); display: flex; align-items: center; gap: 8px; font-size: 13px; font-family: 'Syne', sans-serif;">
                 <span>New Findings</span>
-                <span class="pill badge-critical" style="margin-left: auto; font-size: 10px;">+{{ diff.new_findings|length }}</span>
+                <span class="pill badge-critical" style="margin-left: auto; font-size: 10px;">+{{ new_count }}</span>
             </h3>
+            {% if new_items %}
             <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px;">
-                {% for finding in diff.new_findings %}
-                <div style="padding: 10px; background: var(--surface); border-left: 2px solid {{ finding.severity | severity_color }}; border-radius: 4px;">
-                    <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px;">{{ finding.title }}</div>
-                    <div style="display: flex; gap: 6px;">
-                        <span class="pill badge-{{ finding.severity|lower }}" style="font-size: 10px;">{{ finding.severity }}</span>
-                        <span style="font-size: 11px; color: var(--text-dim);">{{ finding.category }}</span>
+                {% for finding in new_items %}
+                <div style="padding: 10px; background: var(--surface); border: 1px solid var(--border); border-left: 2px solid {{ finding.severity | severity_color }}; border-radius: var(--r-compact);">
+                    <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 4px;">{{ finding.title }}</div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <span class="pill badge-{{ finding.severity|lower }}" style="font-size: 9px;">{{ finding.severity | upper }}</span>
+                        <span style="font-size: 10px; color: var(--text-tertiary);">{{ finding.category | upper }}</span>
                     </div>
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
         </div>
         {% endif %}
 
-        {% if diff.resolved_findings %}
-        <div class="card" style="border-top: 3px solid var(--low);">
-            <h3 style="color: var(--low); display: flex; align-items: center; gap: 8px; font-size: 14px;">
+        {% if res_count > 0 or res_items %}
+        <div class="card" style="border-left: 3px solid var(--sev-low);">
+            <h3 style="color: var(--sev-low); display: flex; align-items: center; gap: 8px; font-size: 13px; font-family: 'Syne', sans-serif;">
                 <span>Resolved Findings</span>
-                <span class="pill badge-low" style="margin-left: auto; font-size: 10px;">-{{ diff.resolved_findings|length }}</span>
+                <span class="pill badge-low" style="margin-left: auto; font-size: 10px;">-{{ res_count }}</span>
             </h3>
+            {% if res_items %}
             <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px;">
-                {% for finding in diff.resolved_findings %}
-                <div style="padding: 10px; background: var(--surface); border-left: 2px solid var(--low); border-radius: 4px; opacity: 0.8;">
-                    <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px; text-decoration: line-through;">{{ finding.title }}</div>
-                    <div style="font-size: 11px; color: var(--text-dim);">Resolved since last scan</div>
+                {% for finding in res_items %}
+                <div style="padding: 10px; background: var(--surface); border: 1px solid var(--border); border-left: 2px solid var(--sev-low); border-radius: var(--r-compact); opacity: 0.85;">
+                    <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px; text-decoration: line-through; color: var(--text-secondary);">{{ finding.title }}</div>
+                    <div style="font-size: 10px; color: var(--sev-low);">Resolved since previous baseline</div>
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
         </div>
         {% endif %}
     </div>

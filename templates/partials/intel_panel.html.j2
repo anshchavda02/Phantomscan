@@ -1,144 +1,59 @@
 <!-- Target Intelligence Panel -->
 <style>
     .intel-section {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-top: 2px solid var(--accent2);
-        border-radius: 6px;
-        padding: 28px 20px;
-        margin-bottom: 40px;
+        background: linear-gradient(180deg, rgba(13,148,136,0.04) 0%, transparent 100%);
+        border-top: 1px solid rgba(13,148,136,0.15);
+        border-bottom: 1px solid var(--border);
+        padding: var(--sp-2xl) 0; margin-bottom: var(--sp-3xl);
     }
-    .light-mode .intel-section {
-        background: #ffffff;
-        border-color: #dce1ea;
-    }
-
-    .intel-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 20px;
-    }
-
-    .intel-title {
-        font-size: 15px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--accent2);
-        margin: 0;
-    }
-
-    .intel-subtitle {
-        color: var(--text-dim);
-        font-size: 11px;
-        margin-top: 2px;
-    }
-
-    .intel-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-    }
-
-    @media (max-width: 1200px) {
-        .intel-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 768px) {
-        .intel-grid { grid-template-columns: 1fr; }
-    }
-
+    .intel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-md); }
+    @media (max-width: 1200px) { .intel-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) { .intel-grid { grid-template-columns: 1fr; } }
     .intel-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        padding: 14px;
-        color: var(--text);
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: var(--r-standard); padding: 0; overflow: hidden;
         transition: border-color 0.15s;
     }
-    .intel-card:hover {
-        border-color: var(--border-light);
-    }
-    .light-mode .intel-card {
-        background: #ffffff;
-        border-color: #dce1ea;
-        color: #0f172a;
-    }
-    
+    .intel-card:hover { border-color: var(--border-light); }
     .intel-card-header {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-weight: 700;
-        margin-bottom: 10px;
-        font-size: 11px;
-        cursor: pointer;
-        user-select: none;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+        display: flex; align-items: center; gap: 6px; padding: 12px 14px;
+        font-weight: 700; font-size: 11px; cursor: pointer; user-select: none;
+        text-transform: uppercase; letter-spacing: 0.06em;
     }
-    
+    .intel-card-header .count-pill { margin-left: auto; }
     .intel-card-content {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-    
-    .intel-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 5px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        font-size: 11.5px;
-    }
-    .intel-row:last-child {
-        border-bottom: none;
-    }
-    .intel-label {
-        color: var(--text-muted);
-        font-weight: 500;
-    }
-    .intel-value {
-        color: var(--text);
-        font-weight: 600;
-        text-align: right;
-    }
-    .light-mode .intel-label {
-        color: #475569;
-    }
-    .light-mode .intel-value {
-        color: #0f172a;
-    }
-    .light-mode .intel-row {
-        border-bottom-color: rgba(0, 0, 0, 0.04);
+        padding: 0 14px 14px; display: flex; flex-direction: column; gap: 4px;
+        transition: max-height 0.25s ease, opacity 0.2s ease;
     }
 </style>
 
-<div id="intel" class="intel-section section">
-    <div class="intel-header">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
-        <div>
-            <h2 class="intel-title">Target Intelligence</h2>
-            <div class="intel-subtitle">
-                Domain registered {% if intel.whois.registration_date %}{{ intel.whois.registration_date[:4] }}{% else %}Unknown{% endif %} &middot; 
-                Hosted in {{ intel.ip_info[0].country if intel.ip_info else 'Unknown' }} &middot; 
-                {{ intel.tech_stack|length }} technologies &middot; 
-                {{ intel.subdomains|length }} subdomains &middot; 
-                SSL Grade {{ intel.ssl.grade if intel.ssl.grade else 'N/A' }}
+<section id="intel" class="intel-section">
+    <div class="container">
+        <!-- Section Title Bar -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 8px;">
+            <div class="section-label" style="margin-bottom: 0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+                <span style="color: var(--teal);">TARGET INTELLIGENCE</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-tertiary); font-style: italic;">
+                {% if intel.ip_info %}Hosted on {{ intel.ip_info[0].hosting or 'Cloud' }}{% endif %}
+                &middot; {{ intel.ip_info | length }} IP address{{ 'es' if intel.ip_info | length != 1 else '' }}
+                &middot; {{ intel.subdomains | length }} subdomain{{ 's' if intel.subdomains | length != 1 else '' }}
+                &middot; SSL {{ intel.ssl.grade if intel.ssl.grade else 'N/A' }}
             </div>
         </div>
+
+        <div class="intel-grid">
+            {% include 'partials/whois.html.j2' ignore missing %}
+            {% include 'partials/dns.html.j2' ignore missing %}
+            {% include 'partials/subdomains.html.j2' ignore missing %}
+            {% include 'partials/ip_intel.html.j2' ignore missing %}
+            {% include 'partials/ssl.html.j2' ignore missing %}
+            {% include 'partials/tech_stack.html.j2' ignore missing %}
+            {% include 'partials/email_security.html.j2' ignore missing %}
+            {% include 'partials/ports.html.j2' ignore missing %}
+        </div>
+
+        {% include 'partials/attack_map.html.j2' ignore missing %}
     </div>
-    
-    <div class="intel-grid">
-        {% include 'partials/whois.html.j2' ignore missing %}
-        {% include 'partials/dns.html.j2' ignore missing %}
-        {% include 'partials/subdomains.html.j2' ignore missing %}
-        {% include 'partials/ip_intel.html.j2' ignore missing %}
-        {% include 'partials/ssl.html.j2' ignore missing %}
-        {% include 'partials/tech_stack.html.j2' ignore missing %}
-        {% include 'partials/email_security.html.j2' ignore missing %}
-        {% include 'partials/ports.html.j2' ignore missing %}
-    </div>
-    
-    {% include 'partials/attack_map.html.j2' ignore missing %}
-</div>
+</section>

@@ -1,40 +1,29 @@
-<!-- Open Ports Panel -->
-<div class="intel-card" style="border-left: 2px solid var(--mod-network);">
-    <div class="intel-card-header" style="color: var(--mod-network);" onclick="window.toggleCollapsible(this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-        <span>OPEN PORTS</span>
-        <span style="margin-left: auto;" class="pill">{{ intel.open_ports|length }} Open</span>
+<!-- Open Ports Card -->
+{% if intel.open_ports %}
+<div class="intel-card">
+    <div class="intel-card-header" onclick="window.toggleCollapsible(this)" style="border-left: 2px solid #dc2626; color: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/></svg>
+        OPEN PORTS
+        <span class="pill count-pill" style="font-size: 9px; padding: 1px 6px; background: var(--sev-high-bg); color: var(--sev-high); border-color: var(--sev-high-bd);">{{ intel.open_ports | length }}</span>
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="intel-card-content">
-        {% if intel.open_ports %}
-            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
-                {% for port in intel.open_ports[:16] %}
-                    {% set risk_color = 'var(--low)' %}
-                    {% if port.risk == 'monitor' %}{% set risk_color = 'var(--med)' %}
-                    {% elif port.risk == 'risky' %}{% set risk_color = 'var(--high)' %}
-                    {% elif port.risk == 'critical' %}{% set risk_color = 'var(--crit)' %}{% endif %}
-                    
-                    <div style="background: {{ risk_color }}; color: #ffffff; padding: 4px 10px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;" title="{{ port.service }}">
-                        {{ port.port }}
-                    </div>
-                {% endfor %}
-            </div>
-            {% if intel.open_ports|length > 16 %}
-            <div class="text-center" style="font-size: 10px; color: var(--text-dim); margin-top: -4px; margin-bottom: 6px;">+ {{ intel.open_ports|length - 16 }} more ports</div>
-            {% endif %}
-            
-            <div class="intel-row" style="flex-direction: column; align-items: flex-start; gap: 3px;">
-                <span class="intel-label">Services</span>
-                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                {% for port in intel.open_ports[:3] %}
-                    <span class="pill" style="font-size: 10px;">{{ port.service or 'unknown' }}</span>
-                {% endfor %}
-                </div>
-            </div>
-        {% else %}
-            <div class="text-center" style="color: var(--text-dim); font-size: 11px; padding: 8px 0;">
-                No open ports detected
-            </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px;">
+            {% for port in intel.open_ports[:16] %}
+            {% set is_risky = port.port in [22, 3389, 5432, 3306, 6379, 27017, 9200] or port.risk in ['risky', 'critical'] %}
+            {% set is_web = port.port in [80, 443, 8080, 8443] %}
+            <span class="pill" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 3px 8px;
+                {% if is_risky %}background: var(--sev-high-bg); border-color: var(--sev-high-bd); color: var(--sev-high);
+                {% elif is_web %}background: var(--sev-low-bg); border-color: var(--sev-low-bd); color: var(--sev-low);
+                {% else %}background: var(--sev-info-bg); border-color: var(--sev-info-bd); color: var(--sev-info);{% endif %}"
+                title="{{ port.service or '' }}">
+                {{ port.port }}{% if port.service %}/{{ port.service }}{% endif %}
+            </span>
+            {% endfor %}
+        </div>
+        {% if intel.open_ports | length > 16 %}
+        <div style="font-size: 10px; color: var(--text-tertiary); text-align: center;">+ {{ intel.open_ports | length - 16 }} more ports</div>
         {% endif %}
     </div>
 </div>
+{% endif %}

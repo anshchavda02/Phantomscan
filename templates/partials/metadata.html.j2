@@ -1,14 +1,14 @@
 <!-- Scan Metadata & Engine Logs Section -->
 <section id="metadata" class="section">
-    <div class="section-header" style="border-left-color: var(--text-dim);">
-        <svg class="sec-icon" style="color: var(--text-dim);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <h2>Scan Metadata</h2>
+    <div class="section-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>SCAN METADATA</span>
     </div>
 
     <div class="card">
         <div class="grid-2">
             <div>
-                <h4 style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Scan Configuration</h4>
+                <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-family: 'Syne', sans-serif;">Scan Configuration</h4>
                 <div class="intel-row"><span class="intel-label">Profile</span><span class="intel-value">{{ scan.profile }}</span></div>
                 <div class="intel-row"><span class="intel-label">Report Version</span><span class="intel-value">{{ report_version }}</span></div>
                 <div class="intel-row"><span class="intel-label">Scan ID</span><span class="intel-value" style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">{{ scan.scan_id }}</span></div>
@@ -17,23 +17,23 @@
                 <div class="intel-row"><span class="intel-label">Cache Hit Rate</span><span class="intel-value">{{ (scan_metadata.cache_hit_rate * 100) | round(1) }}%</span></div>
                 {% endif %}
                 {% if scan_metadata and scan_metadata.circuit_breakers_opened %}
-                <div class="intel-row"><span class="intel-label">Circuit Breakers</span><span class="intel-value" style="color: var(--crit); font-weight: bold;">OPEN: {{ scan_metadata.circuit_breakers_opened | join(', ') }}</span></div>
+                <div class="intel-row"><span class="intel-label">Circuit Breakers</span><span class="intel-value" style="color: var(--sev-critical); font-weight: bold;">OPEN: {{ scan_metadata.circuit_breakers_opened | join(', ') }}</span></div>
                 {% endif %}
                 {% if scan_metadata and scan_metadata.degradation_active %}
-                <div class="intel-row"><span class="intel-label">Active Degradation</span><span class="intel-value" style="color: var(--med);">{{ scan_metadata.degradation_active | length }} fallback(s) active</span></div>
+                <div class="intel-row"><span class="intel-label">Active Degradation</span><span class="intel-value" style="color: var(--sev-medium);">{{ scan_metadata.degradation_active | length }} fallback(s) active</span></div>
                 {% endif %}
             </div>
-            
+
             <div>
-                <h4 style="color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Engine Diagnostics</h4>
-                <div style="padding: 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; max-height: 140px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border);">
+                <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-family: 'Syne', sans-serif;">Engine Diagnostics</h4>
+                <div style="padding: 10px; border-radius: var(--r-compact); font-family: 'JetBrains Mono', monospace; font-size: 10px; max-height: 140px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border);">
                     {% for mod in scan.modules_executed %}
                     <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                        <span>[{{ mod.timestamp }}] {{ mod.engine }}::{{ mod.name }}</span>
-                        <span style="color: {% if mod.status == 'completed' %}var(--low){% elif mod.status == 'failed' %}var(--crit){% else %}var(--med){% endif %}; font-weight: 600;">{{ mod.status|upper }}</span>
+                        <span><span style="color: var(--text-tertiary);">{{ mod.timestamp }}</span> {{ mod.engine }}::{{ mod.name }}</span>
+                        <span style="color: {% if mod.status == 'completed' %}var(--sev-low){% elif mod.status == 'failed' %}var(--sev-critical){% else %}var(--sev-medium){% endif %}; font-weight: 600;">{{ mod.status|upper }}</span>
                     </div>
                     {% if mod.error %}
-                    <div style="color: var(--crit); margin-left: 8px; margin-bottom: 3px; border-left: 2px solid var(--crit); padding-left: 6px;">Error: {{ mod.error }}</div>
+                    <div style="color: var(--sev-critical); margin-left: 8px; margin-bottom: 3px; border-left: 2px solid var(--sev-critical); padding-left: 6px;">Error: {{ mod.error }}</div>
                     {% endif %}
                     {% endfor %}
                 </div>
