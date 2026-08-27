@@ -10,4 +10,12 @@ engines/rust/target/
 node_modules/
 *.zip
 *.pptx
+*.docx
+*.tex
+*.bib
+docs/research_paper/
+research/
+*research*paper*
+*RESEARCH*PAPER*
 .DS_Store
+
