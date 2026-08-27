@@ -19,22 +19,24 @@
                 </thead>
                 <tbody>
                     {% for severity in ['Critical', 'High', 'Medium', 'Low', 'Info'] %}
-                        {% for finding in findings if finding.severity|lower == severity|lower %}
-                        {% set cat_slug = (finding.category | default('other') | lower) | replace(' ', '-') | replace('_', '-') %}
-                        <tr>
+                        {% for finding in findings if (finding.severity | string | lower) == (severity | lower) %}
+                        {% set cat_slug = (finding.category | default('other') | string | lower) | replace(' ', '-') | replace('_', '-') %}
+                        {% set f_uid = finding.uid | default('finding-' ~ loop.index0 ~ '-' ~ (finding.id | default('finding') | string | lower | replace(' ', '-') | replace(':', '-') | replace('/', '-')), true) %}
+                        <tr class="clickable-row" onclick="window.scrollToFinding('{{ f_uid }}', event)" style="cursor: pointer;">
                             <td>
-                                <span class="pill badge-{{ finding.severity|lower }}" style="font-size: 10px;">
-                                    {{ finding.severity | upper }}
+                                <span class="pill badge-{{ finding.severity | string | lower }}" style="font-size: 10px;">
+                                    {{ finding.severity | string | upper }}
                                 </span>
                             </td>
                             <td>
-                                <a href="#finding-{{ loop.index }}-{{ finding.severity|lower }}" style="font-weight: 600; color: var(--text-primary); text-decoration: none;">
-                                    {{ finding.title }}
+                                <a href="#{{ f_uid }}" onclick="window.scrollToFinding('{{ f_uid }}', event)" style="font-weight: 600; color: var(--text-primary); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                                    <span>{{ finding.title }}</span>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--teal-light)" stroke-width="2" style="opacity: 0.7; flex-shrink: 0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                 </a>
                             </td>
                             <td>
                                 <span class="pill badge-cat badge-cat-{{ cat_slug }}">
-                                    {{ finding.category | upper }}
+                                    {{ finding.category | string | upper }}
                                 </span>
                             </td>
                             <td style="color: var(--text-secondary); font-size: 12px;">

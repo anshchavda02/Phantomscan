@@ -61,22 +61,35 @@ class StatefulScanner:
         self, target: str, observations: list[dict[str, Any]]
     ) -> list[dict[str, Any]] | None:
         """Heuristically assemble a testable workflow from observations."""
+        base = target.rstrip("/")
         endpoints = set()
+
+        def add_ep(val_str: str) -> None:
+            if "http" in val_str or "/" in val_str:
+                endpoints.add(val_str if val_str.startswith("http") else f"{base}{val_str if val_str.startswith('/') else '/' + val_str}")
+
         for obs in observations:
-            val = str(obs.get("value", "")).lower()
-            if "http" in val or "/" in val:
-                endpoints.add(val if val.startswith("http") else f"{target}{val}")
+            val = obs.get("value", "")
+            if isinstance(val, str):
+                add_ep(val)
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str):
+                        add_ep(item)
+                    elif isinstance(item, dict) and "url" in item:
+                        add_ep(str(item["url"]))
 
         cart_url = None
         checkout_url = None
         confirm_url = None
 
         for ep in endpoints:
-            if "cart" in ep or "add" in ep:
+            ep_l = ep.lower()
+            if "cart" in ep_l or "basket" in ep_l or "add" in ep_l:
                 cart_url = ep
-            elif "checkout" in ep or "pay" in ep:
+            elif "checkout" in ep_l or "pay" in ep_l:
                 checkout_url = ep
-            elif "confirm" in ep or "complete" in ep:
+            elif "confirm" in ep_l or "complete" in ep_l or "order" in ep_l:
                 confirm_url = ep
 
         if cart_url and checkout_url and confirm_url:

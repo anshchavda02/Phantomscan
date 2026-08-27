@@ -347,6 +347,27 @@ class AISecretScanner:
             try:
                 resp = await self.http.get(map_url, retries=1)
                 if resp.status == 200 and len(resp.body) > 50:
+                    body_text = resp.text().strip()
+                    # Reject HTML error/login/SPA fallback pages (e.g. ASP.NET or custom 404s)
+                    if body_text.startswith(("<", "<!DOCTYPE", "<!doctype", "<html", "<head", "<body")):
+                        continue
+
+                    # Validate that the response is a genuine Source Map V3 JSON structure
+                    try:
+                        map_data = json.loads(body_text)
+                        if not isinstance(map_data, dict):
+                            continue
+                        has_version = str(map_data.get("version", "")) == "3"
+                        has_sources = bool(map_data.get("sources") and isinstance(map_data["sources"], list))
+                        has_mappings = bool(map_data.get("mappings") is not None and isinstance(map_data.get("mappings"), str))
+                        has_sources_content = bool(map_data.get("sourcesContent"))
+
+                        if not (has_version and (has_sources or has_mappings or has_sources_content)):
+                            continue
+                    except Exception:
+                        continue
+
+                    src_count = len(map_data.get("sources", []))
                     findings.append({
                         "id": "AI-SOURCEMAP-EXPOSED",
                         "title": "JavaScript Source Map Exposed in Production",
@@ -356,7 +377,8 @@ class AISecretScanner:
                         "target": map_url,
                         "evidence": (
                             f"URL: {map_url}\n"
-                            f"HTTP 200 — source map readable ({len(resp.body)} bytes). "
+                            f"HTTP 200 — valid Source Map V3 readable ({len(resp.body)} bytes, "
+                            f"{src_count} source file{'s' if src_count != 1 else ''} mapped). "
                             "Exposes original unminified source code including comments "
                             "and variable names that may reveal business logic or secrets."
                         ),
@@ -367,7 +389,7 @@ class AISecretScanner:
                         ),
                         "references": ["CWE-540"],
                     })
-                    all_content += resp.text()
+                    all_content += "\n" + body_text
             except Exception:
                 pass
 
@@ -2259,16 +2281,16 @@ class AIAppSecurityScanner:
             name = obs.get("name", "")
             value = obs.get("value")
 
-            if name == "homepage_body" and isinstance(value, str):
+            if name in ("homepage_body", "html_body") and isinstance(value, str):
                 html_body = value
-            elif name in ("js_files", "js_urls") and isinstance(value, list):
+            elif name in ("js_files", "js_urls", "discovered_js_bundles") and isinstance(value, list):
                 js_urls.extend(value)
             elif name == "response_headers" and isinstance(value, dict):
                 response_headers = value
-            elif name in ("crawled_urls", "interesting_urls"):
+            elif name in ("crawled_urls", "interesting_urls", "discovered_urls"):
                 if isinstance(value, list):
                     crawled_urls.extend(value)
-            elif name == "api_endpoints":
+            elif name in ("api_endpoints", "discovered_api_routes"):
                 if isinstance(value, list):
                     api_endpoints.extend(value)
 

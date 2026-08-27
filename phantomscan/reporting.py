@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -300,7 +300,7 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
 
     scan_meta = ScanResult(
         target=payload.get("target", "Unknown"),
-        timestamp=payload.get("finished_at", datetime.utcnow().isoformat()),
+        timestamp=payload.get("finished_at", datetime.now(timezone.utc).isoformat()),
         duration_seconds=raw_duration,
         profile=payload.get("profile", "default"),
         modules_executed=modules_list,
@@ -309,6 +309,24 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     
     findings = [dict_to_finding(f) for f in payload.get("findings", [])]
     suppressed = payload.get("suppressed_findings", [])
+
+    # Ensure globally unique, deterministic UIDs for every finding
+    import re
+    seen_uids: set[str] = set()
+    for idx, f in enumerate(findings):
+        raw_id = getattr(f, 'id', '') or (f.get('id', '') if isinstance(f, dict) else '') or f"finding-{idx}"
+        clean = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(raw_id).lower()).strip("-")
+        uid = f"finding-{idx}-{clean}"
+        if uid in seen_uids:
+            uid = f"{uid}-{idx}"
+        seen_uids.add(uid)
+        if isinstance(f, dict):
+            f['uid'] = uid
+        else:
+            try:
+                object.__setattr__(f, 'uid', uid)
+            except Exception:
+                pass
     
     intel_data = parse_intel(payload.get("observations", []))
     chains_data = parse_chains_from_findings(findings)
@@ -338,6 +356,24 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     generator.generate_html(scan_data, str(path))
 
 
+def resolve_reference_url(ref: Any) -> str:
+    """Resolve reference string (CWE, CVE, OWASP, or URL) to a valid web URL."""
+    if not ref:
+        return "#"
+    ref_str = str(ref).strip()
+    if ref_str.startswith("http://") or ref_str.startswith("https://"):
+        return ref_str
+    upper = ref_str.upper()
+    if upper.startswith("CWE-"):
+        cwe_num = upper.replace("CWE-", "").strip()
+        return f"https://cwe.mitre.org/data/definitions/{cwe_num}.html"
+    if upper.startswith("CVE-"):
+        return f"https://nvd.nist.gov/vuln/detail/{upper}"
+    if "OWASP" in upper:
+        return "https://owasp.org/www-project-top-ten/"
+    return f"https://www.google.com/search?q={ref_str}"
+
+
 class ReportGenerator:
     """Jinja2-based HTML report generator."""
     def __init__(self, template_dir: str = "templates"):
@@ -359,10 +395,29 @@ class ReportGenerator:
         self.env.filters['mask_secret'] = lambda s: s[:8] + '***' if len(s) > 8 else '***'
         
         # Additional filters that the template might need
-        self.env.filters['cwe_link'] = lambda cwe: f"https://cwe.mitre.org/data/definitions/{cwe.replace('CWE-', '')}.html" if cwe else "#"
+        self.env.filters['cwe_link'] = lambda cwe: f"https://cwe.mitre.org/data/definitions/{str(cwe).replace('CWE-', '')}.html" if cwe else "#"
         self.env.filters['owasp_link'] = lambda owasp: f"https://owasp.org/www-project-top-ten/2017/{owasp}.html" if owasp else "#"
+        self.env.filters['ref_url'] = resolve_reference_url
 
     def generate_html(self, scan_data: ScanData, output_path: str) -> str:
+        # Ensure findings in scan_data have unique uids
+        import re
+        seen_uids: set[str] = set()
+        for idx, f in enumerate(scan_data.findings):
+            raw_id = getattr(f, 'id', '') or (f.get('id', '') if isinstance(f, dict) else '') or f"finding-{idx}"
+            clean = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(raw_id).lower()).strip("-")
+            uid = f"finding-{idx}-{clean}"
+            if uid in seen_uids:
+                uid = f"{uid}-{idx}"
+            seen_uids.add(uid)
+            if isinstance(f, dict):
+                f['uid'] = uid
+            else:
+                try:
+                    object.__setattr__(f, 'uid', uid)
+                except Exception:
+                    pass
+
         template = self.env.get_template('report.html.j2')
 
         findings_grouped = self.group_findings(scan_data.findings)
@@ -395,7 +450,7 @@ class ReportGenerator:
             score=scan_data.score,
             engagement=scan_data.engagement,
             chart_data=json.dumps(chart_data),
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(timezone.utc).isoformat(),
             report_version="2.0.0"
         )
 

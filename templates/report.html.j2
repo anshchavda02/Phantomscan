@@ -349,57 +349,337 @@
             width: 0%; transition: width 0.05s linear;
         }
 
+        /* Finding Card Highlight Animation */
+        @keyframes findingGlow {
+            0% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.85); border-left-color: var(--brand-light) !important; outline: 2px solid var(--brand-light); }
+            35% { box-shadow: 0 0 24px 6px rgba(0, 240, 255, 0.65); border-left-color: var(--brand-light) !important; outline: 2px solid var(--brand-light); }
+            100% { box-shadow: none; outline: none; }
+        }
+        .finding-highlight {
+            animation: findingGlow 2.4s ease-out;
+        }
+
         /* Transitions for theme */
         body, .card, .top-nav, .intel-card, .section-label, button, .btn, .pill,
         code, pre, th, td, .intel-row { transition: background 0.2s, color 0.2s, border-color 0.2s; }
 
         /* ═══════════════════════════════════════════════════════
-           Print Stylesheet
+           Print Stylesheet — Executive Multi-Page PDF Optimizations
            ═══════════════════════════════════════════════════════ */
         @media print {
-            @page { size: A4 portrait; margin: 15mm; }
+            :root, html, body {
+                --bg:              #ffffff !important;
+                --surface:         #f8fafc !important;
+                --card:            #ffffff !important;
+                --card-hover:      #ffffff !important;
+                --card-raised:     #ffffff !important;
+                --nav-bg:          #ffffff !important;
+
+                --border:          #e2e8f0 !important;
+                --border-light:    #cbd5e1 !important;
+                --border-glow:     #94a3b8 !important;
+
+                --text-primary:    #0f172a !important;
+                --text-secondary:  #334155 !important;
+                --text-tertiary:   #64748b !important;
+                --text-disabled:   #94a3b8 !important;
+
+                --brand:           #1e40af !important;
+                --brand-light:     #1d4ed8 !important;
+                --brand-glow:      rgba(30,64,175,0.08) !important;
+                --brand-dim:       #eff6ff !important;
+
+                --teal:            #0f766e !important;
+                --teal-light:      #0d9488 !important;
+                --teal-glow:       rgba(15,118,110,0.08) !important;
+                --teal-dim:        #f0fdfa !important;
+
+                --sev-critical:    #be123c !important;
+                --sev-critical-bg: #fff1f2 !important;
+                --sev-critical-bd: #fda4af !important;
+
+                --sev-high:        #c2410c !important;
+                --sev-high-bg:     #fff7ed !important;
+                --sev-high-bd:     #fdba74 !important;
+
+                --sev-medium:      #b45309 !important;
+                --sev-medium-bg:   #fffbeb !important;
+                --sev-medium-bd:   #fcd34d !important;
+
+                --sev-low:         #15803d !important;
+                --sev-low-bg:      #f0fdf4 !important;
+                --sev-low-bd:      #86efac !important;
+
+                --sev-info:        #1d4ed8 !important;
+                --sev-info-bg:     #eff6ff !important;
+                --sev-info-bd:     #93c5fd !important;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 12mm 15mm;
+            }
+
             html, body {
-                background: #fff !important; color: #111827 !important;
-                font-size: 11pt !important; line-height: 1.4 !important;
-                overflow: visible !important; height: auto !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                font-size: 10pt !important;
+                line-height: 1.45 !important;
+                overflow: visible !important;
+                height: auto !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
+
+            /* Hide interactive-only UI elements */
             #scroll-progress, .top-nav, nav, .sidebar, .map-controls,
             .copy-btn, .export-btn, .export-dropdown, .filter-controls,
             .search-box, .collapse-btn, #theme-toggle, .btn, button, input,
             [id^="chat-panel"], .btn-ghost, .btn-ghost-teal, #modules-modal,
-            .interactive-only { display: none !important; }
+            .chevron, #expand-all-btn, #donut-tooltip, #radar-tooltip,
+            .interactive-only {
+                display: none !important;
+            }
 
-            .container, .hero-section, .intel-section, .card, .module-group,
-            .finding-card, .finding-body { overflow: visible !important; max-height: none !important; height: auto !important; }
+            /* Container and Section Sizing */
+            .container {
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
 
-            .finding-body, .intel-card-content, .collapsible-content,
-            .tab-content { display: block !important; visibility: visible !important; opacity: 1 !important; max-height: none !important; }
+            .section {
+                margin-bottom: 22px !important;
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+            }
 
+            .section-label {
+                color: #334155 !important;
+                break-after: avoid !important;
+                page-break-after: avoid !important;
+                margin-bottom: 12px !important;
+                font-size: 11pt !important;
+            }
+
+            /* Hero Header in Print */
+            .hero-section {
+                background: #ffffff !important;
+                border-bottom: 2px solid #e2e8f0 !important;
+                padding: 0 0 20px 0 !important;
+                margin-top: 0 !important;
+                margin-bottom: 20px !important;
+                break-after: avoid !important;
+                page-break-after: avoid !important;
+            }
+            .hero-grid {
+                padding: 10px 0 !important;
+                gap: 20px !important;
+            }
+            .hero-title {
+                color: #0f172a !important;
+                font-size: 24pt !important;
+            }
+            .hero-identity-card {
+                background: #f8fafc !important;
+                border: 1px solid #cbd5e1 !important;
+                padding: 14px !important;
+                border-radius: 6px !important;
+            }
+
+            /* Cards & Panels */
             .card, .intel-card {
-                background: #fff !important; color: #111827 !important;
-                border: 1px solid #d1d5db !important; box-shadow: none !important;
-                padding: 10px !important; break-inside: avoid !important; page-break-inside: avoid !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                border: 1px solid #cbd5e1 !important;
+                box-shadow: none !important;
+                padding: 14px !important;
+                border-radius: 6px !important;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
             }
-            code, pre, .evidence { background: #f1f5f9 !important; color: #111827 !important; border: 1px solid #d1d5db !important; }
-            .section { page-break-before: auto; }
-            .section-label { page-break-after: avoid; }
 
-            /* Print header on each page */
-            body::before {
-                content: "PhantomScan  ·  {{ scan.target }}  ·  {{ generated_at }}";
-                position: fixed; top: 0; left: 0; right: 0; padding: 4px 15mm;
-                font-size: 8pt; color: #9ca3af; border-bottom: 0.5px solid #e5e7eb;
-                text-align: center; font-family: 'Inter', sans-serif;
+            /* All content areas expanded */
+            .finding-body, .intel-card-content, .collapsible-content {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                max-height: none !important;
+                overflow: visible !important;
             }
-            /* Confidential watermark */
-            body::after {
-                content: "CONFIDENTIAL"; position: fixed;
-                top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg);
-                font-size: 80pt; color: rgba(0,0,0,0.04); font-weight: 800;
-                font-family: 'Syne', sans-serif; letter-spacing: 0.1em;
-                pointer-events: none; z-index: 0;
+
+            /* Finding Card Specifics in Print */
+            .finding-card {
+                margin-bottom: 14px !important;
+                border-left-width: 4px !important;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            .finding-header {
+                cursor: default !important;
+            }
+            .finding-header h3 {
+                color: #0f172a !important;
+                font-size: 11.5pt !important;
+            }
+            .tab-bar {
+                display: none !important;
+            }
+            .tab-content {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                margin-top: 10px !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+            .tab-content[data-tab="details"] {
+                margin-top: 0 !important;
+            }
+            .tab-content[data-tab="evidence"]::before {
+                content: "EVIDENCE";
+                display: block;
+                font-size: 8pt;
+                font-weight: 700;
+                color: #475569;
+                letter-spacing: 0.06em;
+                margin-bottom: 4px;
+                font-family: 'Syne', sans-serif;
+            }
+            .tab-content[data-tab="refs"]::before {
+                content: "REFERENCES";
+                display: block;
+                font-size: 8pt;
+                font-weight: 700;
+                color: #475569;
+                letter-spacing: 0.06em;
+                margin-bottom: 4px;
+                margin-top: 8px;
+                font-family: 'Syne', sans-serif;
+            }
+
+            /* Code, Pre, and Evidence */
+            code, pre, .evidence {
+                background: #f8fafc !important;
+                color: #0f172a !important;
+                border: 1px solid #cbd5e1 !important;
+                font-size: 8.5pt !important;
+                line-height: 1.45 !important;
+                white-space: pre-wrap !important;
+                word-break: break-all !important;
+                padding: 8px !important;
+                border-radius: 4px !important;
+            }
+            code {
+                padding: 1px 4px !important;
+            }
+
+            /* Tables */
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 9pt !important;
+            }
+            thead {
+                display: table-header-group !important;
+            }
+            tr {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            th {
+                background: #f1f5f9 !important;
+                color: #0f172a !important;
+                font-weight: 700 !important;
+                border-bottom: 2px solid #cbd5e1 !important;
+                padding: 6px 8px !important;
+                font-size: 8pt !important;
+            }
+            td {
+                color: #1e293b !important;
+                border-bottom: 1px solid #e2e8f0 !important;
+                padding: 6px 8px !important;
+                font-size: 8.5pt !important;
+            }
+
+            /* Pills & Badges */
+            .pill {
+                background: #f1f5f9 !important;
+                border: 1px solid #cbd5e1 !important;
+                color: #334155 !important;
+                font-size: 8pt !important;
+                padding: 1px 6px !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .badge-critical, .pill.badge-critical {
+                background: #fff1f2 !important;
+                color: #be123c !important;
+                border-color: #fda4af !important;
+            }
+            .badge-high, .pill.badge-high {
+                background: #fff7ed !important;
+                color: #c2410c !important;
+                border-color: #fdba74 !important;
+            }
+            .badge-medium, .pill.badge-medium {
+                background: #fffbeb !important;
+                color: #b45309 !important;
+                border-color: #fcd34d !important;
+            }
+            .badge-low, .pill.badge-low {
+                background: #f0fdf4 !important;
+                color: #15803d !important;
+                border-color: #86efac !important;
+            }
+            .badge-info, .pill.badge-info {
+                background: #eff6ff !important;
+                color: #1d4ed8 !important;
+                border-color: #93c5fd !important;
+            }
+            .badge-cat {
+                background: #f1f5f9 !important;
+                color: #334155 !important;
+                border-color: #cbd5e1 !important;
+            }
+
+            /* Charts and SVGs */
+            #category-radar-svg polygon[stroke^="rgba(255,255,255"],
+            #category-radar-svg line[stroke^="rgba(255,255,255"] {
+                stroke: #cbd5e1 !important;
+            }
+            #category-radar-svg text {
+                fill: #334155 !important;
+                font-size: 9px !important;
+                font-weight: 600 !important;
+            }
+            #donut-svg circle[stroke^="rgba(255,255,255"] {
+                stroke: #e2e8f0 !important;
+            }
+            #donut-center-count {
+                color: #0f172a !important;
+            }
+            #donut-center-label {
+                color: #64748b !important;
+            }
+
+            /* Links */
+            a {
+                color: #1e40af !important;
+                text-decoration: none !important;
+            }
+            .tab-content[data-tab="refs"] a {
+                text-decoration: underline !important;
+            }
+
+            /* Footer in Print */
+            footer {
+                border-top: 1px solid #e2e8f0 !important;
+                padding: 12px 0 !important;
+                color: #64748b !important;
+                font-size: 8pt !important;
+                break-before: avoid !important;
+                page-break-before: avoid !important;
             }
         }
     </style>
@@ -539,8 +819,13 @@
         window.printReport = function() {
             document.querySelectorAll('.finding-body, .intel-card-content, .collapsible-content, .tab-content').forEach(el => el.classList.remove('hidden'));
             document.querySelectorAll('.finding-card, .module-group').forEach(el => el.style.display = 'block');
-            setTimeout(() => window.print(), 150);
+            setTimeout(() => window.print(), 200);
         };
+
+        window.addEventListener('beforeprint', function() {
+            document.querySelectorAll('.finding-body, .intel-card-content, .collapsible-content, .tab-content').forEach(el => el.classList.remove('hidden'));
+            document.querySelectorAll('.finding-card, .module-group').forEach(el => el.style.display = 'block');
+        });
 
         window.exportJSON = function() {
             const reportData = {
@@ -578,13 +863,89 @@
             if (dd) dd.classList.add('hidden');
         });
 
-        // Finding tab switcher
-        window.switchFindingTab = function(cardId, tabName) {
-            const card = document.getElementById(cardId);
+        // Finding Card Toggle
+        window.toggleFindingCard = function(headerEl) {
+            const card = headerEl.closest('.finding-card');
+            if (!card) return;
+            const body = card.querySelector('.finding-body');
+            const chevron = card.querySelector('.chevron');
+            if (body) body.classList.toggle('hidden');
+            if (chevron) chevron.classList.toggle('open');
+        };
+
+        // Finding tab switcher (accepts DOM element or string ID)
+        window.switchFindingTab = function(trigger, tabName) {
+            const card = (typeof trigger === 'string')
+                ? document.getElementById(trigger.replace(/^#/, ''))
+                : (trigger ? trigger.closest('.finding-card') : null);
             if (!card) return;
             card.querySelectorAll('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
             card.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('hidden', c.dataset.tab !== tabName));
         };
+
+        // Smooth scroll & auto-expand finding card from Remediation Matrix, Attack Chains, or Screenshots
+        window.scrollToFinding = function(cardId, event) {
+            if (event) event.preventDefault();
+            if (!cardId) return;
+            const targetId = String(cardId).replace(/^#/, '');
+            let card = document.getElementById(targetId);
+
+            // Fallback lookups if direct ID lookup fails
+            if (!card) {
+                card = document.querySelector(`[data-finding-id="${targetId}"]`) ||
+                       document.querySelector(`[data-finding-id*="${targetId}"]`) ||
+                       document.querySelector(`.finding-card[id*="${targetId}"]`);
+            }
+            if (!card) return;
+
+            // 1. Reset severity filter & clear search query so the target finding is visible
+            if (window.setFindingFilter) {
+                const allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+                window.setFindingFilter(allBtn, 'all');
+            }
+            const searchInput = document.getElementById('finding-search');
+            if (searchInput && searchInput.value) {
+                searchInput.value = '';
+                if (window.filterFindings) window.filterFindings('');
+            }
+            card.style.display = 'block';
+            const group = card.closest('.module-group');
+            if (group) group.style.display = 'block';
+
+            // 2. Expand finding card body if collapsed
+            const body = card.querySelector('.finding-body');
+            const chevron = card.querySelector('.chevron');
+            if (body) body.classList.remove('hidden');
+            if (chevron) chevron.classList.add('open');
+
+            // 3. Smooth scroll to center of screen
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // 4. Trigger highlight glow animation
+            card.classList.remove('finding-highlight');
+            void card.offsetWidth; // force browser layout reflow to restart CSS animation
+            card.classList.add('finding-highlight');
+            setTimeout(() => card.classList.remove('finding-highlight'), 2500);
+
+            // 5. Update browser URL hash cleanly
+            if (window.history && window.history.pushState) {
+                window.history.pushState(null, null, '#' + (card.id || targetId));
+            }
+        };
+
+        // Auto-scroll to finding if URL has #finding-... hash on load or hash change
+        window.addEventListener('load', function() {
+            if (window.location.hash && window.location.hash.includes('finding-')) {
+                setTimeout(() => {
+                    window.scrollToFinding(window.location.hash);
+                }, 250);
+            }
+        });
+        window.addEventListener('hashchange', function() {
+            if (window.location.hash && window.location.hash.includes('finding-')) {
+                window.scrollToFinding(window.location.hash);
+            }
+        });
     </script>
 
     <div id="scroll-progress"></div>

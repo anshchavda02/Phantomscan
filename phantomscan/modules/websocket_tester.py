@@ -45,7 +45,7 @@ class WebSocketTester:
     ) -> list[dict[str, Any]]:
         findings: list[dict[str, Any]] = []
         parsed = urlparse(base_url)
-        host = parsed.hostname or ""
+        host = parsed.netloc or parsed.hostname or ""
         scheme = "wss" if parsed.scheme == "https" else "ws"
 
         ws_endpoints = self._discover_ws_endpoints(host, scheme, observations)

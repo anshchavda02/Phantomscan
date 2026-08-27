@@ -50,6 +50,7 @@ class Finding:
     module: str = ""
     cwe: str = ""
     description: str = ""
+    uid: str = ""
 
     def __post_init__(self) -> None:
         """Validate fields."""
@@ -68,6 +69,12 @@ class Finding:
             object.__setattr__(self, "id", gen_id)
         if not self.recommendation and self.description:
             object.__setattr__(self, "recommendation", self.description)
+        if not self.uid:
+            import re
+            base_id = self.id or "finding"
+            clean_slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(base_id).lower()).strip("-")
+            object.__setattr__(self, "uid", f"finding-{clean_slug}")
+
 
         if self.severity not in valid_severities:
             raise ValueError(f"Invalid severity: {self.severity}")

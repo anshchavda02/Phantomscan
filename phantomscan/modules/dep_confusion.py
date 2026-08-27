@@ -73,6 +73,7 @@ class DependencyConfusionChecker:
             exists = await self.check_public_registry(name, registry)
             if exists:
                 findings.append({
+                    "id": f"DEP-CONFUSION-{name.upper().replace('@', '').replace('/', '-')}",
                     "title": f"Dependency Confusion Risk: {name}",
                     "severity": "high",
                     "confidence": "medium",

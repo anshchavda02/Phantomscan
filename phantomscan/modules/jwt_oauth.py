@@ -55,6 +55,9 @@ class JWTOAuthTester:
 
         # Extract JWT tokens from observations (cookies, headers, bodies)
         tokens = self._extract_jwts(observations)
+        auth_tok = kwargs.get("auth_token")
+        if auth_tok and isinstance(auth_tok, str) and auth_tok not in tokens:
+            tokens.append(auth_tok)
         endpoints = self._guess_jwt_endpoints(target)
 
         for token in tokens[:5]:

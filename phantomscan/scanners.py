@@ -47,6 +47,8 @@ async def scan_ports(target: Target, ports_spec: str, logger: logging.Logger) ->
     if target.target_type == "cidr":
         return [Observation("port_scan_skipped", "CIDR host enumeration is not enabled in this build.", "python-portscan")], []
     ports = _parse_ports(ports_spec)
+    if target.port and target.port not in ports:
+        ports = [target.port] + ports
     logger.info("Scanning %s TCP ports on %s", len(ports), target.host)
     started = time.perf_counter()
     semaphore = asyncio.Semaphore(100)
@@ -86,10 +88,13 @@ async def inspect_tls(target: Target, logger: logging.Logger) -> tuple[list[Obse
     """Perform a real TLS handshake and certificate inspection."""
     if target.target_type == "cidr":
         return [Observation("tls_skipped", "CIDR target", "python-tls")], []
-    logger.info("Inspecting TLS on %s:443", target.host)
+    if target.scheme == "http" and target.is_local:
+        return [Observation("tls_skipped", "Plaintext HTTP local target", "python-tls")], []
+    tls_port = target.port if (target.port and target.scheme == "https") else 443
+    logger.info("Inspecting TLS on %s:%s", target.host, tls_port)
     started = time.perf_counter()
     try:
-        result = await asyncio.to_thread(_inspect_tls_blocking, target.host, 443, 10.0)
+        result = await asyncio.to_thread(_inspect_tls_blocking, target.host, tls_port, 10.0)
     except (OSError, ssl.SSLError, TimeoutError) as exc:
         logger.warning("TLS inspection failed for %s: %s", target.host, exc)
         logger.debug("TLS inspection failure details: %r", exc)

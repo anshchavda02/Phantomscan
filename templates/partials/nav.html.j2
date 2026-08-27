@@ -89,6 +89,7 @@
         <a href="#score" class="nav-pill">Score</a>
         <a href="#findings" class="nav-pill">Findings</a>
         <a href="#metadata" class="nav-pill">Metadata</a>
+        <a href="#ai-assistant-settings" class="nav-pill" style="color: var(--teal-light); border-color: rgba(13,148,136,0.3);">AI Assistant</a>
     </div>
 
     <div class="nav-actions">
@@ -107,6 +108,7 @@
             <div id="export-dropdown" class="export-dropdown hidden">
                 <button onclick="window.printReport()">PDF / Print</button>
                 <button onclick="window.exportJSON()">JSON Export</button>
+                <button onclick="document.getElementById('ai-assistant-settings')?.scrollIntoView({behavior:'smooth'})">AI / LLM Settings</button>
             </div>
         </div>
     </div>
@@ -123,4 +125,5 @@
     <a href="#expiry-calendar" class="sidebar-indicator" data-label="Expiry"></a>
     <a href="#suppressed" class="sidebar-indicator" data-label="Suppressed"></a>
     <a href="#metadata" class="sidebar-indicator" data-label="Metadata"></a>
+    <a href="#ai-assistant-settings" class="sidebar-indicator" data-label="AI Settings"></a>
 </div>

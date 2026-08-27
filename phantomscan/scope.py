@@ -30,18 +30,40 @@ class Target:
     host: str
     target_type: str   # "domain" | "ip" | "cidr"
     scheme: str        # "http" | "https" | ""
+    port: int | None = None
+
+    @property
+    def netloc(self) -> str:
+        """Return host:port if non-standard port is specified, else host."""
+        if self.port and not (self.scheme == "http" and self.port == 80) and not (self.scheme == "https" and self.port == 443):
+            return f"{self.host}:{self.port}"
+        return self.host
 
     @property
     def base_url(self) -> str:
         """Return a URL suitable for HTTP checks."""
-        if self.scheme:
-            return f"{self.scheme}://{self.host}"
-        return f"https://{self.host}"
+        scheme = self.scheme or "https"
+        if self.port and not (scheme == "http" and self.port == 80) and not (scheme == "https" and self.port == 443):
+            return f"{scheme}://{self.host}:{self.port}"
+        return f"{scheme}://{self.host}"
 
     @property
     def root_domain(self) -> str:
         """Return the eTLD+1 for this target's host."""
         return root_domain(self.host)
+
+    @property
+    def is_local(self) -> bool:
+        """Return True if target is a local, loopback, or private address."""
+        if self.host in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}:
+            return True
+        if self.host.endswith(".local") or self.host.endswith(".internal"):
+            return True
+        try:
+            ip = ipaddress.ip_address(self.host)
+            return ip.is_loopback or ip.is_private
+        except ValueError:
+            return False
 
 
 # ── Parsing ───────────────────────────────────────────────────────────────────
@@ -50,7 +72,7 @@ class Target:
 def parse_target(value: str) -> Target:
     """Parse *value* as URL, domain, IPv4, IPv6, or CIDR.
 
-    Strips ports from the host component and lower-cases the result.
+    Preserves ports in the target representation while separating the hostname.
     """
     cleaned = value.strip()
     if not cleaned:
@@ -59,6 +81,14 @@ def parse_target(value: str) -> Target:
     parsed = urlparse(cleaned if "://" in cleaned else f"//{cleaned}")
     host = parsed.hostname or cleaned
     scheme = parsed.scheme if parsed.scheme in {"http", "https"} else ""
+    port = parsed.port
+
+    # If host contains a port after stripping scheme (e.g. "localhost:3000")
+    if not port and ":" in host and not host.startswith("["):
+        parts = host.rsplit(":", 1)
+        if parts[1].isdigit():
+            host = parts[0]
+            port = int(parts[1])
 
     # Normalise — strip trailing dot, lowercase
     host = host.lower().rstrip(".")
@@ -69,7 +99,7 @@ def parse_target(value: str) -> Target:
     except ValueError:
         target_type = "domain"
 
-    return Target(raw=cleaned, host=host, target_type=target_type, scheme=scheme)
+    return Target(raw=cleaned, host=host, target_type=target_type, scheme=scheme, port=port)
 
 
 # ── Scope enforcement ─────────────────────────────────────────────────────────

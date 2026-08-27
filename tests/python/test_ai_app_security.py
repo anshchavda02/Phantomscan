@@ -166,6 +166,29 @@ async def test_ai_secret_scanner_detects_source_map():
 
 
 @pytest.mark.asyncio
+async def test_ai_secret_scanner_rejects_html_sourcemap_false_positive():
+    """HTML soft-404 / ASP.NET login responses on .map URLs must NOT be flagged as source maps."""
+    from phantomscan.modules.ai_app_security import AISecretScanner
+
+    mock_http = MockHTTPClient()
+    mock_http.get_responses["https://example.com/siteJs/Login/login.js"] = MockResponse(
+        status=200, text_content="// login js code",
+    )
+    # Simulate ASP.NET / IIS returning the HTML login page on .map request
+    mock_http.get_responses["https://example.com/siteJs/Login/login.js.map"] = MockResponse(
+        status=200,
+        text_content="<!DOCTYPE html><html><head><title>Student Portal Login</title></head><body>Login Form</body></html>",
+    )
+    scanner = AISecretScanner(mock_http)
+
+    findings = await scanner.scan(
+        "https://example.com", "", ["https://example.com/siteJs/Login/login.js"], {},
+    )
+    map_findings = [f for f in findings if f["id"] == "AI-SOURCEMAP-EXPOSED"]
+    assert len(map_findings) == 0
+
+
+@pytest.mark.asyncio
 async def test_ai_secret_scanner_detects_platform():
     """Platform markers should produce an info finding."""
     from phantomscan.modules.ai_app_security import AISecretScanner

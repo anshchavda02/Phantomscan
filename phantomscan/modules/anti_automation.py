@@ -49,11 +49,11 @@ class AntiAutomationTester:
 
         # Also check common login paths
         if not login_urls and base_url:
-            for path in ["/login", "/signin", "/auth/login", "/wp-login.php", "/admin"]:
+            for path in ["/login", "/signin", "/auth/login", "/wp-login.php", "/admin", "/rest/user/login"]:
                 try:
-                    resp = await self.http.request("GET", f"{base_url}{path}", timeout=8)
-                    if resp.get("status") in (200, 301, 302):
-                        login_urls.append(f"{base_url}{path}")
+                    resp = await self.http.get(f"{base_url.rstrip('/')}{path}", retries=1)
+                    if getattr(resp, "status", 0) in (200, 301, 302):
+                        login_urls.append(f"{base_url.rstrip('/')}{path}")
                 except Exception:
                     pass
 
@@ -70,11 +70,11 @@ class AntiAutomationTester:
         # Test 1: CAPTCHA presence check
         has_captcha = False
         try:
-            resp = await self.http.request("GET", login_url, timeout=10)
-            body = resp.get("body", "")
+            resp = await self.http.get(login_url, retries=1)
+            body = resp.text() if hasattr(resp, "text") and callable(resp.text) else getattr(resp, "body", "")
             if isinstance(body, bytes):
                 body = body.decode("utf-8", errors="ignore")
-            body_lower = body.lower()
+            body_lower = str(body).lower()
 
             has_captcha = any(marker in body_lower for marker in _CAPTCHA_MARKERS)
         except Exception as exc:
@@ -87,19 +87,19 @@ class AntiAutomationTester:
         for i in range(5):
             try:
                 t1 = time.monotonic()
-                resp = await self.http.request(
-                    "POST", login_url,
-                    data={
+                resp = await self.http.post(
+                    login_url,
+                    json={
                         "username": f"phantomscan_test_{i}",
                         "password": "invalid_test_only",
                         "email": f"phantomscan_test_{i}@invalid.test",
                     },
-                    timeout=10,
+                    retries=1,
                 )
                 elapsed = time.monotonic() - t1
                 attempt_results.append({
                     "attempt": i + 1,
-                    "status": resp.get("status", 0),
+                    "status": getattr(resp, "status", 0),
                     "time": round(elapsed, 3),
                 })
             except Exception:
@@ -125,6 +125,7 @@ class AntiAutomationTester:
 
             if not has_progressive_delay:
                 findings.append({
+                    "id": "AUTH-NO-BRUTE-FORCE-PROTECTION",
                     "title": "No Brute Force Protection Detected",
                     "severity": "medium",
                     "confidence": "medium",
@@ -148,6 +149,7 @@ class AntiAutomationTester:
         # Test 3: Report CAPTCHA presence (informational)
         if has_captcha:
             findings.append({
+                "id": "AUTH-CAPTCHA-PRESENT",
                 "title": "CAPTCHA Present on Login (Informational)",
                 "severity": "info",
                 "confidence": "high",

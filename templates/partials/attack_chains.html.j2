@@ -38,7 +38,7 @@
 
                         {% if step_fid %}
                         <div style="margin-top: 6px; font-size: 11px;">
-                            <a href="#finding-{{ step_fid }}" style="display: inline-flex; align-items: center; gap: 4px; color: var(--brand-light); font-weight: 600;">
+                            <a href="#{{ step_fid }}" onclick="window.scrollToFinding('{{ step_fid }}', event)" style="display: inline-flex; align-items: center; gap: 4px; color: var(--brand-light); font-weight: 600; text-decoration: none;">
                                 View Finding Details &rarr;
                             </a>
                         </div>

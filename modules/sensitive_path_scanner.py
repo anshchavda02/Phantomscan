@@ -205,6 +205,67 @@ class SensitivePathScanner:
             "verify_type": "content_type",
             "also_check_min_size": 4,  # DS_Store > 4 bytes
         },
+
+        # Node.js / Modern Web package.json disclosure
+        {
+            "path": "/package.json",
+            "severity": "Medium",
+            "verify_body": [
+                '"dependencies"', '"devDependencies"', '"version"', '"scripts"',
+            ],
+            "verify_type": "contains_any",
+        },
+
+        # Exposed public/internal FTP directory (Juice Shop / public file stores)
+        {
+            "path": "/ftp/",
+            "severity": "Medium",
+            "verify_body": [
+                "legal.md", "incident-support.kdbx", "acquisitions.md",
+                "Directory listing", "Index of /ftp", "<title>ftp</title>",
+            ],
+            "verify_type": "contains_any",
+        },
+
+        # Exposed encryption keys directory
+        {
+            "path": "/encryptionkeys/",
+            "severity": "High",
+            "verify_body": [
+                "premium.key", "jwt.key", "private.key", "Index of",
+            ],
+            "verify_type": "contains_any",
+        },
+
+        # Prometheus / Actuator metrics disclosure
+        {
+            "path": "/metrics",
+            "severity": "Low",
+            "verify_body": [
+                "# HELP", "# TYPE", "process_cpu_seconds_total", "http_requests_total",
+            ],
+            "verify_type": "contains_any",
+        },
+
+        # Swagger / OpenAPI specification exposure
+        {
+            "path": "/api-docs/swagger.json",
+            "severity": "Info",
+            "verify_body": [
+                '"swagger"', '"openapi"', '"paths"',
+            ],
+            "verify_type": "contains_any",
+        },
+
+        # Application challenge / score disclosure
+        {
+            "path": "/api/Challenges",
+            "severity": "Info",
+            "verify_body": [
+                '"status":"success"', '"data":', 'description',
+            ],
+            "verify_type": "contains_any",
+        },
     ]
 
     def __init__(self, http_client: Any = None) -> None:

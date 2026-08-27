@@ -1,36 +1,40 @@
 <!-- Finding Card Partial -->
-{% set cat_slug = (finding.category | default('other') | lower) | replace(' ', '-') | replace('_', '-') %}
-<div id="finding-{{ index }}-{{ finding.severity|lower }}" class="card finding-card" style="margin-bottom: 16px; border-left: 3px solid {{ finding.severity | severity_color }};" data-severity="{{ finding.severity|lower }}">
-    <div class="finding-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer;" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('open');">
-        <div>
+{% set cat_slug = (finding.category | default('other') | string | lower) | replace(' ', '-') | replace('_', '-') %}
+{% set card_uid = finding.uid | default('finding-' ~ (index | default(loop.index0, true)) ~ '-' ~ (finding.id | default('finding') | string | lower | replace(' ', '-') | replace(':', '-') | replace('/', '-')), true) %}
+<div id="{{ card_uid }}" class="card finding-card" style="margin-bottom: 16px; border-left: 3px solid {{ finding.severity | severity_color }};" data-severity="{{ finding.severity | string | lower }}" data-finding-id="{{ finding.id }}">
+    <div class="finding-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; user-select: none;" onclick="window.toggleFindingCard(this)">
+        <div style="flex: 1; padding-right: 12px;">
             <h3 style="margin: 0 0 4px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                 {{ finding.title }}
-                <span class="pill badge-{{ finding.severity|lower }}" style="font-size: 10px;">{{ finding.severity | upper }}</span>
+                <span class="pill badge-{{ finding.severity | string | lower }}" style="font-size: 10px;">{{ finding.severity | string | upper }}</span>
             </h3>
-            <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--text-tertiary);">
-                <span class="pill badge-cat badge-cat-{{ cat_slug }}">{{ finding.category | upper }}</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--text-tertiary); align-items: center;">
+                <span class="pill badge-cat badge-cat-{{ cat_slug }}">{{ finding.category | string | upper }}</span>
                 {% if finding.confidence %}
-                <span class="pill" style="font-size: 10px;">Confidence: {{ finding.confidence | upper }}</span>
+                <span class="pill" style="font-size: 10px;">Confidence: {{ finding.confidence | string | upper }}</span>
+                {% endif %}
+                {% if finding.target %}
+                <span class="pill" style="font-size: 10px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ finding.target }}">{{ finding.target }}</span>
                 {% endif %}
             </div>
         </div>
-        <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2.5" style="margin-top: 4px; flex-shrink: 0;"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
 
     <div class="finding-body hidden" style="border-top: 1px solid var(--border); padding-top: 14px; margin-top: 12px;">
         <!-- Tab Bar -->
         <div class="tab-bar" style="margin-bottom: 14px;">
-            <div class="tab-item active" data-tab="details" onclick="window.switchFindingTab('finding-{{ index }}-{{ finding.severity|lower }}', 'details')">Details</div>
-            <div class="tab-item" data-tab="evidence" onclick="window.switchFindingTab('finding-{{ index }}-{{ finding.severity|lower }}', 'evidence')">Evidence</div>
+            <div class="tab-item active" data-tab="details" onclick="window.switchFindingTab(this, 'details')">Details</div>
+            <div class="tab-item" data-tab="evidence" onclick="window.switchFindingTab(this, 'evidence')">Evidence</div>
             {% if finding.references %}
-            <div class="tab-item" data-tab="refs" onclick="window.switchFindingTab('finding-{{ index }}-{{ finding.severity|lower }}', 'refs')">References</div>
+            <div class="tab-item" data-tab="refs" onclick="window.switchFindingTab(this, 'refs')">References</div>
             {% endif %}
         </div>
 
         <!-- Details Tab -->
         <div class="tab-content" data-tab="details">
             <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-family: 'Syne', sans-serif;">Recommendation</h4>
-            <p style="margin-bottom: 12px; font-size: 12.5px;">{{ finding.recommendation }}</p>
+            <p style="margin-bottom: 12px; font-size: 12.5px; line-height: 1.5;">{{ finding.recommendation }}</p>
 
             <!-- Action Toolbar -->
             <div style="display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; align-items: center;">
@@ -38,7 +42,7 @@
                     Verify Fix
                 </a>
 
-                <button class="btn-ghost btn-ghost-teal" onclick="document.getElementById('chat-panel-{{ index }}').classList.toggle('hidden')">
+                <button class="btn-ghost btn-ghost-teal" onclick="document.getElementById('chat-panel-{{ card_uid }}').classList.toggle('hidden')">
                     Ask AI
                 </button>
 
@@ -55,19 +59,30 @@
                 {% endif %}
 
                 {% if finding.cwe %}
-                <a href="{{ finding.cwe | cwe_link }}" target="_blank" class="pill" style="font-size: 10px; text-decoration: none;">{{ finding.cwe }}</a>
+                <a href="{{ finding.cwe | cwe_link }}" target="_blank" rel="noopener noreferrer" class="pill" style="font-size: 10px; text-decoration: none; color: var(--teal-light);">{{ finding.cwe }} &nearr;</a>
                 {% endif %}
             </div>
 
             <!-- Embedded AI Chat Panel -->
-            <div id="chat-panel-{{ index }}" class="hidden" style="margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 12px;">
-                <div style="font-size: 10px; font-weight: 700; color: var(--brand-light); margin-bottom: 6px; font-family: 'Syne', sans-serif;">Finding Assistant</div>
-                <div id="chat-output-{{ index }}" style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; max-height: 80px; overflow-y: auto;">
-                    <div class="dot-loader"><span></span><span></span><span></span></div>
+            <div id="chat-panel-{{ card_uid }}" class="hidden" style="margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--brand-light); font-family: 'Syne', sans-serif;">AI Security Assistant</span>
+                    <span style="font-size: 10px; color: var(--text-tertiary);">
+                        <span class="active-llm-indicator" style="color: var(--teal-light); font-weight: 600;">Static FAQ</span>
+                        &middot;
+                        <a href="#ai-assistant-settings" onclick="document.getElementById('ai-assistant-settings')?.scrollIntoView({behavior:'smooth'})" style="color: var(--text-secondary); text-decoration: underline;">Configure LLM</a>
+                    </span>
+                </div>
+                <div id="chat-output-{{ card_uid }}" style="font-size: 11.5px; color: var(--text-primary); margin-bottom: 8px; max-height: 140px; overflow-y: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 8px 10px; line-height: 1.5; display: none;">
+                </div>
+                <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">
+                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='How do I remediate this vulnerability?'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">How to fix?</button>
+                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='Explain the root cause and exploit scenario.'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Root Cause</button>
+                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='Provide a secure code snippet patch.'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Code Patch</button>
                 </div>
                 <div style="display: flex; gap: 4px;">
-                    <input type="text" id="chat-input-{{ index }}" placeholder="Ask about this finding..." style="flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 5px 8px; font-size: 11px; font-family: inherit;" onkeypress="if(event.key==='Enter') askFindingQuestion('{{ index }}', '{{ finding.id }}', '{{ finding.title | escape }}')">
-                    <button class="btn-ghost" style="padding: 4px 10px;" onclick="askFindingQuestion('{{ index }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Ask</button>
+                    <input type="text" id="chat-input-{{ card_uid }}" placeholder="Ask AI about this finding..." style="flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 6px 10px; font-size: 11px; font-family: inherit;" onkeypress="if(event.key==='Enter') askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">
+                    <button class="btn-ghost" style="padding: 5px 12px; font-size: 11px;" onclick="askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Ask</button>
                 </div>
             </div>
         </div>
@@ -75,19 +90,22 @@
         <!-- Evidence Tab -->
         <div class="tab-content hidden" data-tab="evidence">
             <div style="background: var(--surface); border-radius: var(--r-compact); padding: 14px; overflow-x: auto; position: relative;">
-                <button class="copy-btn" onclick="window.copyText(document.getElementById('evidence-{{ index }}').textContent, this)" style="position: absolute; top: 8px; right: 8px; font-size: 9px; padding: 2px 6px; background: transparent; border: 1px solid var(--border); color: var(--text-tertiary); border-radius: var(--r-sharp);">COPY</button>
-                <pre class="evidence" id="evidence-{{ index }}" style="margin: 0; font-size: 11px; white-space: pre-wrap; word-break: break-all;">{{ finding.evidence }}</pre>
+                <button class="copy-btn" onclick="window.copyText(this.closest('.tab-content').querySelector('pre.evidence').textContent, this)" style="position: absolute; top: 8px; right: 8px; font-size: 9px; padding: 2px 6px; background: transparent; border: 1px solid var(--border); color: var(--text-tertiary); border-radius: var(--r-sharp); cursor: pointer;">COPY</button>
+                <pre class="evidence" id="evidence-{{ card_uid }}" style="margin: 0; font-size: 11px; white-space: pre-wrap; word-break: break-all; font-family: 'JetBrains Mono', 'Fira Code', monospace; line-height: 1.5;">{{ finding.evidence }}</pre>
             </div>
         </div>
 
         <!-- References Tab -->
         {% if finding.references %}
         <div class="tab-content hidden" data-tab="refs">
-            <ul style="padding-left: 16px; margin-bottom: 12px; font-size: 12px; list-style: none;">
-                {% for ref in finding.references %}
-                <li style="margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--brand-light)" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    <a href="{{ ref }}" target="_blank" rel="noopener noreferrer" style="word-break: break-all;">{{ ref }}</a>
+            <ul style="padding-left: 4px; margin: 0; font-size: 12px; list-style: none;">
+                {% for ref in (finding.references if finding.references is iterable and finding.references is not string else [finding.references]) %}
+                {% set ref_link = ref | ref_url %}
+                <li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal-light)" stroke-width="2" style="flex-shrink: 0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    <a href="{{ ref_link }}" target="_blank" rel="noopener noreferrer" style="word-break: break-all; color: var(--teal-light); text-decoration: none; font-weight: 500;">
+                        {{ ref }} &nearr;
+                    </a>
                 </li>
                 {% endfor %}
             </ul>

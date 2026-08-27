@@ -55,14 +55,16 @@ class PrivacyScanner:
         # Collect URLs to scan from observations
         urls_to_check: list[str] = []
         for obs in observations:
-            if obs.get("name") in ("crawled_urls", "interesting_urls", "api_endpoints"):
+            if obs.get("name") in ("crawled_urls", "interesting_urls", "api_endpoints", "discovered_urls", "discovered_api_routes"):
                 val = obs.get("value", [])
                 if isinstance(val, list):
                     for item in val:
                         if isinstance(item, str):
-                            urls_to_check.append(item)
+                            urls_to_check.append(item if item.startswith("http") else f"{base_url.rstrip('/')}{item if item.startswith('/') else '/' + item}")
                         elif isinstance(item, dict):
-                            urls_to_check.append(item.get("url", ""))
+                            u = item.get("url", "")
+                            if u:
+                                urls_to_check.append(u if u.startswith("http") else f"{base_url.rstrip('/')}{u if u.startswith('/') else '/' + u}")
 
         # Also check the base URL itself
         if base_url and base_url not in urls_to_check:
@@ -75,11 +77,11 @@ class PrivacyScanner:
                 continue
             checked.add(url)
             try:
-                resp = await self.http.request("GET", url, timeout=10)
-                body = resp.get("body", "")
+                resp = await self.http.get(url, retries=1)
+                body = resp.text() if hasattr(resp, "text") and callable(resp.text) else getattr(resp, "body", "")
                 if isinstance(body, bytes):
                     body = body.decode("utf-8", errors="ignore")
-                findings.extend(await self.scan_response(url, body))
+                findings.extend(await self.scan_response(url, str(body)))
             except Exception as exc:
                 logger.debug("Privacy scan error for %s: %s", url, exc)
 
@@ -102,6 +104,7 @@ class PrivacyScanner:
             if matches:
                 severity = "high" if pii_type in _HIGH_RISK_TYPES else "medium"
                 findings.append({
+                    "id": f"PII-EXPOSURE-{pii_type.upper().replace('_', '-')}",
                     "title": f"PII Exposure: {pii_type.replace('_', ' ').title()} Found",
                     "severity": severity,
                     "confidence": "medium",

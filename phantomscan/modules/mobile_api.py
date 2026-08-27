@@ -133,10 +133,11 @@ class MobileAPIExtractor:
 
         for endpoint in endpoints[:20]:  # Limit to 20 endpoints
             try:
-                resp = await self.http.request("GET", endpoint, timeout=8)
-                status = resp.get("status", 0)
+                resp = await self.http.get(endpoint, retries=1)
+                status = getattr(resp, "status", 0)
                 if status == 200:
                     findings.append({
+                        "id": "MOBILE-API-UNAUTHENTICATED",
                         "title": "Mobile API Accessible Without App Context",
                         "severity": "medium",
                         "confidence": "medium",

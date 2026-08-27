@@ -125,15 +125,29 @@ class PrototypePollutionDetector:
     def _find_json_endpoints(
         self, target: str, observations: list[dict[str, Any]]
     ) -> list[str]:
+        base = target.rstrip("/")
         endpoints: set[str] = set()
         for obs in observations:
-            val = str(obs.get("value", ""))
-            if "/api" in val or "json" in val.lower():
-                url = val if val.startswith("http") else f"{target}{val}"
-                endpoints.add(url)
+            name = str(obs.get("name", ""))
+            val = obs.get("value", "")
+            if isinstance(val, str):
+                if any(kw in val.lower() for kw in ("/api", "/rest", "json", "graphql")):
+                    endpoints.add(val if val.startswith("http") else f"{base}{val if val.startswith('/') else '/' + val}")
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str) and any(kw in item.lower() for kw in ("/api", "/rest", "json", "graphql")):
+                        endpoints.add(item if item.startswith("http") else f"{base}{item if item.startswith('/') else '/' + item}")
+                    elif isinstance(item, dict) and "url" in item:
+                        u = str(item["url"])
+                        endpoints.add(u if u.startswith("http") else f"{base}{u if u.startswith('/') else '/' + u}")
 
         # Fallback common API paths
-        for path in ("/api/users", "/api/settings", "/api/config",
-                     "/api/account", "/api/profile", "/api/v1/data"):
-            endpoints.add(f"{target}{path}")
+        for path in (
+            "/api/users", "/api/settings", "/api/config",
+            "/api/account", "/api/profile", "/api/v1/data",
+            "/rest/user/login", "/api/Feedbacks", "/rest/basket",
+            "/api/Challenges", "/rest/products/search"
+        ):
+            endpoints.add(f"{base}{path}")
         return list(endpoints)
+

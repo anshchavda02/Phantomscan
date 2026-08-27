@@ -26,6 +26,7 @@ from urllib.request import Request, urlopen
 
 import dns.asyncresolver
 import dns.exception
+import dns.resolver
 
 from .http_client import HTTPResult, RobustHTTPClient, ScanError, http_client
 from .models import Finding, Observation
@@ -109,14 +110,15 @@ async def resolve_target(
     log = logger or logging.getLogger(__name__)
     if target.target_type not in {"domain", "ip"}:
         return [Observation("target_type", target.target_type, "scope")]
-    if target.target_type == "ip":
-        return [Observation("ip", target.host, "input")]
+    if target.is_local or target.target_type == "ip":
+        resolved_ip = "127.0.0.1" if target.host == "localhost" else target.host
+        return [Observation("ip", resolved_ip, "input"), Observation("resolved_ips", [resolved_ip], "resolver")]
 
     resolver = _make_resolver()
     try:
         answers = await resolver.resolve(target.host, "A", lifetime=5.0)
         ips = sorted(str(r) for r in answers)
-    except dns.exception.NXDOMAIN:
+    except dns.resolver.NXDOMAIN:
         log.warning("DNS: NXDOMAIN for %s", target.host)
         return [Observation("dns_error", f"NXDOMAIN: {target.host}", "resolver")]
     except dns.exception.DNSException as exc:
@@ -136,6 +138,9 @@ async def collect_dns_records(
 ) -> list[Observation]:
     """Collect A, AAAA, MX, NS, TXT, and CNAME records via dnspython."""
     log = logger or logging.getLogger(__name__)
+    if target.is_local:
+        ip = "127.0.0.1" if target.host == "localhost" else target.host
+        return [Observation("dns_records", {"A": [ip], "AAAA": [], "MX": [], "NS": [], "TXT": [], "CNAME": []}, "resolver")]
     if target.target_type == "ip":
         # PTR reverse lookup
         try:
@@ -192,6 +197,8 @@ async def lookup_whois(
 ) -> list[Observation]:
     """Fetch lightweight RDAP/WHOIS-style ownership information."""
     log = logger or logging.getLogger(__name__)
+    if target.is_local:
+        return [Observation("whois_info", {"status": "skipped", "reason": "Local / private address", "queried": target.host}, "rdap")]
     if target.target_type == "cidr":
         return [Observation("whois_info", {"status": "skipped", "reason": "CIDR summary not queried"}, "rdap")]
     endpoint = "ip" if target.target_type == "ip" else "domain"
@@ -284,7 +291,7 @@ async def enumerate_subdomains(
     Each discovered host is resolved and HTTP-probed to confirm liveness.
     """
     log = logger or logging.getLogger(__name__)
-    if target.target_type != "domain":
+    if target.is_local or target.target_type != "domain":
         return [Observation("subdomains", [], "subdomain-enum")]
 
     base_domain = root_domain(target.host)
@@ -450,10 +457,10 @@ async def fetch_headers(
                     timeout=_aiohttp.ClientTimeout(total=timeout),
                 )
             else:
-                result = await client.try_both_protocols(target.host)
+                result = await client.try_both_protocols(target.netloc)
     except (ScanError, _aiohttp.ClientError, OSError, asyncio.TimeoutError) as exc:
         error = str(exc)
-        log.warning("HTTP request failed for %s: %s", target.host, exc)
+        log.warning("HTTP request failed for %s: %s", target.netloc, exc)
 
     elapsed_ms = int((time.perf_counter() - t0) * 1000)
 

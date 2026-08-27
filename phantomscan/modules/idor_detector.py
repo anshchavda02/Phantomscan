@@ -102,19 +102,36 @@ class IDORDetector:
     def _collect_urls(
         self, target: str, observations: list[dict[str, Any]]
     ) -> list[str]:
-        urls: set[str] = {target + "/"}
+        base = target.rstrip("/")
+        urls: set[str] = {f"{base}/"}
         for obs in observations:
+            name = str(obs.get("name", ""))
             val = obs.get("value", "")
             if isinstance(val, str) and ("http" in val or "/" in val):
-                urls.add(val if val.startswith("http") else f"{target}{val}")
+                urls.add(val if val.startswith("http") else f"{base}{val if val.startswith('/') else '/' + val}")
             if isinstance(val, list):
                 for item in val:
                     if isinstance(item, str) and ("http" in item or "/" in item):
-                        urls.add(item if item.startswith("http") else f"{target}{item}")
+                        urls.add(item if item.startswith("http") else f"{base}{item if item.startswith('/') else '/' + item}")
+                    elif isinstance(item, dict) and "url" in item:
+                        u = str(item["url"])
+                        urls.add(u if u.startswith("http") else f"{base}{u if u.startswith('/') else '/' + u}")
             if isinstance(val, dict):
                 for v in val.values():
                     if isinstance(v, str) and ("http" in v or "/" in v):
-                        urls.add(v if v.startswith("http") else f"{target}{v}")
+                        urls.add(v if v.startswith("http") else f"{base}{v if v.startswith('/') else '/' + v}")
+
+        # Add common REST resource ID probe paths
+        for probe_path in (
+            "/rest/basket/1",
+            "/api/Feedbacks/1",
+            "/api/Users/1",
+            "/rest/user/authentication-details",
+            "/api/BasketItems/1",
+            "/rest/order-history/1",
+        ):
+            urls.add(f"{base}{probe_path}")
+
         return list(urls)
 
     def _find_id_candidates(self, urls: list[str]) -> list[dict[str, Any]]:

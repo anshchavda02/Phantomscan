@@ -228,16 +228,42 @@ class SSRFDetector:
     ) -> list[dict[str, Any]]:
         params: list[dict[str, Any]] = []
         seen: set[tuple[str, str]] = set()
+
+        def add_url_param(url: str, name: str) -> None:
+            key = (url, name)
+            if key not in seen and len(params) < 30:
+                seen.add(key)
+                params.append({"url": url, "name": name})
+
         for obs in observations:
             val = obs.get("value", "")
             if isinstance(val, str) and val.startswith("http"):
                 for name in _URL_PARAM_NAMES:
-                    key = (val, name)
-                    if key not in seen:
-                        seen.add(key)
-                        params.append({"url": val, "name": name})
-        # Fallback: only probe if target has explicit API parameter structure
+                    add_url_param(val, name)
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str) and item.startswith("http"):
+                        for name in _URL_PARAM_NAMES:
+                            add_url_param(item, name)
+                    elif isinstance(item, dict) and "url" in item:
+                        u = str(item["url"])
+                        if u.startswith("http"):
+                            for name in _URL_PARAM_NAMES:
+                                add_url_param(u, name)
+
+        # Common SSRF probe endpoints
+        base = target.rstrip("/")
+        for probe_path, param in [
+            ("/rest/track-order", "id"),
+            ("/api/track", "url"),
+            ("/proxy", "url"),
+            ("/fetch", "url"),
+            ("/api/webhook", "url"),
+        ]:
+            add_url_param(f"{base}{probe_path}", param)
+
         return params
+
 
     @staticmethod
     def _contains_metadata(body: str, provider: str, baseline_body: str = "") -> bool:

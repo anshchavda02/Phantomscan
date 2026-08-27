@@ -101,19 +101,36 @@ class RaceConditionDetector:
     def _find_race_endpoints(
         self, target: str, observations: list[dict[str, Any]]
     ) -> list[str]:
-        endpoints: list[str] = []
-        # Check observations for URL-like values with race keywords
+        base = target.rstrip("/")
+        endpoints: set[str] = set()
+
+        def check_and_add(item: str) -> None:
+            if isinstance(item, str) and any(kw in item.lower() for kw in _RACE_KEYWORDS):
+                endpoints.add(item if item.startswith("http") else f"{base}{item if item.startswith('/') else '/' + item}")
+
         for obs in observations:
-            val = str(obs.get("value", "")).lower()
-            if any(kw in val for kw in _RACE_KEYWORDS) and ("http" in val or "/" in val):
-                url = obs.get("value", "")
-                if isinstance(url, str):
-                    endpoints.append(
-                        url if url.startswith("http") else f"{target}{url}"
-                    )
+            val = obs.get("value", "")
+            if isinstance(val, str):
+                check_and_add(val)
+            elif isinstance(val, list):
+                for v in val:
+                    if isinstance(v, str):
+                        check_and_add(v)
+                    elif isinstance(v, dict) and "url" in v:
+                        check_and_add(str(v["url"]))
+            elif isinstance(val, dict):
+                for v in val.values():
+                    if isinstance(v, str):
+                        check_and_add(v)
 
         # Also generate common race-prone paths
-        for kw in ("redeem", "apply-coupon", "transfer", "vote",
-                    "checkout", "verify-email", "claim"):
-            endpoints.append(f"{target}/api/{kw}")
-        return list(set(endpoints))
+        for kw in (
+            "redeem", "apply-coupon", "transfer", "vote",
+            "checkout", "verify-email", "claim", "coupon",
+            "order", "basket/checkout", "Quantitys"
+        ):
+            endpoints.add(f"{base}/api/{kw}")
+            endpoints.add(f"{base}/rest/{kw}")
+
+        return list(endpoints)
+

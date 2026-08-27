@@ -80,3 +80,66 @@ def test_parse_intel_email_security():
     assert email.dmarc is True
     assert email.score == 10
 
+
+def test_resolve_reference_url():
+    """Test reference resolution for CWEs, CVEs, OWASP, and HTTP URLs."""
+    from phantomscan.reporting import resolve_reference_url
+    assert resolve_reference_url("CWE-89") == "https://cwe.mitre.org/data/definitions/89.html"
+    assert resolve_reference_url("cwe-79") == "https://cwe.mitre.org/data/definitions/79.html"
+    assert resolve_reference_url("CVE-2023-1234") == "https://nvd.nist.gov/vuln/detail/CVE-2023-1234"
+    assert "owasp.org" in resolve_reference_url("OWASP Top 10 A01:2021")
+    assert resolve_reference_url("https://example.com/advisory") == "https://example.com/advisory"
+
+
+def test_write_html_report_and_remediation_matrix_links(tmp_path: Path):
+    """Test that HTML report generates matched anchors between Remediation Matrix and Finding Cards."""
+    from phantomscan.reporting import write_html_report
+    out_file = tmp_path / "test_report.html"
+    payload = {
+        "target": "http://localhost:3000",
+        "score": 65,
+        "grade": "D",
+        "findings": [
+            {
+                "id": "SQLI-ERROR-BASED",
+                "title": "SQL Injection in Search",
+                "severity": "critical",
+                "confidence": "high",
+                "category": "sqli",
+                "target": "http://localhost:3000/rest/products/search?q=",
+                "evidence": "SequelizeDatabaseError: SQLITE_ERROR: near 'q': syntax error",
+                "recommendation": "Use parameterized queries.",
+                "references": ["CWE-89", "https://owasp.org/www-community/attacks/SQL_Injection"],
+            },
+            {
+                "id": "PROTOTYPE-POLLUTION",
+                "title": "Client-Side Prototype Pollution",
+                "severity": "high",
+                "confidence": "medium",
+                "category": "web",
+                "target": "http://localhost:3000/#/search",
+                "evidence": "window.polluted injected via Object.prototype",
+                "recommendation": "Freeze Object.prototype.",
+                "references": ["CWE-1321"],
+            }
+        ],
+        "observations": [
+            {"name": "http_status", "value": 200},
+            {"name": "discovered_api_routes", "value": ["/rest/products/search", "/api/Feedbacks"]}
+        ]
+    }
+    write_html_report(out_file, payload)
+    assert out_file.exists()
+    html_content = out_file.read_text(encoding="utf-8")
+
+    # Verify that the card IDs match the remediation matrix jump targets
+    assert 'id="finding-0-sqli-error-based"' in html_content
+    assert 'id="finding-1-prototype-pollution"' in html_content
+    assert 'window.scrollToFinding(\'finding-0-sqli-error-based\'' in html_content
+    assert 'window.scrollToFinding(\'finding-1-prototype-pollution\'' in html_content
+    assert 'window.switchFindingTab(this, \'evidence\')' in html_content
+    assert 'window.switchFindingTab(this, \'refs\')' in html_content
+    assert 'https://cwe.mitre.org/data/definitions/89.html' in html_content
+    assert 'https://cwe.mitre.org/data/definitions/1321.html' in html_content
+
+

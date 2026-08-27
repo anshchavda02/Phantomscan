@@ -37,7 +37,9 @@ from phantomscan.reporting import write_html_report, write_json_report, write_cs
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target, root_domain
 from phantomscan.advanced_scan import run_advanced_modules
-from phantomscan.http_client import RobustHTTPClient
+from phantomscan.http_client import RobustHTTPClient, http_client
+from phantomscan.js_analyzer import JSRouteExtractor
+from phantomscan.openapi_parser import OpenAPIParser
 
 # Enterprise modules
 from modules.http_pool import SharedHTTPPool
@@ -373,6 +375,49 @@ async def scan_one(
         if obs.get("name") == "http_url" and obs.get("value"):
             effective_url = str(obs["value"])
             break
+
+    # ── OpenAPI / Swagger Discovery ───────────────────────────────────────────
+    if args.profile != "passive":
+        async def _run_openapi() -> tuple[list[Any], list[Any]]:
+            async with http_client() as client:
+                parser = OpenAPIParser(client)
+                _, o_obs, o_findings = await parser.discover_and_parse(effective_url, logger)
+                return o_obs, o_findings
+
+        open_obs, open_findings = await timed_step(
+            "OpenAPI / Swagger discovery", logger, observations, args.silent,
+            _run_openapi,
+            returns_tuple=True,
+        )
+        if isinstance(open_obs, (list, tuple)):
+            observations.extend(item.to_dict() if hasattr(item, "to_dict") else item for item in open_obs)
+        if isinstance(open_findings, (list, tuple)):
+            findings.extend(item.to_dict() if hasattr(item, "to_dict") else item for item in open_findings)
+
+    # ── SPA & JavaScript Route Analysis ───────────────────────────────────────
+    DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep")
+    if args.profile in DEEP_PROFILES:
+        async def _run_js_analyzer() -> tuple[list[Any], list[Any]]:
+            async with http_client() as client:
+                extractor = JSRouteExtractor(client)
+                html_body = ""
+                try:
+                    res = await client.get(effective_url, retries=1)
+                    html_body = res.text()
+                except Exception:
+                    pass
+                _, js_obs, js_sec_findings = await extractor.analyze(effective_url, html_body, logger)
+                return js_obs, js_sec_findings
+
+        js_obs_res, js_sec_res = await timed_step(
+            "JavaScript route & secret extraction", logger, observations, args.silent,
+            _run_js_analyzer,
+            returns_tuple=True,
+        )
+        if isinstance(js_obs_res, (list, tuple)):
+            observations.extend(item.to_dict() if hasattr(item, "to_dict") else item for item in js_obs_res)
+        if isinstance(js_sec_res, (list, tuple)):
+            findings.extend(item.to_dict() if hasattr(item, "to_dict") else item for item in js_sec_res)
 
     # Deep web analysis (sensitive paths, CORS, disclosures, redirect)
     DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep")

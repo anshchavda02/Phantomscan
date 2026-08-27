@@ -80,6 +80,17 @@ SIGNATURES: list[dict[str, object]] = [
             r"Warning.*?\Wsqlite_",
             r"\[SQLITE_ERROR\]",
             r"sqlite3\.OperationalError",
+            r"SequelizeDatabaseError",
+            r"SQLITE_ERROR: unrecognized token",
+            r"SQLITE_ERROR: near \".*?\": syntax error",
+        ],
+    },
+    {
+        "db_type": "MongoDB",
+        "patterns": [
+            r"MongoError",
+            r"MongoServerError",
+            r"CastError: Cast to ObjectId failed",
         ],
     },
 ]

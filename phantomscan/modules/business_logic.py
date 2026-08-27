@@ -295,16 +295,33 @@ class BusinessLogicAnalyzer:
     def _extract_endpoints(
         self, target: str, observations: list[dict[str, Any]]
     ) -> list[str]:
-        """Extract API-like endpoints from scan observations."""
-        endpoints: list[str] = []
+        """Extract API and business logic endpoints from scan observations."""
+        base = target.rstrip("/")
+        endpoints: set[str] = set()
+        keywords = ("/api", "/rest", "/basket", "/cart", "/order", "/coupon", "/discount", "/checkout", "/payment", "/quantity", "/item")
+
+        def check_and_add(item: str) -> None:
+            if isinstance(item, str) and any(kw in item.lower() for kw in keywords):
+                endpoints.add(item if item.startswith("http") else f"{base}{item if item.startswith('/') else '/' + item}")
+
         for obs in observations:
             val = obs.get("value", "")
-            if isinstance(val, str) and "/api" in val:
-                endpoints.append(val if val.startswith("http") else f"{target}{val}")
-            if isinstance(val, dict):
+            if isinstance(val, str):
+                check_and_add(val)
+            elif isinstance(val, list):
+                for v in val:
+                    if isinstance(v, str):
+                        check_and_add(v)
+                    elif isinstance(v, dict) and "url" in v:
+                        check_and_add(str(v["url"]))
+            elif isinstance(val, dict):
                 for v in val.values():
-                    if isinstance(v, str) and "/api" in v:
-                        endpoints.append(
-                            v if v.startswith("http") else f"{target}{v}"
-                        )
-        return endpoints[:20]
+                    if isinstance(v, str):
+                        check_and_add(v)
+
+        # Fallback common business logic routes
+        for probe in ("/rest/basket", "/api/BasketItems", "/rest/order-history", "/api/Feedbacks", "/api/Quantitys", "/api/Coupon"):
+            endpoints.add(f"{base}{probe}")
+
+        return list(endpoints)[:30]
+

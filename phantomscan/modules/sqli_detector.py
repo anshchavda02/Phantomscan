@@ -396,28 +396,62 @@ class SQLiDetector:
     def _extract_params(
         observations: list[dict[str, Any]], target: str
     ) -> list[dict[str, Any]]:
-        """Extract injectable parameters from scan observations."""
+        """Extract injectable parameters from scan observations and discovered API routes."""
         params: list[dict[str, Any]] = []
+        seen_keys: set[tuple[str, str]] = set()
+
+        def add_param(url: str, name: str, original_val: str = "test") -> None:
+            key = (url, name)
+            if key not in seen_keys and len(params) < 40:
+                seen_keys.add(key)
+                params.append({"url": url, "name": name, "original_value": original_val})
+
         for obs in observations:
             name = str(obs.get("name", ""))
             val = obs.get("value", "")
-            if "http_url" in name and isinstance(val, str):
-                # Parse actual query params from the URL
-                parsed = urlparse(val)
-                qs = parse_qs(parsed.query)
-                for pname, pvalues in qs.items():
-                    params.append({
-                        "url": urlunparse(parsed._replace(query="")),
-                        "name": pname,
-                        "original_value": pvalues[0] if pvalues else "test",
-                    })
-                # Also add common test parameter names
-                base_url = urlunparse(parsed._replace(query=""))
-                for p in ("q", "search", "id", "page", "query", "name"):
-                    params.append({"url": base_url, "name": p, "original_value": "test"})
+
+            # 1. Direct URLs with query parameters
+            if ("http_url" in name or "discovered_urls" in name) and isinstance(val, (str, list)):
+                url_list = [val] if isinstance(val, str) else val
+                for u in url_list:
+                    if isinstance(u, str) and u.startswith("http"):
+                        parsed = urlparse(u)
+                        clean_url = urlunparse(parsed._replace(query=""))
+                        qs = parse_qs(parsed.query)
+                        for pname, pvalues in qs.items():
+                            add_param(clean_url, pname, pvalues[0] if pvalues else "test")
+                        # For search/filter/lookup endpoints, test standard parameters
+                        if any(kw in parsed.path.lower() for kw in ["search", "product", "user", "order", "item", "query", "filter"]):
+                            for p in ("q", "search", "id", "query", "name"):
+                                add_param(clean_url, p, "test")
+
+            # 2. Discovered API routes (from JS bundles)
+            if "discovered_api_routes" in name and isinstance(val, list):
+                for route in val:
+                    if isinstance(route, str) and not route.startswith("#"):
+                        full_url = f"{target.rstrip('/')}{route}"
+                        if any(kw in route.lower() for kw in ["search", "product", "user", "order", "item", "filter", "find"]):
+                            for p in ("q", "search", "id", "query"):
+                                add_param(full_url, p, "test")
+
+            # 3. OpenAPI endpoints
+            if "openapi_endpoints" in name and isinstance(val, list):
+                for ep in val:
+                    if isinstance(ep, dict) and "url" in ep:
+                        ep_url = ep["url"]
+                        for param_info in ep.get("parameters", []):
+                            if isinstance(param_info, dict) and "name" in param_info:
+                                add_param(ep_url, param_info["name"], "test")
+
         if not params:
-            return [{"url": target, "name": "q", "original_value": "test"}]
+            # Fallback tests on base URL and common search routes
+            add_param(target, "q", "test")
+            add_param(f"{target.rstrip('/')}/rest/products/search", "q", "apple")
+            add_param(f"{target.rstrip('/')}/api/products/search", "q", "apple")
+            add_param(f"{target.rstrip('/')}/search", "q", "test")
+
         return params
+
 
     def _log_fp_suppression(
         self, candidate: dict[str, Any], reason: str

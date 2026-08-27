@@ -18,7 +18,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
                     <span class="pill" style="font-family: 'JetBrains Mono', monospace; font-size: 9px;">{{ ss.timestamp | format_date }}</span>
                     {% if ss.related_finding_id %}
-                    <a href="#finding-{{ ss.related_finding_id }}" style="color: var(--teal-light); font-weight: 600;">View Finding &rarr;</a>
+                    <a href="#{{ ss.related_finding_id }}" onclick="window.scrollToFinding('{{ ss.related_finding_id }}', event)" style="color: var(--teal-light); font-weight: 600; text-decoration: none;">View Finding &rarr;</a>
                     {% endif %}
                 </div>
             </div>

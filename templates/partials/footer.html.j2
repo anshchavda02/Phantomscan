@@ -1,20 +1,112 @@
+<!-- AI Assistant & LLM Endpoint Manager Section -->
+<section id="ai-assistant-settings" class="section interactive-only" style="max-width: 1280px; margin: 40px auto 20px auto; padding: 0 var(--sp-lg);">
+    <div class="card" style="background: var(--card); border: 1px solid var(--border-light); border-radius: var(--r-large); padding: 24px; box-shadow: var(--shadow-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: var(--r-compact); background: var(--teal-dim); border: 1px solid var(--teal); display: flex; align-items: center; justify-content: center; color: var(--teal-light);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M9 17h6"/></svg>
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 700; font-family: 'Syne', sans-serif; color: var(--text-primary); letter-spacing: -0.01em;">
+                        AI Security Assistant &amp; LLM Endpoint Manager
+                    </h3>
+                    <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 2px;">
+                        Connect a local (Ollama / LM Studio / vLLM) or remote (OpenAI / OpenRouter / Groq) LLM for interactive finding triage
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="llm-current-badge" class="pill" style="font-size: 10px; font-weight: 700; background: var(--surface); color: var(--teal-light); border-color: rgba(13,148,136,0.3);">
+                    Engine: Static Security FAQ
+                </span>
+                <span id="llm-save-status" class="pill badge-low" style="font-size: 10px; opacity: 0; transition: opacity 0.2s;">
+                    SAVED
+                </span>
+            </div>
+        </div>
+
+        <!-- Quick Presets -->
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin-bottom: 8px; font-family: 'Syne', sans-serif;">
+                Quick Provider Presets
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn-ghost btn-ghost-teal" style="font-size: 11px; padding: 4px 10px;" onclick="window.selectLlmPreset('ollama')">
+                    🦙 Ollama (Local)
+                </button>
+                <button type="button" class="btn-ghost" style="font-size: 11px; padding: 4px 10px;" onclick="window.selectLlmPreset('lmstudio')">
+                    🧪 LM Studio (Local)
+                </button>
+                <button type="button" class="btn-ghost" style="font-size: 11px; padding: 4px 10px;" onclick="window.selectLlmPreset('vllm')">
+                    ⚡ vLLM / LocalAI
+                </button>
+                <button type="button" class="btn-ghost" style="font-size: 11px; padding: 4px 10px;" onclick="window.selectLlmPreset('openai')">
+                    🌐 OpenAI / Remote
+                </button>
+            </div>
+        </div>
+
+        <!-- Form Inputs Grid -->
+        <div style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr; gap: 12px; margin-bottom: 16px;">
+            <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                    API Endpoint URL
+                </label>
+                <input type="text" id="llm-endpoint-input" placeholder="http://localhost:11434/api/chat" style="width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 7px 10px; font-size: 11px; font-family: 'JetBrains Mono', monospace;" value="">
+            </div>
+            <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                    Model Name
+                </label>
+                <input type="text" id="llm-model-input" placeholder="llama3 / deepseek-r1 / mistral" style="width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 7px 10px; font-size: 11px; font-family: 'JetBrains Mono', monospace;" value="llama3">
+            </div>
+            <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                    API Key (Optional)
+                </label>
+                <input type="password" id="llm-key-input" placeholder="sk-... (for OpenAI/Groq)" style="width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 7px 10px; font-size: 11px; font-family: 'JetBrains Mono', monospace;" value="">
+            </div>
+        </div>
+
+        <!-- Action Buttons & Status -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn" style="background: var(--brand); color: #ffffff; border-color: var(--brand); font-weight: 600; font-size: 11px;" onclick="window.saveLlmEndpoint()">
+                    Save Settings
+                </button>
+                <button type="button" class="btn-ghost btn-ghost-teal" style="font-size: 11px;" onclick="window.testLlmConnection()">
+                    Test Connection
+                </button>
+                <button type="button" class="btn-ghost" style="font-size: 11px; color: var(--text-tertiary); border-color: var(--border);" onclick="window.resetLlmEndpoint()">
+                    Reset to Static FAQ
+                </button>
+            </div>
+            <div id="llm-test-result" style="font-size: 11px; font-weight: 500;"></div>
+        </div>
+
+        <!-- Helper Notice -->
+        <div style="margin-top: 14px; padding: 8px 12px; background: var(--surface); border-radius: var(--r-compact); font-size: 10.5px; color: var(--text-tertiary); line-height: 1.5; border: 1px solid var(--border);">
+            💡 <strong>Ollama Tip:</strong> If querying Ollama directly from a local browser report, launch Ollama with CORS enabled: <code>OLLAMA_ORIGINS=* ollama serve</code>. When unset, questions are answered via PhantomScan's built-in offline security intelligence engine.
+        </div>
+    </div>
+</section>
+
 <!-- Footer Section -->
-<footer style="margin-top: 48px; padding: 36px 24px; border-top: 1px solid var(--border); background: var(--surface); text-align: center; color: var(--text-secondary);">
+<footer style="margin-top: 24px; padding: 36px 24px; border-top: 1px solid var(--border); background: var(--surface); text-align: center; color: var(--text-secondary);">
     <div style="display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 12px;">
         <div style="width: 20px; height: 20px; border-radius: var(--r-sharp); background: var(--brand); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 9px; color: #ffffff; font-family: 'Syne', sans-serif;">PS</div>
         <span style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; color: var(--text-primary);">PHANTOM<span style="color: var(--brand-light);">SCAN</span></span>
     </div>
 
     <p style="font-size: 11px; max-width: 560px; margin: 0 auto 16px auto; line-height: 1.55; color: var(--text-tertiary);">
-        This security assessment report contains confidential information intended solely for authorized personnel.
-        The findings represent a point-in-time assessment and may not reflect real-time infrastructure state.
+        This report contains confidential information intended only for the authorized recipient. The findings represented here are a point-in-time snapshot of the target's security posture and may not reflect current conditions.
     </p>
 
-    <div style="font-size: 10px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; color: var(--text-tertiary); margin-bottom: 20px;">
+    <div style="font-size: 10px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; color: var(--text-tertiary); margin-bottom: 12px;">
         <span>Generated: {{ scan.timestamp | format_date }}</span>
-        <span>&middot;</span>
+        <span>|</span>
         <span>Version: {{ report_version }}</span>
-        <span>&middot;</span>
+        <span>|</span>
         <span>Target: {{ scan.target }}</span>
     </div>
 
@@ -31,34 +123,168 @@
         {% endif %}
     </div>
     {% endif %}
-
-    <!-- Local LLM Endpoint Config for Embedded Chat -->
-    <div class="interactive-only" style="max-width: 480px; margin: 20px auto 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-standard); padding: 14px; font-size: 11px; text-align: left;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-weight: 700; color: var(--text-primary); font-family: 'Syne', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">AI Assistant Endpoint</span>
-            <span id="llm-save-status" style="font-size: 10px; color: var(--sev-low); font-weight: 600; opacity: 0; transition: opacity 0.2s;">SAVED</span>
-        </div>
-        <div style="display: flex; gap: 6px;">
-            <input type="text" id="llm-endpoint-input" placeholder="http://localhost:11434/api/chat" style="flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 6px 10px; font-size: 11px; font-family: 'JetBrains Mono', monospace;" value="">
-            <button class="btn-ghost" style="padding: 5px 12px; font-size: 11px;" onclick="window.saveLlmEndpoint()">Save</button>
-        </div>
-        <div style="color: var(--text-tertiary); font-size: 10px; margin-top: 6px;">
-            Optional local Ollama / OpenAI-compatible endpoint. When unset, static security FAQs are used.
-        </div>
-    </div>
 </footer>
 
+<!-- Global LLM Engine Script Engine -->
 <script>
 (function() {
+    // Quick Presets
+    window.selectLlmPreset = function(preset) {
+        const epInput = document.getElementById('llm-endpoint-input');
+        const modelInput = document.getElementById('llm-model-input');
+        if (!epInput || !modelInput) return;
+
+        if (preset === 'ollama') {
+            epInput.value = 'http://localhost:11434/api/chat';
+            modelInput.value = 'llama3';
+        } else if (preset === 'lmstudio') {
+            epInput.value = 'http://localhost:1234/v1/chat/completions';
+            modelInput.value = 'local-model';
+        } else if (preset === 'vllm') {
+            epInput.value = 'http://localhost:8000/v1/chat/completions';
+            modelInput.value = 'default';
+        } else if (preset === 'openai') {
+            epInput.value = 'https://api.openai.com/v1/chat/completions';
+            modelInput.value = 'gpt-4o-mini';
+        }
+        window.saveLlmEndpoint();
+    };
+
+    window.updateLlmIndicators = function() {
+        let ep = '';
+        let model = 'llama3';
+        if (window.getStorage) {
+            ep = window.getStorage('phantomscan_llm_endpoint', '');
+            model = window.getStorage('phantomscan_llm_model', '') || 'llama3';
+        } else {
+            try {
+                ep = localStorage.getItem('phantomscan_llm_endpoint') || '';
+                model = localStorage.getItem('phantomscan_llm_model') || 'llama3';
+            } catch(e) {}
+        }
+        ep = ep.trim();
+        model = model.trim() || 'llama3';
+
+        const mainBadge = document.getElementById('llm-current-badge');
+        if (mainBadge) {
+            if (ep) {
+                const isOllama = ep.includes('11434') || ep.includes('ollama');
+                const isLMStudio = ep.includes('1234') || ep.includes('lmstudio');
+                const label = isOllama ? `Ollama (${model})` : (isLMStudio ? `LM Studio (${model})` : `LLM (${model})`);
+                mainBadge.textContent = 'Engine: ' + label;
+                mainBadge.style.color = 'var(--sev-low)';
+                mainBadge.style.borderColor = 'var(--sev-low-bd)';
+            } else {
+                mainBadge.textContent = 'Engine: Static Security FAQ';
+                mainBadge.style.color = 'var(--teal-light)';
+                mainBadge.style.borderColor = 'rgba(13,148,136,0.3)';
+            }
+        }
+
+        document.querySelectorAll('.active-llm-indicator').forEach(el => {
+            if (ep) {
+                el.textContent = 'AI LLM: ' + model;
+                el.style.color = 'var(--sev-low)';
+            } else {
+                el.textContent = 'Static FAQ';
+                el.style.color = 'var(--teal-light)';
+            }
+        });
+    };
+
     window.saveLlmEndpoint = function() {
-        const input = document.getElementById('llm-endpoint-input');
-        const val = input ? input.value.trim() : '';
-        if (window.setStorage) window.setStorage('phantomscan_llm_endpoint', val);
+        const ep = document.getElementById('llm-endpoint-input')?.value.trim() || '';
+        const model = document.getElementById('llm-model-input')?.value.trim() || 'llama3';
+        const key = document.getElementById('llm-key-input')?.value.trim() || '';
+
+        if (window.setStorage) {
+            window.setStorage('phantomscan_llm_endpoint', ep);
+            window.setStorage('phantomscan_llm_model', model);
+            window.setStorage('phantomscan_llm_key', key);
+        } else {
+            try {
+                localStorage.setItem('phantomscan_llm_endpoint', ep);
+                localStorage.setItem('phantomscan_llm_model', model);
+                localStorage.setItem('phantomscan_llm_key', key);
+            } catch(e) {}
+        }
+
         const status = document.getElementById('llm-save-status');
         if (status) {
-            status.textContent = val ? 'ENDPOINT SAVED' : 'CLEARED';
+            status.textContent = ep ? 'SETTINGS SAVED' : 'CLEARED';
             status.style.opacity = '1';
-            setTimeout(() => { status.style.opacity = '0'; }, 2000);
+            setTimeout(() => { status.style.opacity = '0'; }, 2500);
+        }
+        window.updateLlmIndicators();
+    };
+
+    window.resetLlmEndpoint = function() {
+        const epInput = document.getElementById('llm-endpoint-input');
+        const modelInput = document.getElementById('llm-model-input');
+        const keyInput = document.getElementById('llm-key-input');
+        if (epInput) epInput.value = '';
+        if (modelInput) modelInput.value = 'llama3';
+        if (keyInput) keyInput.value = '';
+
+        if (window.setStorage) {
+            window.setStorage('phantomscan_llm_endpoint', '');
+            window.setStorage('phantomscan_llm_model', 'llama3');
+            window.setStorage('phantomscan_llm_key', '');
+        } else {
+            try {
+                localStorage.setItem('phantomscan_llm_endpoint', '');
+                localStorage.setItem('phantomscan_llm_model', 'llama3');
+                localStorage.setItem('phantomscan_llm_key', '');
+            } catch(e) {}
+        }
+        const testRes = document.getElementById('llm-test-result');
+        if (testRes) testRes.innerHTML = '<span style="color:var(--text-tertiary);">Reverted to offline static security FAQs.</span>';
+        window.saveLlmEndpoint();
+    };
+
+    window.testLlmConnection = async function() {
+        const testRes = document.getElementById('llm-test-result');
+        const ep = document.getElementById('llm-endpoint-input')?.value.trim() || '';
+        const model = document.getElementById('llm-model-input')?.value.trim() || 'llama3';
+        const key = document.getElementById('llm-key-input')?.value.trim() || '';
+
+        if (!ep) {
+            if (testRes) testRes.innerHTML = '<span style="color:var(--sev-medium);">Please enter an API Endpoint URL first.</span>';
+            return;
+        }
+
+        if (testRes) testRes.innerHTML = '<span style="color:var(--teal-light);">Testing connection to ' + ep + '...</span>';
+
+        const isOpenAIFormat = ep.includes('/v1/') || ep.includes('openai') || ep.includes('completions');
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['Authorization'] = 'Bearer ' + key;
+
+        const reqBody = isOpenAIFormat ? {
+            model: model,
+            messages: [{ role: 'user', content: 'Say "OK"' }],
+            max_tokens: 5
+        } : {
+            model: model,
+            stream: false,
+            messages: [{ role: 'user', content: 'Say "OK"' }]
+        };
+
+        const t0 = performance.now();
+        try {
+            const resp = await fetch(ep, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(reqBody)
+            });
+            const t1 = Math.round(performance.now() - t0);
+            if (resp.ok) {
+                if (testRes) testRes.innerHTML = `<span style="color:var(--sev-low); font-weight:700;">✓ Connected successfully (${t1}ms)! Status: ${resp.status}</span>`;
+            } else {
+                const errText = await resp.text();
+                if (testRes) testRes.innerHTML = `<span style="color:var(--sev-critical);">HTTP ${resp.status}: ${errText.substring(0, 100)}</span>`;
+            }
+        } catch(err) {
+            if (testRes) testRes.innerHTML = `<span style="color:var(--sev-critical);">Connection failed: ${err.message}. Check URL &amp; CORS settings.</span>`;
         }
     };
 
@@ -69,18 +295,39 @@
         const question = input.value.trim();
         if (!question) return;
 
-        output.innerHTML = '<div class="dot-loader"><span></span><span></span><span></span></div>';
-        const endpoint = window.getStorage ? window.getStorage('phantomscan_llm_endpoint', '') : '';
+        output.style.display = 'block';
+        output.innerHTML = '<div class="dot-loader"><span></span><span></span><span></span></div> <span style="color:var(--text-tertiary); font-size:11px;">Consulting Security Assistant...</span>';
+
+        let endpoint = '';
+        let model = 'llama3';
+        let apiKey = '';
+
+        if (window.getStorage) {
+            endpoint = window.getStorage('phantomscan_llm_endpoint', '');
+            model = window.getStorage('phantomscan_llm_model', '') || 'llama3';
+            apiKey = window.getStorage('phantomscan_llm_key', '');
+        } else {
+            try {
+                endpoint = localStorage.getItem('phantomscan_llm_endpoint') || '';
+                model = localStorage.getItem('phantomscan_llm_model') || 'llama3';
+                apiKey = localStorage.getItem('phantomscan_llm_key') || '';
+            } catch(e) {}
+        }
+        endpoint = (endpoint || '').trim();
+        model = (model || '').trim() || 'llama3';
+        apiKey = (apiKey || '').trim();
 
         if (!endpoint) {
             let answer = "";
             const q = question.toLowerCase();
-            if (q.includes("why") || q.includes("severity")) {
-                answer = "This finding was flagged due to deterministic pattern match signatures matching known vulnerability classes.";
-            } else if (q.includes("fix") || q.includes("patch") || q.includes("remediat")) {
-                answer = "Apply standard mitigation: validate all inputs, restrict endpoint access, and consult the remediation section above.";
+            if (q.includes("why") || q.includes("severity") || q.includes("cause") || q.includes("impact")) {
+                answer = "This finding was flagged based on deterministic protocol signatures. Unpatched instances can allow unauthorized data access, privilege escalation, or security control bypass.";
+            } else if (q.includes("fix") || q.includes("patch") || q.includes("remediat") || q.includes("code")) {
+                answer = "Apply standard defense-in-depth: enforce strict input allowlisting, apply latest security updates, disable debug/informational headers, and review the detailed remediation guidelines above.";
+            } else if (q.includes("poc") || q.includes("exploit") || q.includes("test")) {
+                answer = "Validate with non-destructive verification: inspect response headers, use parameterized security scanners, and test boundary constraints in an isolated staging environment.";
             } else {
-                answer = "Configure a local Ollama or OpenAI-compatible endpoint in report settings for dynamic contextual analysis.";
+                answer = "Configure a local Ollama or OpenAI-compatible endpoint in report settings below for dynamic contextual analysis.";
             }
             setTimeout(() => {
                 output.innerHTML = '<strong>Analysis:</strong> ' + answer;
@@ -89,34 +336,88 @@
             return;
         }
 
+        const isOpenAIFormat = endpoint.includes('/v1/') || endpoint.includes('openai') || endpoint.includes('completions');
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+
+        const systemPrompt = `You are a Principal Security Engineer analyzing automated scan finding "${title}" (ID: ${findingId}). Provide clear, direct, technical guidance.`;
+
+        const reqBody = isOpenAIFormat ? {
+            model: model,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: question }
+            ],
+            temperature: 0.3
+        } : {
+            model: model,
+            stream: false,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: question }
+            ]
+        };
+
         try {
             const resp = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: 'llama3',
-                    messages: [
-                        { role: 'system', content: 'You are a senior security engineer assistant. Answer concisely about finding: ' + title },
-                        { role: 'user', content: question }
-                    ]
-                })
+                headers: headers,
+                body: JSON.stringify(reqBody)
             });
+            if (!resp.ok) {
+                throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+            }
             const data = await resp.json();
-            output.innerHTML = '<strong>Analysis:</strong> ' + (data.message?.content || JSON.stringify(data));
+            let text = "";
+            if (data.choices && data.choices[0] && data.choices[0].message) {
+                text = data.choices[0].message.content;
+            } else if (data.message && data.message.content) {
+                text = data.message.content;
+            } else if (data.response) {
+                text = data.response;
+            } else {
+                text = JSON.stringify(data);
+            }
+            output.innerHTML = '<strong>Analysis (' + model + '):</strong> ' + text.replace(/\n/g, '<br>');
         } catch(e) {
-            output.innerHTML = '<strong>Analysis:</strong> ' + question + ' — Consult the detailed remediation guidance above.';
+            output.innerHTML = '<span style="color:var(--sev-critical);">[LLM Request Error]</span> ' + e.message + '<br><small style="color:var(--text-tertiary);">Falling back to static analysis. Ensure endpoint is reachable and CORS is enabled.</small>';
         }
         input.value = '';
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
+    // Initialize saved values on load
+    function initSavedLlmConfig() {
+        let savedEp = '';
+        let savedModel = 'llama3';
+        let savedKey = '';
+
         if (window.getStorage) {
-            const saved = window.getStorage('phantomscan_llm_endpoint', '');
-            if (saved) {
-                const input = document.getElementById('llm-endpoint-input');
-                if (input) input.value = saved;
-            }
+            savedEp = window.getStorage('phantomscan_llm_endpoint', '');
+            savedModel = window.getStorage('phantomscan_llm_model', '') || 'llama3';
+            savedKey = window.getStorage('phantomscan_llm_key', '');
+        } else {
+            try {
+                savedEp = localStorage.getItem('phantomscan_llm_endpoint') || '';
+                savedModel = localStorage.getItem('phantomscan_llm_model') || 'llama3';
+                savedKey = localStorage.getItem('phantomscan_llm_key') || '';
+            } catch(e) {}
         }
-    });
+
+        const epInput = document.getElementById('llm-endpoint-input');
+        const modelInput = document.getElementById('llm-model-input');
+        const keyInput = document.getElementById('llm-key-input');
+
+        if (epInput && savedEp) epInput.value = savedEp;
+        if (modelInput && savedModel) modelInput.value = savedModel;
+        if (keyInput && savedKey) keyInput.value = savedKey;
+
+        window.updateLlmIndicators();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSavedLlmConfig);
+    } else {
+        initSavedLlmConfig();
+    }
 })();
 </script>
