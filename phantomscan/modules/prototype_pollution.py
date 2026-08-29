@@ -6,6 +6,7 @@ injection in JSON APIs, and client-side pollution via query parameters.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any

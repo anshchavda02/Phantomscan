@@ -94,6 +94,8 @@ class ResponseFingerprint:
 # ── SQLi Detector ─────────────────────────────────────────────────────────────
 
 
+from phantomscan.injection_target import InjectionTarget, extract_injection_targets
+
 class SQLiDetector:
     """Advanced SQL injection detector with multi-layer verification."""
 
@@ -111,32 +113,28 @@ class SQLiDetector:
         findings: list[dict[str, Any]] = []
         target = base_url.rstrip("/")
 
-        params = self._extract_params(observations, target)
+        targets = extract_injection_targets(observations, target, max_targets=40)
         sem = asyncio.Semaphore(10)
 
-        async def test_one(param_info: dict[str, Any]) -> list[dict[str, Any]]:
-            url = param_info.get("url", target)
-            param_name = param_info.get("name", "q")
-            original_value = param_info.get("original_value", "test")
+        async def test_one(inj_target: InjectionTarget) -> list[dict[str, Any]]:
             res: list[dict[str, Any]] = []
-
             async with sem:
                 # Error-based detection
                 error_finding = await self._test_error_based(
-                    url, param_name, original_value
+                    inj_target, inj_target.param_name, inj_target.original_value
                 )
                 if error_finding:
                     res.append(error_finding)
                 elif not res:
                     # If no error finding, test time-based blind detection
                     time_finding = await self._test_time_based(
-                        url, param_name, original_value
+                        inj_target, inj_target.param_name, inj_target.original_value
                     )
                     if time_finding:
                         res.append(time_finding)
             return res
 
-        tasks = [test_one(p) for p in params[:30]]
+        tasks = [test_one(t) for t in targets[:35]]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, list):
@@ -147,12 +145,13 @@ class SQLiDetector:
     # ── Error-Based Detection ─────────────────────────────────────────────────
 
     async def _test_error_based(
-        self, url: str, param: str, original_value: str
+        self, target: InjectionTarget | str, param: str, original_value: str
     ) -> Optional[dict[str, Any]]:
         """Test for error-based SQL injection with mandatory baseline comparison."""
+        target_url = target.url if isinstance(target, InjectionTarget) else target
 
         # Step 1: Capture baseline with ORIGINAL unmodified value
-        baseline_resp = await self._send_request(url, param, original_value)
+        baseline_resp = await self._send_request(target, param, original_value)
         if baseline_resp is None:
             return None
         baseline_fp = ResponseFingerprint(
@@ -161,7 +160,7 @@ class SQLiDetector:
 
         # Step 2: Capture baseline with a benign "different but valid" value
         benign_value = self._generate_benign_variant(original_value)
-        benign_resp = await self._send_request(url, param, benign_value)
+        benign_resp = await self._send_request(target, param, benign_value)
         if benign_resp is None:
             return None
         benign_fp = ResponseFingerprint(
@@ -174,7 +173,7 @@ class SQLiDetector:
             if payloads_tested >= 3:
                 break
             payloads_tested += 1
-            response = await self._send_request(url, param, payload)
+            response = await self._send_request(target, param, payload)
             if response is None:
                 continue
 
@@ -215,7 +214,7 @@ class SQLiDetector:
                 "severity": "critical",
                 "confidence": "high",
                 "category": "injection",
-                "target": url,
+                "target": target_url,
                 "verification_method": "baseline_differential",
                 "evidence": (
                     f"Parameter: {param}\n"
@@ -239,15 +238,16 @@ class SQLiDetector:
     # ── Time-Based Blind Detection ────────────────────────────────────────────
 
     async def _test_time_based(
-        self, url: str, param: str, original_value: str
+        self, target: InjectionTarget | str, param: str, original_value: str
     ) -> Optional[dict[str, Any]]:
         """Test for time-based blind SQL injection with statistical baseline."""
+        target_url = target.url if isinstance(target, InjectionTarget) else target
 
         # Take 2 baseline timing samples to establish normal variance
         baseline_times: list[float] = []
         for _ in range(2):
             t0 = time.perf_counter()
-            resp = await self._send_request(url, param, original_value)
+            resp = await self._send_request(target, param, original_value)
             elapsed = time.perf_counter() - t0
             if resp is not None:
                 baseline_times.append(elapsed)
@@ -256,7 +256,7 @@ class SQLiDetector:
         if not baseline_times:
             logger.debug(
                 "Could not establish baseline for time-based SQLi on %s param=%s",
-                url, param,
+                target_url, param,
             )
             return None
 
@@ -273,13 +273,10 @@ class SQLiDetector:
             for attempt in range(2):
                 t0 = time.perf_counter()
                 resp = await self._send_request(
-                    url, param, payload, timeout_seconds=12
+                    target, param, payload, timeout_seconds=12
                 )
                 elapsed = time.perf_counter() - t0
 
-                # If the request failed (timeout, connection error, etc.),
-                # do NOT count it as evidence of SQL injection delay.
-                # A network timeout is an error, not proof of SLEEP() execution.
                 if resp is None:
                     attempt_details.append(
                         f"Attempt {attempt + 1}: {elapsed:.2f}s "
@@ -287,8 +284,6 @@ class SQLiDetector:
                     )
                     break
 
-                # Require response to take at least baseline_avg + 4.5s
-                # plus 2 standard deviations of baseline variance
                 expected_min = baseline_avg + 4.5 + (baseline_stdev * 2)
 
                 if elapsed >= expected_min:
@@ -303,10 +298,8 @@ class SQLiDetector:
                         f"Attempt {attempt + 1}: {elapsed:.2f}s "
                         f"(threshold: {expected_min:.2f}s) — normal"
                     )
-                    # Early break: If attempt 1 wasn't delayed, it cannot reach 2 confirmations
                     break
 
-            # Require BOTH attempts to independently reproduce
             if confirmations >= 2:
                 return {
                     "id": "BLIND-SQLI-TIME",
@@ -314,7 +307,7 @@ class SQLiDetector:
                     "severity": "critical",
                     "confidence": "high",
                     "category": "injection",
-                    "target": url,
+                    "target": target_url,
                     "verification_method": "active_confirmation",
                     "evidence": (
                         f"Parameter: {param}\n"
@@ -338,14 +331,15 @@ class SQLiDetector:
     # ── Boolean Differential Verification ─────────────────────────────────────
 
     async def _verify_boolean_differential(
-        self, url: str, param: str
+        self, target: InjectionTarget | str, param: str
     ) -> bool:
         """Final verification: TRUE and FALSE conditions must produce different responses."""
+        target_url = target.url if isinstance(target, InjectionTarget) else target
         for true_payload, false_payload in zip(
             BOOLEAN_TRUE_PAYLOADS, BOOLEAN_FALSE_PAYLOADS
         ):
-            true_resp = await self._send_request(url, param, true_payload)
-            false_resp = await self._send_request(url, param, false_payload)
+            true_resp = await self._send_request(target, param, true_payload)
+            false_resp = await self._send_request(target, param, false_payload)
 
             if true_resp is None or false_resp is None:
                 continue
@@ -357,7 +351,7 @@ class SQLiDetector:
                 logger.debug(
                     "Boolean differential confirmed for %s param=%s: "
                     "length_diff=%d, status_differs=%s",
-                    url, param, length_diff, status_differs,
+                    target_url, param, length_diff, status_differs,
                 )
                 return True
 
@@ -372,37 +366,59 @@ class SQLiDetector:
 
     async def _send_request(
         self,
-        url: str,
+        target: InjectionTarget | str,
         param: str,
         value: str,
         timeout_seconds: float = 10,
     ) -> Optional[dict[str, Any]]:
-        """Send a GET request with param=value and return a response dict."""
+        """Send a GET or POST request with param=value and return a response dict."""
         import aiohttp as _aiohttp
 
         try:
-            result = await self.http.get(
-                url,
-                params={param: value},
-                retries=1,
-                timeout=_aiohttp.ClientTimeout(total=timeout_seconds),
-            )
+            if isinstance(target, InjectionTarget):
+                url = target.url
+                if target.method == "POST":
+                    form_data = dict(target.hidden_fields)
+                    form_data.update(target.all_params)
+                    form_data[param] = value
+                    result = await self.http.post(
+                        url,
+                        data=form_data,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=timeout_seconds),
+                    )
+                else:
+                    query_params = dict(target.all_params)
+                    query_params[param] = value
+                    result = await self.http.get(
+                        target.url,
+                        params=query_params,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=timeout_seconds),
+                    )
+            else:
+                url = target
+                result = await self.http.get(
+                    url,
+                    params={param: value},
+                    retries=1,
+                    timeout=_aiohttp.ClientTimeout(total=timeout_seconds),
+                )
+
             return {
                 "status": result.status,
                 "body": result.text(),
                 "headers": result.headers,
             }
         except Exception as exc:
-            logger.debug("SQLi probe failed for %s?%s=...: %s", url, param, exc)
+            logger.debug("SQLi probe failed for %s param=%s: %s", target, param, exc)
             return None
 
     @staticmethod
     def _generate_benign_variant(original: str) -> str:
         """Generate a benign, different-but-valid-looking value."""
         if original.isdigit():
-            # For numeric values, return a different valid number
             return str(int(original) + random.randint(1, 100))
-        # For string values, append random alphanumeric suffix
         suffix = "".join(random.choices(string.ascii_lowercase, k=4))
         return f"{original}{suffix}"
 
@@ -415,125 +431,18 @@ class SQLiDetector:
     def _extract_params(
         observations: list[dict[str, Any]], target: str
     ) -> list[dict[str, Any]]:
-        """Extract injectable parameters from scan observations and discovered API routes."""
-        params: list[dict[str, Any]] = []
-        seen_params: set[tuple[str, str]] = set()
-        param_counts: dict[str, int] = {}
-
-        def add_param(url: str, name: str, original_val: str = "test") -> None:
-            clean_name = name.strip()
-            if clean_name.startswith("amp;"):
-                clean_name = clean_name.removeprefix("amp;")
-            if not clean_name:
-                return
-
-            current_count = param_counts.get(clean_name, 0)
-            if current_count >= 2:
-                return
-
-            key = (url, clean_name)
-            if key not in seen_params and len(params) < 40:
-                seen_params.add(key)
-                param_counts[clean_name] = current_count + 1
-                params.append({
-                    "url": url,
-                    "name": clean_name,
-                    "original_value": original_val,
-                })
-
-        # 0. Extract direct query parameters from target URL if present
-        if "?" in target:
-            parsed_target = urlparse(target)
-            clean_target = urlunparse(parsed_target._replace(query=""))
-            for pname, pval in extract_url_params(target).items():
-                add_param(clean_target, pname, pval or "test")
-
-        for obs in observations:
-            name = str(obs.get("name", ""))
-            val = obs.get("value", "")
-
-            # 1. Direct URLs with query parameters
-            if ("http_url" in name or "discovered_urls" in name) and isinstance(val, (str, list)):
-                url_list = [val] if isinstance(val, str) else val
-                for u in url_list:
-                    if isinstance(u, str) and u.startswith("http"):
-                        parsed = urlparse(u)
-                        clean_url = urlunparse(parsed._replace(query=""))
-                        qs = parse_qs(parsed.query)
-                        for pname, pvalues in qs.items():
-                            add_param(clean_url, pname, pvalues[0] if pvalues else "test")
-                        # For search/filter/lookup endpoints, test standard parameters
-                        if any(kw in parsed.path.lower() for kw in ["search", "product", "user", "order", "item", "query", "filter"]):
-                            for p in ("q", "search", "id", "query", "name"):
-                                add_param(clean_url, p, "test")
-
-            # 2. Parameterized URLs from web crawler
-            if name == "parameterized_urls" and isinstance(val, list):
-                for u in val:
-                    if isinstance(u, str) and u.startswith("http"):
-                        parsed = urlparse(u)
-                        clean_url = urlunparse(parsed._replace(query=""))
-                        qs = parse_qs(parsed.query)
-                        for pname, pvalues in qs.items():
-                            add_param(clean_url, pname, pvalues[0] if pvalues else "test")
-
-            # 3. Discovered forms — extract text input fields
-            if name == "discovered_forms" and isinstance(val, list):
-                for form in val:
-                    if not isinstance(form, dict):
-                        continue
-                    action = form.get("action", target)
-                    fields = form.get("fields", [])
-                    injectable_types = {"text", "search", "email", "password", "number", ""}
-                    for fld in fields:
-                        if isinstance(fld, dict):
-                            ftype = fld.get("type", "text").lower()
-                            fname = fld.get("name", "")
-                            fval = fld.get("value", "test")
-                            if ftype in injectable_types and fname:
-                                add_param(action, fname, fval or "test")
-
-            # 4. Discovered API routes (from JS bundles)
-            if "discovered_api_routes" in name and isinstance(val, list):
-                for route in val:
-                    if isinstance(route, str) and not route.startswith("#"):
-                        full_url = f"{target.rstrip('/')}{route}"
-                        if any(kw in route.lower() for kw in ["search", "product", "user", "order", "item", "filter", "find"]):
-                            for p in ("q", "search", "id", "query"):
-                                add_param(full_url, p, "test")
-
-            # 5. Discovered API endpoints from crawler
-            if name == "discovered_api_endpoints" and isinstance(val, list):
-                for ep in val:
-                    if isinstance(ep, dict) and "url" in ep:
-                        ep_url = ep["url"]
-                        parsed = urlparse(ep_url)
-                        clean_url = urlunparse(parsed._replace(query=""))
-                        qs = parse_qs(parsed.query)
-                        for pname, pvalues in qs.items():
-                            add_param(clean_url, pname, pvalues[0] if pvalues else "test")
-                        # For API endpoints, also test common param names
-                        if any(kw in ep_url.lower() for kw in ["search", "product", "user", "filter", "find", "query"]):
-                            for p in ("q", "search", "id", "query"):
-                                add_param(clean_url, p, "test")
-
-            # 6. OpenAPI endpoints
-            if "openapi_endpoints" in name and isinstance(val, list):
-                for ep in val:
-                    if isinstance(ep, dict) and "url" in ep:
-                        ep_url = ep["url"]
-                        for param_info in ep.get("parameters", []):
-                            if isinstance(param_info, dict) and "name" in param_info:
-                                add_param(ep_url, param_info["name"], "test")
-
-        if not params:
-            # Fallback tests on base URL and common search routes
-            add_param(target, "q", "test")
-            add_param(f"{target.rstrip('/')}/rest/products/search", "q", "apple")
-            add_param(f"{target.rstrip('/')}/api/products/search", "q", "apple")
-            add_param(f"{target.rstrip('/')}/search", "q", "test")
-
-        return params
+        """Extract injectable parameters with backward compatibility."""
+        targets = extract_injection_targets(observations, target)
+        return [
+            {
+                "url": t.url,
+                "name": t.param_name,
+                "original_value": t.original_value,
+                "method": t.method,
+                "target_obj": t,
+            }
+            for t in targets
+        ]
 
 
     def _log_fp_suppression(

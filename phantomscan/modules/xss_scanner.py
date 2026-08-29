@@ -76,6 +76,9 @@ REFLECTED_PAYLOADS: list[str] = [
 ]
 
 
+from phantomscan.injection_target import InjectionTarget, extract_injection_targets
+
+
 class XSSScanner:
     """Detect reflected XSS by testing parameter reflection in HTTP responses."""
 
@@ -93,75 +96,109 @@ class XSSScanner:
         target = base_url.rstrip("/")
         tested: set[str] = set()
 
-        params = self._extract_params(observations, target)
+        targets = extract_injection_targets(observations, target, max_targets=40)
 
         sem = asyncio.Semaphore(15)
 
-        async def test_one_param(param_info: dict[str, Any]) -> dict[str, Any] | None:
-            url = param_info["url"]
-            param_name = param_info["name"]
-            key = f"{url}:{param_name}"
+        async def test_one_target(inj_target: InjectionTarget) -> dict[str, Any] | None:
+            key = inj_target.key
             if key in tested:
                 return None
             tested.add(key)
 
             async with sem:
-                return await self._test_reflection(url, param_name)
+                return await self._test_reflection(inj_target, inj_target.param_name)
 
-        # Run GET parameter tests concurrently
-        param_tasks = [test_one_param(p) for p in params[:30]]
-        param_results = await asyncio.gather(*param_tasks, return_exceptions=True)
-        for res in param_results:
+        # Run parameter tests concurrently
+        tasks = [test_one_target(t) for t in targets[:35]]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
             if isinstance(res, dict):
                 findings.append(res)
 
-        # Test form fields concurrently
-        form_findings = await self._test_forms_concurrent(observations, target, tested, sem)
-        findings.extend(form_findings)
-
         return findings
 
-    # ── Reflected XSS in GET parameters ──────────────────────────────────────
+    # ── Reflected XSS testing ────────────────────────────────────────────────
 
     async def _test_reflection(
-        self, url: str, param_name: str
+        self, target: InjectionTarget | str, param_name: str
     ) -> Optional[dict[str, Any]]:
-        """Test if *param_name* at *url* reflects input unencoded."""
+        """Test if *param_name* reflects input unencoded."""
         import aiohttp as _aiohttp
+
+        target_url = target.url if isinstance(target, InjectionTarget) else target
 
         # Obtain baseline response body first to check for pre-existing reflections
         baseline_body = ""
         try:
-            baseline_resp = await self.http.get(
-                url,
-                retries=1,
-                timeout=_aiohttp.ClientTimeout(total=8),
-            )
+            if isinstance(target, InjectionTarget) and target.method == "POST":
+                baseline_resp = await self.http.post(
+                    target.url,
+                    data={**target.hidden_fields, **target.all_params},
+                    retries=1,
+                    timeout=_aiohttp.ClientTimeout(total=8),
+                )
+            else:
+                params = target.all_params if isinstance(target, InjectionTarget) else None
+                baseline_resp = await self.http.get(
+                    target_url,
+                    params=params,
+                    retries=1,
+                    timeout=_aiohttp.ClientTimeout(total=8),
+                )
             baseline_body = baseline_resp.text()
         except Exception:
             pass
 
         for payload in REFLECTED_PAYLOADS:
-            parsed = urlparse(url)
-            params = parse_qs(parsed.query, keep_blank_values=True)
-            params[param_name] = [payload]
-            new_query = urlencode(params, doseq=True)
-            test_url = urlunparse((
-                parsed.scheme, parsed.netloc,
-                parsed.path, parsed.params,
-                new_query, parsed.fragment,
-            ))
-
             try:
-                response = await self.http.get(
-                    test_url,
-                    retries=1,
-                    timeout=_aiohttp.ClientTimeout(total=8),
-                )
+                if isinstance(target, InjectionTarget) and target.method == "POST":
+                    form_data = dict(target.hidden_fields)
+                    form_data.update(target.all_params)
+                    form_data[param_name] = payload
+                    response = await self.http.post(
+                        target.url,
+                        data=form_data,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    test_evidence_url = f"{target.url} [POST: {param_name}={payload}]"
+                elif isinstance(target, InjectionTarget):
+                    query_params = dict(target.all_params)
+                    query_params[param_name] = payload
+                    parsed = urlparse(target.url)
+                    new_query = urlencode(query_params, doseq=True)
+                    full_url = urlunparse((
+                        parsed.scheme, parsed.netloc,
+                        parsed.path, parsed.params,
+                        new_query, parsed.fragment,
+                    ))
+                    response = await self.http.get(
+                        full_url,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    test_evidence_url = full_url
+                else:
+                    parsed = urlparse(target_url)
+                    params = parse_qs(parsed.query, keep_blank_values=True)
+                    params[param_name] = [payload]
+                    new_query = urlencode(params, doseq=True)
+                    test_url = urlunparse((
+                        parsed.scheme, parsed.netloc,
+                        parsed.path, parsed.params,
+                        new_query, parsed.fragment,
+                    ))
+                    response = await self.http.get(
+                        test_url,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    test_evidence_url = test_url
+
                 body = response.text()
 
-                # WAF block check
-                           # Check if the payload appears UNENCODED in the response
+                # Check if the payload appears UNENCODED in the response
                 if self._is_reflected_not_encoded(payload, body, baseline_body):
                     severity, context_type = _determine_context(payload, body)
                     confidence = "high" if severity == "high" else "low"
@@ -171,12 +208,12 @@ class XSSScanner:
                         "severity": severity,
                         "confidence": confidence,
                         "category": "injection",
-                        "target": url,
+                        "target": target_url,
                         "verification_method": "baseline_differential",
                         "evidence": (
                             f"Parameter: {param_name}\n"
                             f"Payload: {payload}\n"
-                            f"URL: {test_url}\n"
+                            f"Tested URL: {test_evidence_url}\n"
                             f"Context: {context_type}\n"
                             f"The payload was reflected unencoded in the "
                             f"HTTP response body."
@@ -192,7 +229,7 @@ class XSSScanner:
                         ],
                     }
             except Exception as exc:
-                logger.debug("XSS probe failed %s param=%s: %s", url, param_name, exc)
+                logger.debug("XSS probe failed %s param=%s: %s", target_url, param_name, exc)
 
         return None
 
@@ -324,70 +361,9 @@ class XSSScanner:
     def _extract_params(
         observations: list[dict[str, Any]], target: str
     ) -> list[dict[str, Any]]:
-        """Extract testable parameters with host-level deduplication."""
-        params: list[dict[str, Any]] = []
-        seen_keys: set[tuple[str, str]] = set()
-        param_counts: dict[str, int] = {}  # Cap same param name across URLs on same host
-
-        def add(url: str, name: str) -> None:
-            name_clean = name.strip()
-            if not name_clean or name_clean.startswith("amp;"):
-                name_clean = name_clean.removeprefix("amp;")
-            if not name_clean:
-                return
-
-            # Cap each param name (e.g. 'hl', 'q') to at most 2 distinct endpoints per host
-            current_count = param_counts.get(name_clean, 0)
-            if current_count >= 2:
-                return
-
-            key = (url, name_clean)
-            if key not in seen_keys and len(params) < 40:
-                seen_keys.add(key)
-                param_counts[name_clean] = current_count + 1
-                params.append({"url": url, "name": name_clean})
-
-        # 0. Extract direct query parameters from target URL if present
-        if "?" in target:
-            parsed_target = urlparse(target)
-            clean_target = urlunparse(parsed_target._replace(query=""))
-            for pname in parse_qs(parsed_target.query, keep_blank_values=True):
-                add(clean_target, pname)
-
-        for obs in observations:
-            obs_name = str(obs.get("name", ""))
-            val = obs.get("value", "")
-
-            # Parameterized URLs from crawler
-            if obs_name in ("parameterized_urls", "discovered_urls") and isinstance(val, list):
-                for u in val:
-                    if isinstance(u, str) and "?" in u:
-                        parsed = urlparse(u)
-                        clean = urlunparse(parsed._replace(query=""))
-                        for pname in parse_qs(parsed.query, keep_blank_values=True):
-                            add(clean, pname)
-
-            # URLs with query strings from HTTP observation
-            if "http_url" in obs_name and isinstance(val, str) and "?" in val:
-                parsed = urlparse(val)
-                clean = urlunparse(parsed._replace(query=""))
-                for pname in parse_qs(parsed.query, keep_blank_values=True):
-                    add(clean, pname)
-
-            # API endpoints that look like search/filter
-            if "discovered_api" in obs_name and isinstance(val, list):
-                for ep in val:
-                    if isinstance(ep, dict):
-                        ep_url = ep.get("url", "")
-                        if ep_url and any(kw in ep_url.lower() for kw in
-                                         ["search", "product", "user", "filter", "find", "query"]):
-                            for p in ("q", "search", "query", "name"):
-                                add(ep_url, p)
-
-        # Fallback: test base URL with common param names if none found
-        if not params:
-            for p in ("q", "search", "id", "query", "name"):
-                add(target, p)
-            add(f"{target}/search", "q")
-
-        return params
+        """Extract testable parameters with backward compatibility."""
+        targets = extract_injection_targets(observations, target)
+        return [
+            {"url": t.url, "name": t.param_name, "target_obj": t}
+            for t in targets
+        ]
