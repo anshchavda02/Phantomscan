@@ -40,12 +40,15 @@ _FILE_PARAM_KEYWORDS = frozenset({
     "file", "path", "page", "dir", "folder", "doc", "document",
     "include", "require", "load", "read", "template", "view",
     "action", "content", "layout", "module", "name", "show",
-    "img", "image", "download", "src", "source",
+    "img", "image", "download", "src", "source", "ad", "newsad",
+    "item", "report", "attachment", "uri", "url",
 })
 
 # OS-specific indicators that confirm successful file read
 LINUX_INDICATORS = ["root:x:0:0", "/bin/bash", "/bin/sh", "daemon:", "nobody:"]
 WINDOWS_INDICATORS = ["[fonts]", "[extensions]", "for 16-bit app support"]
+
+from phantomscan.injection_target import InjectionTarget, extract_injection_targets
 
 
 class PathTraversalScanner:
@@ -65,20 +68,23 @@ class PathTraversalScanner:
         target = base_url.rstrip("/")
         tested: set[str] = set()
 
-        candidates = self._extract_file_params(observations, target)
+        all_targets = extract_injection_targets(observations, target, max_targets=50)
+        candidates = [t for t in all_targets if self._is_file_like(t)]
+        if not candidates:
+            # If no obvious file candidates, test first 15 targets
+            candidates = all_targets[:15]
+
         sem = asyncio.Semaphore(15)
 
-        async def test_one(candidate: dict[str, Any]) -> dict[str, Any] | None:
-            url = candidate["url"]
-            param_name = candidate["name"]
-            key = f"traversal:{url}:{param_name}"
+        async def test_one(candidate: InjectionTarget) -> dict[str, Any] | None:
+            key = candidate.key
             if key in tested:
                 return None
             tested.add(key)
             async with sem:
-                return await self._test_traversal(url, param_name)
+                return await self._test_traversal(candidate, candidate.param_name)
 
-        tasks = [test_one(c) for c in candidates[:20]]
+        tasks = [test_one(c) for c in candidates[:25]]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, dict):
@@ -86,19 +92,44 @@ class PathTraversalScanner:
 
         return findings
 
+    @staticmethod
+    def _is_file_like(target: InjectionTarget) -> bool:
+        """Check if target parameter name or default value suggests a file path."""
+        pname = target.param_name.lower()
+        if any(kw in pname for kw in _FILE_PARAM_KEYWORDS):
+            return True
+        val = str(target.original_value).lower()
+        if "/" in val or "\\" in val:
+            return True
+        if any(val.endswith(ext) for ext in (".html", ".htm", ".txt", ".php", ".asp", ".aspx", ".jsp", ".ini", ".conf", ".xml", ".json", ".inc")):
+            return True
+        return False
+
     async def _test_traversal(
-        self, url: str, param: str
+        self, target: InjectionTarget | str, param: str
     ) -> Optional[dict[str, Any]]:
         """Test a single parameter for directory traversal."""
         import aiohttp as _aiohttp
 
+        target_url = target.url if isinstance(target, InjectionTarget) else target
+
         # Get baseline to ensure indicators aren't already present
         try:
-            baseline_resp = await self.http.get(
-                url,
-                retries=1,
-                timeout=_aiohttp.ClientTimeout(total=10),
-            )
+            if isinstance(target, InjectionTarget) and target.method == "POST":
+                baseline_resp = await self.http.post(
+                    target.url,
+                    data={**target.hidden_fields, **target.all_params},
+                    retries=1,
+                    timeout=_aiohttp.ClientTimeout(total=8),
+                )
+            else:
+                params = target.all_params if isinstance(target, InjectionTarget) else None
+                baseline_resp = await self.http.get(
+                    target_url,
+                    params=params,
+                    retries=1,
+                    timeout=_aiohttp.ClientTimeout(total=8),
+                )
             baseline_body = baseline_resp.text()
             baseline_has_linux = any(ind in baseline_body for ind in LINUX_INDICATORS)
             baseline_has_windows = any(ind in baseline_body for ind in WINDOWS_INDICATORS)
@@ -107,22 +138,51 @@ class PathTraversalScanner:
             baseline_has_windows = False
 
         for payload in TRAVERSAL_PAYLOADS:
-            parsed = urlparse(url)
-            params = parse_qs(parsed.query, keep_blank_values=True)
-            params[param] = [payload]
-            new_query = urlencode(params, doseq=True)
-            test_url = urlunparse((
-                parsed.scheme, parsed.netloc,
-                parsed.path, parsed.params,
-                new_query, parsed.fragment,
-            ))
-
             try:
-                response = await self.http.get(
-                    test_url,
-                    retries=1,
-                    timeout=_aiohttp.ClientTimeout(total=10),
-                )
+                if isinstance(target, InjectionTarget) and target.method == "POST":
+                    form_data = dict(target.hidden_fields)
+                    form_data.update(target.all_params)
+                    form_data[param] = payload
+                    response = await self.http.post(
+                        target.url,
+                        data=form_data,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    test_evidence_url = f"{target.url} [POST: {param}={payload}]"
+                elif isinstance(target, InjectionTarget):
+                    query_params = dict(target.all_params)
+                    query_params[param] = payload
+                    parsed = urlparse(target.url)
+                    new_query = urlencode(query_params, doseq=True)
+                    full_url = urlunparse((
+                        parsed.scheme, parsed.netloc,
+                        parsed.path, parsed.params,
+                        new_query, parsed.fragment,
+                    ))
+                    response = await self.http.get(
+                        full_url,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    test_evidence_url = full_url
+                else:
+                    parsed = urlparse(target_url)
+                    params = parse_qs(parsed.query, keep_blank_values=True)
+                    params[param] = [payload]
+                    new_query = urlencode(params, doseq=True)
+                    test_url = urlunparse((
+                        parsed.scheme, parsed.netloc,
+                        parsed.path, parsed.params,
+                        new_query, parsed.fragment,
+                    ))
+                    response = await self.http.get(
+                        test_url,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    test_evidence_url = test_url
+
                 body = response.text()
 
                 linux_found = (
@@ -142,12 +202,12 @@ class PathTraversalScanner:
                         "severity": "critical",
                         "confidence": "high",
                         "category": "injection",
-                        "target": url,
+                        "target": target_url,
                         "verification_method": "baseline_differential",
                         "evidence": (
                             f"Parameter: {param}\n"
                             f"Payload: {payload}\n"
-                            f"URL: {test_url}\n"
+                            f"Tested URL: {test_evidence_url}\n"
                             f"OS indicator found: {os_type} system file "
                             f"content detected in response body."
                         ),
@@ -161,7 +221,7 @@ class PathTraversalScanner:
                         ],
                     }
             except Exception as exc:
-                logger.debug("Path traversal probe error %s: %s", test_url, exc)
+                logger.debug("Path traversal probe error for %s: %s", target_url, exc)
 
         return None
 
@@ -169,53 +229,10 @@ class PathTraversalScanner:
     def _extract_file_params(
         observations: list[dict[str, Any]], target: str
     ) -> list[dict[str, Any]]:
-        """Find parameters whose names suggest file path handling."""
-        params: list[dict[str, Any]] = []
-        seen: set[tuple[str, str]] = set()
-        param_counts: dict[str, int] = {}
-
-        def add(url: str, name: str) -> None:
-            clean_name = name.strip()
-            if clean_name.startswith("amp;"):
-                clean_name = clean_name.removeprefix("amp;")
-            if not clean_name:
-                return
-
-            current_count = param_counts.get(clean_name, 0)
-            if current_count >= 2:
-                return
-
-            key = (url, clean_name)
-            if key not in seen and len(params) < 30:
-                seen.add(key)
-                param_counts[clean_name] = current_count + 1
-                params.append({"url": url, "name": clean_name})
-
-        for obs in observations:
-            obs_name = str(obs.get("name", ""))
-            val = obs.get("value", "")
-
-            if obs_name in ("parameterized_urls", "discovered_urls") and isinstance(val, list):
-                for u in val:
-                    if isinstance(u, str) and "?" in u:
-                        parsed = urlparse(u)
-                        clean = urlunparse(parsed._replace(query=""))
-                        qs = parse_qs(parsed.query, keep_blank_values=True)
-                        for pname in qs:
-                            if any(kw in pname.lower() for kw in _FILE_PARAM_KEYWORDS):
-                                add(clean, pname)
-
-            # API endpoints with file-like params
-            if "discovered_api" in obs_name and isinstance(val, list):
-                for ep in val:
-                    if isinstance(ep, dict):
-                        ep_url = ep.get("url", "")
-                        if ep_url and "?" in ep_url:
-                            parsed = urlparse(ep_url)
-                            clean = urlunparse(parsed._replace(query=""))
-                            qs = parse_qs(parsed.query, keep_blank_values=True)
-                            for pname in qs:
-                                if any(kw in pname.lower() for kw in _FILE_PARAM_KEYWORDS):
-                                    add(clean, pname)
-
-        return params
+        """Backward-compatible wrapper for extracting file params."""
+        all_targets = extract_injection_targets(observations, target)
+        return [
+            {"url": t.url, "name": t.param_name, "target_obj": t}
+            for t in all_targets
+            if PathTraversalScanner._is_file_like(t)
+        ]
