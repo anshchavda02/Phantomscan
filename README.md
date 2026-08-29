@@ -1,145 +1,234 @@
 <div align="center">
-<pre>
+
+```
   ____  _                 _                  ____                  
  |  _ \| |__   __ _ _ __ | |_ ___  _ __ ___ / ___|  ___ __ _ _ __  
  | |_) | '_ \ / _` | '_ \| __/ _ \| '_ ` _ \\___ \ / __/ _` | '_ \ 
  |  __/| | | | (_| | | | | || (_) | | | | | |___) | (_| (_| | | | |
  |_|   |_| |_|\__,_|_| |_|\__\___/|_| |_| |_|____/ \___\__,_|_| |_|
-</pre>
-  <h3>Scan Smart. Stay Secure. — Version 2.0.0</h3>
-  <p><strong>The commercial-grade, polyglot vulnerability scanner tailored for AI-generated & Vibe-Coded Web Apps, Cloud Architectures, and Complex APIs.</strong></p>
+```
+
+### **Enterprise-Grade Polyglot Vulnerability Scanner**
+*Tailored for AI-Generated & Vibe-Coded Web Apps, Cloud Backends, and Modern APIs*
+
+[![Tests](https://img.shields.io/badge/tests-197%20passed-brightgreen.svg?style=flat-square)](tests/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
+[![Go](https://img.shields.io/badge/engine-Go%20%7C%20Rust%20%7C%20Node%20%7C%20Python-blueviolet.svg?style=flat-square)](engines/)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg?style=flat-square)](INSTALL.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
+
+[Quick Start](#-quick-start) • [Architecture](#-polyglot-architecture) • [Features](#-core-capabilities) • [CLI Reference](#-cli-command-reference) • [Reporting](#-enterprise-reporting) • [Documentation](INSTALL.md)
+
 </div>
 
 ---
 
-## What is PhantomScan v2.0.0?
+## 📌 Executive Summary
 
-PhantomScan is an enterprise-grade, automated security assessment platform engineered for penetration testers, security auditors, and DevSecOps engineers.
+**PhantomScan v2.0.0** is an enterprise-grade automated security assessment engine engineered for security engineers, penetration testers, and DevSecOps teams.
 
-While standard scanners focus solely on static CVE checks or simple web fuzzing, **PhantomScan v2.0.0 features specialized engines for AI-generated ("vibe-coded") applications** built with tools like Lovable.dev, Bolt.new, v0, Cursor, Windsurf, Replit AI, and Base44. It exposes hidden LLM secrets, audits Row Level Security (RLS) policies, checks serverless proxy abuse, detects AI-hallucinated dependency slopsquatting, and correlates low-severity findings into multi-step exploit chains.
-
----
-
-## The Hybrid Polyglot Architecture
-
-PhantomScan combines three languages for optimal balance between orchestrative intelligence, raw execution speed, and cryptographic rigor:
-
-- **Python (The Brain)**: Powers 35+ specialized security modules, orchestrates scans, manages pattern databases, and builds interactive HTML/JSON reports.
-- **Go (The Muscle)**: High-speed, concurrent TCP SYN port scanner built with goroutines to enumerate network attack surfaces in seconds.
-- **Rust (The Inspector)**: Low-level TLS/SSL cryptographic analyzer evaluating cipher suites, protocol vulnerabilities, and certificate validity natively.
+Traditional dynamic vulnerability scanners focus almost exclusively on legacy web servers or basic static rule fuzzing. **PhantomScan bridges the modern security gap** by introducing deep analysis engines specifically tuned for **AI-generated applications** (built via tools like Lovable.dev, Bolt.new, v0, Cursor, Windsurf, Replit AI, and Base44), **BaaS architectures** (Supabase, Firebase, Convex), and **modern full-stack web frameworks** (Next.js, Remix, tRPC, GraphQL).
 
 ---
 
-## Complete Feature Suite
+## ⚡ Polyglot Architecture
 
-### 1. Vibe App Security Module Suite (Mid-2026 Commercial Parity)
+PhantomScan combines four programming ecosystems into a unified scanning pipeline for optimal execution speed, deep cryptographic rigor, and rich DOM rendering:
 
-PhantomScan v2.0 introduces 9 specialized sub-scanners dedicated to securing AI-generated and full-stack vibe-coded web applications:
-
-- **JSON-Driven Secret Pattern Engine**: Scans client JS bundles, source maps, and local source repositories against **150+ vendor-specific patterns** across 8 categories (LLM/AI, Payment, BaaS, Cloud, Email, Dev/Deploy, Analytics, and Generic). Uses Shannon entropy scoring and line-level comment context awareness.
-- **Supabase Auditor V2**: Full CRUD RLS auditing (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) on PostgREST endpoints (`/rest/v1/`), storage bucket visibility tests, auth confirmation settings, and key format detection (`sb_secret_` vs `service_role` JWTs).
-- **Firebase Auditor V2**: Probes Realtime Database (`/.json`), Firestore collections, Storage bucket rules, and Admin SDK private key leaks.
-- **Alternative Backend Auditor**: Introspects Convex functions (`/api/query`), detects exposed MongoDB connection strings, and flags raw PostgreSQL connection URLs.
-- **ORM Misconfiguration Detector**: Identifies Prisma error disclosures, scans `schema.prisma` for models missing ownership fields (`userId`, `owner_id`), and detects raw Drizzle `sql``` string injection risks.
-- **tRPC Endpoint Prober**: Discovers `/api/trpc` routes and tests common administrative procedures (`user.getAll`, `admin.deleteUser`) for unauthenticated access.
-- **Slopsquatting Dependency Detector**: Cross-references `package.json` and `requirements.txt` against npm and PyPI registries to catch AI-hallucinated package names before attackers hijack them.
-- **Hybrid Scan Coordinator**: Source-aware analysis mode via `--source-path`, audits committed `.env` files across Git history, and boosts finding confidence to `confirmed` when findings overlap between live bundles and local source code.
-- **Serverless & System Prompt Protection**: Probes unauthenticated AI endpoints (`/api/chat`, `/api/generate`) for missing rate limits and system prompt leakage via prompt injection probes.
-
----
-
-### 2. Business Logic, Auth & Complex Web Scanners
-
-- **Business Logic Analyzer**: Detects mass assignment, price manipulation, and limit bypasses.
-- **IDOR / BOLA Detector**: Automatically swaps user/object IDs cross-session to identify unauthorized access.
-- **JWT & OAuth Tester**: Checks for `none` algorithm bypasses, weak HMAC secrets, and key confusion vulnerabilities.
-- **Stateful Workflow Scanner**: Maps multi-step operations (Cart -> Checkout -> Payment) to uncover state machine bypasses.
-- **Prototype Pollution**: Tests for client-side and server-side `__proto__` pollution.
-- **HTTP Request Smuggling**: Uses raw TCP socket techniques to test CL.TE and TE.CL ambiguities.
-- **Out-Of-Band (OOB) Detector**: Integrates OOB callbacks to capture asynchronous vulnerabilities like Log4Shell and Blind SSRF.
-- **Race Condition Detector**: Concurrent flooding to catch Time-of-Check to Time-of-Use (TOCTOU) race conditions.
-
----
-
-### 3. Vulnerability Chain Engine & Attack Paths
-
-PhantomScan correlates isolated lower-severity findings into critical multi-step **Exploit Chains**:
-
-- **Supabase RLS Bypass → Full Database Compromise**
-- **Firebase Test-Mode → Full Data Dump**
-- **AI Proxy Abuse → Unlimited LLM Cost Drain**
-- **Slopsquatting → Supply Chain RCE**
-- **.env Leak → Cloud Credential Compromise**
-- **Prisma Error Leak + IDOR → Schema-Guided Data Theft**
-- **tRPC Unauth + Default Creds → Admin Takeover**
-
-Generates interactive **Mermaid.js** diagrams illustrating exact attack trajectories for executive presentation.
-
----
-
-## Command Line Usage
-
-### Standard Scan Commands
-
-```bash
-# 1. Run all 35 Advanced Modules (including Vibe App Security Suite)
-python phantomscan.py --target example.com --advanced
-
-# 2. Hybrid Black-Box + Source-Aware Scan with Slopsquatting Check
-python phantomscan.py --target example.com --advanced --source-path ./my-app --check-slopsquatting
-
-# 3. Targeted Vibe Security Module Execution
-python phantomscan.py --target example.com --modules ai_app_security,vuln_chain
-
-# 4. Stateful Authenticated Scan
-python phantomscan.py --target example.com --advanced --auth-cookie "session_id=abc123xyz"
-
-# 5. Quick Passive Recon Scanner
-python phantomscan.py --target example.com --profile passive --json
+```
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                               PHANTOMSCAN CORE                                    │
+│                     Python Orchestrator & FindingGate™                            │
+└──────────────┬──────────────────┬──────────────────┬──────────────────┬───────────┘
+               │                  │                  │                  │
+               ▼                  ▼                  ▼                  ▼
+     ┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐
+     │    Go Engine     ││   Rust Engine    ││   Node Engine    ││  Python Modules  │
+     │  (High-Speed     ││  (Native TLS/SSL ││ (Playwright DOM  ││  (35+ Advanced   │
+     │   SYN Scanner)   ││   Cryptographic  ││   SPA & Visual   ││   Security & AI  │
+     │                  ││    Inspector)    ││   Screenshots)   ││   Scanners)      │
+     └─────────┬────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘
+               │                  │                   │                   │
+               └──────────────────┴─────────┬─────────┴───────────────────┘
+                                            │
+                                            ▼
+                          ┌───────────────────────────────────┐
+                          │   Vulnerability Chain Engine      │
+                          │   & Interactive HTML/JSON Report  │
+                          └───────────────────────────────────┘
 ```
 
-### CLI Flag Reference
+- 🧠 **Python (Orchestrator & Intelligence)**: Manages the execution pipeline, 35+ specialized detection modules, CVSS scoring, and reporting engines.
+- ⚡ **Go (Network Muscle)**: High-concurrency TCP SYN port scanner built with goroutines to enumerate network surfaces in seconds.
+- 🦀 **Rust (Cryptographic Inspector)**: Low-level TLS/SSL analyzer inspecting cipher suites, handshake negotiation, and certificate chains natively.
+- 🌐 **Node.js + Playwright (Browser Engine)**: Headless browser rendering SPA frontends, discovering exposed login endpoints, and capturing high-resolution visual evidence screenshots.
+
+---
+
+## 🛡️ Core Capabilities
+
+### 1. Vibe-Coded & AI App Security Suite
+Designed to audit modern AI-assisted web applications and serverless backends:
+- **150+ Secret Pattern Engine**: Scans JS bundles, source maps, and local codebases against curated pattern databases (OpenAI, Anthropic, Gemini, AWS, Stripe, Supabase, Firebase) with Shannon entropy scoring and false-positive comment suppression.
+- **Supabase Auditor V2**: Audits Row Level Security (RLS) policies across PostgREST endpoints (`/rest/v1/`), open storage buckets, auth configuration weaknesses, and service key disclosures.
+- **Firebase Auditor V2**: Probes Realtime Database rules (`/.json`), Firestore security policies, and exposed Admin SDK credentials.
+- **Alternative BaaS Auditors**: Audits Convex backend functions, exposed MongoDB connection strings, and unauthenticated PostgreSQL URLs.
+- **ORM Misconfiguration Detector**: Identifies Prisma error disclosures, unscoped models missing tenant/user ownership fields, and raw Drizzle `sql``` injection vectors.
+- **tRPC & GraphQL Analyzers**: Probes `/api/trpc` routes and GraphQL endpoints for introspections, unauthenticated administrative procedures, and query abuse.
+- **Slopsquatting Dependency Checker**: Verifies dependencies against npm/PyPI registries to detect AI-hallucinated packages susceptible to supply-chain takeover.
+- **AI Prompt & Serverless Proxy Protection**: Tests `/api/chat` and `/api/generate` routes for missing rate limits and prompt injection leakage.
+
+### 2. Multi-Step Vulnerability Chain Engine
+PhantomScan correlates seemingly minor low-severity findings into actionable **Critical Exploit Chains**:
+- `Supabase RLS Bypass` ➔ `User Record Enumeration` ➔ `Account Takeover`
+- `Firebase Open Database` ➔ `PII Harvesting` ➔ `Full Data Exfiltration`
+- `Unauthenticated AI Proxy` ➔ `Prompt Extraction` ➔ `Unlimited LLM Cost Drain`
+- `Slopsquatting Hallucination` ➔ `Malicious Dependency Injection` ➔ `Supply Chain RCE`
+
+Each chain includes automated **Mermaid.js attack path diagrams** detailing prerequisite steps, execution vectors, and business impact.
+
+### 3. FindingGate™ False-Positive Elimination
+Alert fatigue is eliminated through a multi-tier confirmation gate:
+- **Response Body Heuristics**: Validates that flagged endpoints return authentic error/data structures rather than generic SPA catch-alls.
+- **CSP Meta-Tag Resolution**: Evaluates both HTTP response headers and `<meta http-equiv="Content-Security-Policy">` tags.
+- **Statistical Timing Verification**: Re-tests potential time-based SQLi / SSRF signals against randomized baseline latencies to prevent false alarms on network fluctuations.
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+#### Linux CLI
+```bash
+git clone https://github.com/anshchavda02/Phantomscan.git phantomscan
+cd phantomscan
+bash scripts/install.sh
+```
+
+#### macOS CLI
+```bash
+git clone https://github.com/anshchavda02/Phantomscan.git phantomscan
+cd phantomscan
+bash scripts/install_macos.sh
+```
+
+#### Windows CLI & Launcher
+```cmd
+git clone https://github.com/anshchavda02/Phantomscan.git
+cd Phantomscan
+install.bat
+```
+
+*For detailed prerequisite instructions across all platforms, see [INSTALL.md](INSTALL.md).*
+
+---
+
+## 💻 CLI Command Reference
+
+### Basic Scans
+```bash
+# Passive Recon (HTTP headers, DNS, Whois, Secrets, Technologies)
+phantomscan --target example.com --profile passive
+
+# Quick Active Scan
+phantomscan --target example.com --profile quick
+
+# Full Deep Security Assessment
+phantomscan --target example.com --profile full --debug
+
+# Run All 35 Advanced Modules (including Vibe App Security Suite)
+phantomscan --target example.com --advanced
+```
+
+### Targeted & Authenticated Scanning
+```bash
+# Run Specific Security Modules
+phantomscan --target example.com --modules ai_app_security,vuln_chain,idor
+
+# Authenticated Scan with Session Cookie
+phantomscan --target example.com --advanced --auth-cookie "session_id=abc123xyz"
+
+# Authenticated API Scan with Bearer Token
+phantomscan --target api.example.com --profile api --auth-token "Bearer eyJhbGciOi..."
+
+# Hybrid Scan (Correlate live endpoints with local source code)
+phantomscan --target example.com --advanced --source-path ./my-app --check-slopsquatting
+```
+
+### Scan Profiles
+
+| Profile | Target Scope | Engines Invoked | Typical Duration |
+| :--- | :--- | :--- | :--- |
+| `passive` | Non-intrusive recon, DNS, WHOIS, header analysis | Python | ~2-5s |
+| `quick` | Standard web services + common ports | Python + Go | ~5-15s |
+| `full` | Deep web fuzzing, TLS inspection, port discovery | Python + Go + Rust + Node | ~20-45s |
+| `api` | REST, GraphQL, tRPC, API keys & JWT evaluation | Python + Node | ~15-30s |
+| `network` | Full port enumeration (top 1000) & service discovery | Go + Rust | ~10-30s |
+| `advanced` / `deep` | Full 35+ module suite, AI security, vuln chaining | All Engines | ~30-60s |
+
+### CLI Options & Flags
 
 | Flag | Description |
 | :--- | :--- |
-| `--target` | Target domain, IP, CIDR, or URL to assess. |
-| `--profile` | Scan profile: `quick`, `full`, `passive`, `api`, `network`, `advanced`, `deep`. |
-| `--advanced` | Runs all 35 advanced security modules. |
-| `--source-path` | Path to local source code for hybrid black-box + white-box analysis. |
-| `--check-slopsquatting` | Queries npm/PyPI registries for AI-hallucinated packages (requires `--source-path`). |
-| `--modules` | Comma-separated list of specific modules to run (e.g., `ai_app_security,idor`). |
-| `--auth-cookie` | Session cookie string for authenticated scans. |
-| `--auth-token` | Bearer token string for API authenticated scans. |
-| `--json-out` | File path to export JSON report artifact. |
+| `--target` | Target domain, IP address, CIDR block, or URL. |
+| `--profile` | Scan profile: `passive`, `quick`, `full`, `api`, `network`, `advanced`, `deep`. |
+| `--advanced` | Enables the full 35-module advanced security suite. |
+| `--ports` | Port selection: `top100`, `top1000`, `80,443,8080`, or ranges (`1-1000`). |
+| `--source-path` | Path to local repository for hybrid black-box + source code analysis. |
+| `--check-slopsquatting` | Audits dependencies for AI-hallucinated package names. |
+| `--auth-cookie` | Session cookie header for authenticated crawling. |
+| `--auth-token` | Authorization token header for authenticated API assessment. |
+| `--json` | Stream scan output as structured JSON to stdout. |
+| `--json-out` | Write complete scan results to a specified JSON file. |
+| `--compliance` | Output compliance matrix (`owasp`, `pci-dss`, `hipaa`, `iso27001`). |
+| `--checklist` | Generate actionable pre-flight hardening checklist. |
+| `--debug` | Enable verbose diagnostic logging. |
 
 ---
 
-## Installation & Setup
+## 📊 Enterprise Reporting
 
-For the complete installation guide across Linux, macOS, and Windows, see [INSTALL.md](INSTALL.md).
+PhantomScan generates **Wiz/Snyk-tier interactive HTML reports** along with machine-readable **JSON** and **CSV** artifacts:
 
-### Linux & macOS CLI Quickstart
-```bash
-# Clone Repository
-git clone https://github.com/anshchavda02/Phantomscan.git phantomscan
-cd phantomscan
+- **Executive Summary & Security Score**: Visual grade (`A` through `F`) computed with CVSS v3.1 severity weighting.
+- **6-Axis Risk Radar**: Real-time canvas radar mapping category breakdowns (Recon, Web, Auth, Cloud/BaaS, Supply Chain, Cryptography).
+- **Interactive Exploit Chains**: Expandable Mermaid.js graphs showing end-to-end attack paths.
+- **Visual Evidence & DOM Screenshots**: Embedded headless browser renders illustrating captured vulnerabilities and exposed interfaces.
+- **Remediation Playbooks**: Actionable mitigation code snippets and OWASP / CVE references for engineering teams.
 
-# Run automated installer
-bash scripts/install.sh       # On Linux
-# or: bash scripts/install_macos.sh  # On macOS
-
-# Execute Scan
-phantomscan --target example.com --profile passive
+```
+reports/
+├── example.com_20260829_134500.html   # Interactive visual dashboard
+├── example.com_20260829_134500.json   # CI/CD machine-readable output
+└── fp_log_example.com_20260829.json   # Suppressed findings audit trail
 ```
 
-### Running Tests
+---
+
+## 🧪 Testing & Verification
+
+PhantomScan maintains strict quality benchmarks across all engines and modules:
+
 ```bash
-# Verify Full Test Suite (197 Passing Tests)
+# Run complete Python test suite (197 Passing Tests)
 python -m pytest
+
+# Run multi-language engine unit tests
+make test
 ```
 
 ---
 
-## Ethical Use Policy
+## ⚖️ Ethical Use & Legal Disclaimer
 
-**AUTHORIZED TESTING ONLY.** PhantomScan is designed strictly for authorized security assessments against systems you own or have explicit written permission to test.
+> [!IMPORTANT]
+> **PhantomScan is intended strictly for authorized security auditing, penetration testing, and educational research.**
+> 
+> Testing systems without prior explicit written authorization from the system owner is illegal. The developers assume no liability for misuse, unauthorized activities, or damage caused by this software.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for modern DevSecOps, AppSec Engineers, and Security Researchers.</sub>
+</div>
