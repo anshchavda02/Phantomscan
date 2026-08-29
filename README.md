@@ -1,12 +1,12 @@
 <div align="center">
 
-```
+<pre>
   ____  _                 _                  ____                  
  |  _ \| |__   __ _ _ __ | |_ ___  _ __ ___ / ___|  ___ __ _ _ __  
  | |_) | '_ \ / _` | '_ \| __/ _ \| '_ ` _ \\___ \ / __/ _` | '_ \ 
  |  __/| | | | (_| | | | | || (_) | | | | | |___) | (_| (_| | | | |
  |_|   |_| |_|\__,_|_| |_|\__\___/|_| |_| |_|____/ \___\__,_|_| |_|
-```
+</pre>
 
 ### **Enterprise-Grade Polyglot Vulnerability Scanner**
 *Tailored for AI-Generated & Vibe-Coded Web Apps, Cloud Backends, and Modern APIs*
