@@ -58,7 +58,7 @@ class JWTOAuthTester:
         auth_tok = kwargs.get("auth_token")
         if auth_tok and isinstance(auth_tok, str) and auth_tok not in tokens:
             tokens.append(auth_tok)
-        endpoints = self._guess_jwt_endpoints(target)
+        endpoints = self._guess_jwt_endpoints(target, observations)
 
         for token in tokens[:5]:
             for endpoint in endpoints[:3]:
@@ -322,20 +322,48 @@ class JWTOAuthTester:
 
     @staticmethod
     def _extract_jwts(observations: list[dict[str, Any]]) -> list[str]:
-        tokens: list[str] = []
-        jwt_re = re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*")
+        tokens: set[str] = set()
+        jwt_re = re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*")
+
+        def scan_val(val: Any) -> None:
+            if isinstance(val, str):
+                for match in jwt_re.findall(val):
+                    tokens.add(match)
+            elif isinstance(val, dict):
+                for v in val.values():
+                    scan_val(v)
+            elif isinstance(val, list):
+                for item in val:
+                    scan_val(item)
+
         for obs in observations:
-            val = str(obs.get("value", ""))
-            matches = jwt_re.findall(val)
-            tokens.extend(matches)
-        return list(set(tokens))
+            scan_val(obs.get("value"))
+
+        return list(tokens)
 
     @staticmethod
-    def _guess_jwt_endpoints(target: str) -> list[str]:
-        return [
+    def _guess_jwt_endpoints(target: str, observations: list[dict[str, Any]] | None = None) -> list[str]:
+        endpoints: list[str] = [
             f"{target}/api/me",
             f"{target}/api/user",
             f"{target}/api/profile",
             f"{target}/api/v1/user",
+            f"{target}/rest/user/whoami",
+            f"{target}/rest/basket/1",
             f"{target}/dashboard",
         ]
+
+        if observations:
+            for obs in observations:
+                name = str(obs.get("name", ""))
+                val = obs.get("value")
+                if "discovered_api" in name and isinstance(val, list):
+                    for ep in val:
+                        url = ep.get("url") if isinstance(ep, dict) else (ep if isinstance(ep, str) else None)
+                        if url and isinstance(url, str) and not url.startswith("#"):
+                            full_url = url if url.startswith("http") else f"{target.rstrip('/')}{url}"
+                            if any(k in full_url.lower() for k in ("user", "profile", "me", "account", "whoami", "basket", "order", "auth")):
+                                if full_url not in endpoints:
+                                    endpoints.append(full_url)
+
+        return endpoints

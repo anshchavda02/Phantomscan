@@ -39,32 +39,36 @@ async def run_advanced_modules(
 
     # Determine which modules to run based on profile
     modules_to_run = set()
-    if profile == "advanced":
+    if profile in ("advanced", "deep", "deepscan"):
         # Run everything except continuous monitor (requires args)
-        modules_to_run = set(all_modules.keys()) - {"continuous_monitor"}
-    elif profile == "deep":
         modules_to_run = set(all_modules.keys()) - {"continuous_monitor"}
     elif profile == "monitor":
         modules_to_run = {"continuous_monitor"}
     elif "," in profile:
         modules_to_run = {m.strip() for m in profile.split(",") if m.strip() in all_modules}
+    else:
+        # Default to all modules for deep/custom profiles
+        modules_to_run = set(all_modules.keys()) - {"continuous_monitor"}
 
     # Setup active modules (those that send traffic)
     active_tasks = []
     for name in modules_to_run:
         if name not in _POST_SCAN_MODULES:
-            cls = all_modules[name]
-            instance = cls(http=http_client)
-            # Pass common kwargs; modules ignore what they don't need
-            task = instance.run(
-                base_url=base_url,
-                observations=new_observations,
-                auth_cookie=auth_cookie,
-                auth_token=auth_token,
-                source_path=source_path,
-                check_slopsquatting=check_slopsquatting,
-            )
-            active_tasks.append((name, task))
+            try:
+                cls = all_modules[name]
+                instance = cls(http=http_client)
+                # Pass common kwargs; modules ignore what they don't need
+                task = instance.run(
+                    base_url=base_url,
+                    observations=new_observations,
+                    auth_cookie=auth_cookie,
+                    auth_token=auth_token,
+                    source_path=source_path,
+                    check_slopsquatting=check_slopsquatting,
+                )
+                active_tasks.append((name, task))
+            except Exception as e:
+                logger.error(f"Failed to initialize module {name}: {e}")
 
     if active_tasks:
         logger.info(f"Running {len(active_tasks)} active advanced modules...")
@@ -79,14 +83,14 @@ async def run_advanced_modules(
 
     # Setup post-scan modules (analysis only)
     # Order matters: chain engine must run before attack path
-    post_order = ["vuln_chain", "attack_path", "compliance", "ai_narrative", "continuous_monitor"]
+    post_order = ["vuln_chain", "attack_path", "compliance", "ai_narrative", "trend_predictor", "expiry_calendar", "scan_merger"]
     
     for name in post_order:
         if name in modules_to_run and name in all_modules:
             logger.info(f"Running post-scan module: {name}...")
-            cls = all_modules[name]
-            instance = cls(http=http_client)
             try:
+                cls = all_modules[name]
+                instance = cls(http=http_client)
                 result = await instance.run(
                     base_url=base_url,
                     observations=new_observations,

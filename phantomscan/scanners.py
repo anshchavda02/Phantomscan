@@ -43,7 +43,7 @@ RISKY_PORTS = {
 
 
 async def scan_ports(target: Target, ports_spec: str, logger: logging.Logger) -> tuple[list[Observation], list[dict[str, Any]]]:
-    """Run a real TCP connect scan with banner grabbing."""
+    """Run a high-speed asynchronous TCP connect scan with banner grabbing."""
     if target.target_type == "cidr":
         return [Observation("port_scan_skipped", "CIDR host enumeration is not enabled in this build.", "python-portscan")], []
     ports = _parse_ports(ports_spec)
@@ -51,11 +51,11 @@ async def scan_ports(target: Target, ports_spec: str, logger: logging.Logger) ->
         ports = [target.port] + ports
     logger.info("Scanning %s TCP ports on %s", len(ports), target.host)
     started = time.perf_counter()
-    semaphore = asyncio.Semaphore(100)
+    semaphore = asyncio.Semaphore(150)
 
     async def one(port: int) -> dict[str, Any] | None:
         async with semaphore:
-            return await asyncio.to_thread(_scan_one_port, target.host, port, 1.5)
+            return await _async_scan_one_port(target.host, port, timeout=0.6)
 
     results = [item for item in await asyncio.gather(*(one(port) for port in ports)) if item]
     elapsed_ms = int((time.perf_counter() - started) * 1000)
@@ -82,6 +82,41 @@ async def scan_ports(target: Target, ports_spec: str, logger: logging.Logger) ->
         Observation("port_scan_results", results, "python-portscan"),
         Observation("port_scan_duration_ms", elapsed_ms, "python-portscan"),
     ], [item.to_dict() for item in findings]
+
+
+async def _async_scan_one_port(host: str, port: int, timeout: float = 0.6) -> dict[str, Any] | None:
+    """Non-blocking TCP connect check using native asyncio socket."""
+    try:
+        connect_coro = asyncio.open_connection(host, port)
+        reader, writer = await asyncio.wait_for(connect_coro, timeout=timeout)
+        banner = ""
+        try:
+            probes = {
+                80: b"HEAD / HTTP/1.0\r\nHost: localhost\r\n\r\n",
+                8080: b"HEAD / HTTP/1.0\r\nHost: localhost\r\n\r\n",
+            }
+            probe = probes.get(port, b"")
+            if probe:
+                writer.write(probe)
+                await writer.drain()
+            data = await asyncio.wait_for(reader.read(1024), timeout=0.3)
+            banner = data.decode("utf-8", errors="replace").strip()
+        except Exception:
+            pass
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+        return {
+            "port": port,
+            "state": "open",
+            "service": _identify_service(port, banner),
+            "banner": banner[:200],
+        }
+    except Exception:
+        return None
 
 
 async def inspect_tls(target: Target, logger: logging.Logger) -> tuple[list[Observation], list[dict[str, Any]]]:

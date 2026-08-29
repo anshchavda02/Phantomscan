@@ -105,7 +105,7 @@ while ($true) {
     Write-Host "  4. API scan            API-focused HTTP analysis without web crawling"
     Write-Host "  5. Network scan        Intensive Go Portscanner focused profile"
     Write-Host "  6. Advanced scan       Run 35 advanced security modules (Logic, IDOR, AI Security, Takeover, PII, etc.)"
-    Write-Host "  7. Deep scan           Full scan + Advanced scan modules combined"
+    Write-Host "  7. Deep scan           Comprehensive All-in-One: Full Recon + Deep Crawling + Ports + TLS + All 35+ Advanced Modules"
     Write-Host "  8. AI App Security     Target AI-generated / vibe-coded web app vulns (Keys, RLS, Prompts, CRUD, .env)"
     Write-Host "  9. Differential scan   Compare Staging vs Production security posture (--diff-env)"
     Write-Host " 10. Mobile API scan     Extract & test backend APIs from APK or IPA binaries"
@@ -195,7 +195,7 @@ while ($true) {
         "5" { "network" }
         "6" { "advanced" }
         "7" { "deep" }
-        "14" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "monitor") "quick" }
+        "14" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "deepscan", "monitor") "quick" }
         "15" { "proxy" }
     }
 
@@ -240,7 +240,9 @@ while ($true) {
         $scanArgs += $ports
         
         # Options specific to advanced/deep profiles
-        if ($profile -eq "advanced" -or $profile -eq "deep" -or $profile -eq "monitor") {
+        if ($profile -eq "deep" -or $profile -eq "deepscan") {
+            $scanArgs += "--advanced"
+        } elseif ($profile -eq "advanced" -or $profile -eq "monitor") {
             $runAllAdvanced = Read-YesNo "Run all 35 advanced modules (y) or select specific ones (n)" $true
             if ($runAllAdvanced) {
                 $scanArgs += "--advanced"
@@ -251,7 +253,9 @@ while ($true) {
                     $scanArgs += $modules
                 }
             }
-            
+        }    
+
+        if ($profile -eq "deep" -or $profile -eq "deepscan" -or $profile -eq "advanced" -or $profile -eq "monitor") {
             $provideAuth = Read-YesNo "Provide authentication for stateful/authenticated scanning" $false
             if ($provideAuth) {
                 $authCookie = Read-Host "Enter Auth Cookie (e.g. session=abc123...)"

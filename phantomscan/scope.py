@@ -41,8 +41,12 @@ class Target:
 
     @property
     def base_url(self) -> str:
-        """Return a URL suitable for HTTP checks."""
-        scheme = self.scheme or "https"
+        """Return a URL suitable for HTTP checks.
+
+        Defaults to ``http`` for local/private targets (which rarely run TLS)
+        and ``https`` for everything else.
+        """
+        scheme = self.scheme or ("http" if self.is_local else "https")
         if self.port and not (scheme == "http" and self.port == 80) and not (scheme == "https" and self.port == 443):
             return f"{scheme}://{self.host}:{self.port}"
         return f"{scheme}://{self.host}"
@@ -98,6 +102,19 @@ def parse_target(value: str) -> Target:
         target_type = "cidr" if "/" in host else "ip"
     except ValueError:
         target_type = "domain"
+
+    # Auto-detect scheme for local targets when none provided.
+    # Local dev servers (Juice Shop, DVWA, etc.) typically run plain HTTP.
+    if not scheme:
+        _local_hosts = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+        _is_local = host in _local_hosts or host.endswith((".local", ".internal"))
+        if not _is_local:
+            try:
+                _is_local = ipaddress.ip_address(host).is_private
+            except ValueError:
+                pass
+        if _is_local:
+            scheme = "http"
 
     return Target(raw=cleaned, host=host, target_type=target_type, scheme=scheme, port=port)
 

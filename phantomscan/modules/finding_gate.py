@@ -107,6 +107,16 @@ def gate_finding(
             f"confidence was {confidence}, not high"
         )
 
+    # ── Check 7: XSS findings require syntax-breaking character evidence ─
+    fid = str(candidate.get("id", ""))
+    if fid in ("XSS-REFLECTED", "XSS-REFLECTED-FORM"):
+        if "<" not in evidence and ">" not in evidence and '"' not in evidence and "'" not in evidence:
+            _reject(candidate, fp_log, "XSS finding lacks syntax-breaking character injection evidence")
+            return None
+        if "javascript:phantomscan_js" in evidence:
+            _reject(candidate, fp_log, "XSS finding based solely on plain javascript URI probe without HTML context escape")
+            return None
+
     return candidate
 
 
