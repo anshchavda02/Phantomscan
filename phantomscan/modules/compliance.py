@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 OWASP_TOP10_2021 = {
     "A01:2021": {"name": "Broken Access Control", "keywords": [
         "idor", "bola", "access control", "privilege", "authorization",
-        "mass assignment", "session", "csrf", "cors",
+        "mass assignment", "session", "csrf", "cors", "path traversal",
+        "path-traversal", "lfi", "directory traversal",
     ]},
     "A02:2021": {"name": "Cryptographic Failures", "keywords": [
         "ssl", "tls", "certificate", "cipher", "encryption", "jwt",

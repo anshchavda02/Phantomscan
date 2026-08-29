@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from phantomscan.http_client import RobustHTTPClient
+
 logger = logging.getLogger(__name__)
 
 # ── Known chain definitions ──────────────────────────────────────────────────
@@ -302,6 +304,12 @@ _FINDING_TAG_MAP: dict[str, str] = {
     "ai-trpc-unauth": "trpc_unauth",
     "default credentials": "default_creds",
     "ai-default-creds": "default_creds",
+    "path-traversal": "path_traversal",
+    "path traversal": "path_traversal",
+    "directory traversal": "path_traversal",
+    "lfi": "path_traversal",
+    "proto-pollution": "prototype_pollution",
+    "prototype pollution": "prototype_pollution",
 }
 
 
