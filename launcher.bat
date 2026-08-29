@@ -1,21 +1,31 @@
 @echo off
-setlocal enabledelayedexpansion
-title PhantomScan v2.0 - Security Assessment Launcher
+setlocal
+title PhantomScan Launcher
 cd /d "%~dp0"
+chcp 65001 >nul 2>&1
 
 :: Check if PowerShell is available
-where powershell >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [ERROR] PowerShell is required to run PhantomScan Launcher.
-    echo Please install or enable PowerShell and try again.
-    pause
-    exit /b 1
+where powershell.exe >nul 2>&1
+if errorlevel 1 (
+    echo [!] PowerShell not found. Launching Python CLI directly...
+    if exist "%~dp0.venv\Scripts\python.exe" (
+        "%~dp0.venv\Scripts\python.exe" "%~dp0phantomscan.py" %*
+    ) else (
+        python "%~dp0phantomscan.py" %*
+    )
+    if errorlevel 1 pause
+    exit /b %errorlevel%
 )
 
-:: Run PowerShell interactive launcher with bypass policy
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0PhantomScan-Launcher.ps1"
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] PhantomScan Launcher terminated with an error code %errorlevel%.
-    pause
+:: If arguments were passed, run CLI directly; otherwise run interactive launcher
+if "%~1"=="" (
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0PhantomScan-Launcher.ps1"
+) else (
+    if exist "%~dp0.venv\Scripts\python.exe" (
+        "%~dp0.venv\Scripts\python.exe" "%~dp0phantomscan.py" %*
+    ) else (
+        python "%~dp0phantomscan.py" %*
+    )
 )
+
+if errorlevel 1 pause

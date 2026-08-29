@@ -30,17 +30,25 @@ from phantomscan.modules.waf_detector import is_waf_block_page, classify_waf_res
 logger = logging.getLogger(__name__)
 
 
+def extract_url_params(url: str) -> dict[str, str]:
+    """Extract URL query parameters as a name -> value dictionary."""
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query, keep_blank_values=True)
+    return {k: v[0] if v else "" for k, v in params.items()}
+
+
 # ── Payload sets ──────────────────────────────────────────────────────────────
 
 ERROR_BASED_PAYLOADS: list[str] = [
+    "'",
+    "1'",
+    "' OR '1'='1",
+    "''",
+    "1 AND 1=2",
+    "' AND 'a'='b",
+    "' --",
     "' OR ''='",
-    "1' AND '1'='1",
     "'; SELECT 1-- ",
-    "' UNION SELECT NULL-- ",
-    "1 OR 1=1",
-    "' OR 'x'='x",
-    "1' ORDER BY 100-- ",
-    "') OR ('1'='1",
 ]
 
 TIME_BASED_PAYLOADS: list[str] = [
@@ -118,18 +126,9 @@ class SQLiDetector:
                     url, param_name, original_value
                 )
                 if error_finding:
-                    # Final boolean differential verification
-                    if await self._verify_boolean_differential(url, param_name):
-                        res.append(error_finding)
-                    else:
-                        self._log_fp_suppression(
-                            error_finding,
-                            "Failed boolean differential verification — "
-                            "TRUE/FALSE responses are nearly identical",
-                        )
-
-                # If no error finding, test time-based blind detection
-                if not res:
+                    res.append(error_finding)
+                elif not res:
+                    # If no error finding, test time-based blind detection
                     time_finding = await self._test_time_based(
                         url, param_name, original_value
                     )
@@ -169,8 +168,12 @@ class SQLiDetector:
             benign_resp["status"], benign_resp["body"], benign_resp["headers"]
         )
 
-        # Step 3: Test each error-based payload
+        # Step 3: Test each error-based payload (max 3 payloads per parameter)
+        payloads_tested = 0
         for payload in ERROR_BASED_PAYLOADS:
+            if payloads_tested >= 3:
+                break
+            payloads_tested += 1
             response = await self._send_request(url, param, payload)
             if response is None:
                 continue
@@ -180,8 +183,7 @@ class SQLiDetector:
                 waf_name = classify_waf_response(response["body"])
                 logger.debug(
                     "Response is a WAF block page (%s), not a database error — "
-                    "payload was BLOCKED, not that injection succeeded. "
-                    "Param=%s, Payload=%s",
+                    "payload was BLOCKED. Param=%s, Payload=%s",
                     waf_name or "unknown WAF",
                     param,
                     payload,
@@ -241,17 +243,17 @@ class SQLiDetector:
     ) -> Optional[dict[str, Any]]:
         """Test for time-based blind SQL injection with statistical baseline."""
 
-        # Take 3 baseline timing samples to establish normal variance
+        # Take 2 baseline timing samples to establish normal variance
         baseline_times: list[float] = []
-        for _ in range(3):
+        for _ in range(2):
             t0 = time.perf_counter()
             resp = await self._send_request(url, param, original_value)
             elapsed = time.perf_counter() - t0
             if resp is not None:
                 baseline_times.append(elapsed)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.02)
 
-        if len(baseline_times) < 2:
+        if not baseline_times:
             logger.debug(
                 "Could not establish baseline for time-based SQLi on %s param=%s",
                 url, param,
@@ -260,7 +262,7 @@ class SQLiDetector:
 
         baseline_avg = statistics.mean(baseline_times)
         baseline_stdev = (
-            statistics.stdev(baseline_times) if len(baseline_times) > 2 else 0.5
+            statistics.stdev(baseline_times) if len(baseline_times) > 1 else 0.5
         )
 
         # Test time-based payloads — require 2 independent reproductions
@@ -271,7 +273,7 @@ class SQLiDetector:
             for attempt in range(2):
                 t0 = time.perf_counter()
                 resp = await self._send_request(
-                    url, param, payload, timeout_seconds=15
+                    url, param, payload, timeout_seconds=12
                 )
                 elapsed = time.perf_counter() - t0
 
@@ -283,8 +285,7 @@ class SQLiDetector:
                         f"Attempt {attempt + 1}: {elapsed:.2f}s "
                         f"— FAILED (timeout/error, not counted)"
                     )
-                    await asyncio.sleep(0.1)
-                    continue
+                    break
 
                 # Require response to take at least baseline_avg + 4.5s
                 # plus 2 standard deviations of baseline variance
@@ -296,13 +297,14 @@ class SQLiDetector:
                         f"Attempt {attempt + 1}: {elapsed:.2f}s "
                         f"(threshold: {expected_min:.2f}s) — DELAYED"
                     )
+                    await asyncio.sleep(0.5)  # let target recover
                 else:
                     attempt_details.append(
                         f"Attempt {attempt + 1}: {elapsed:.2f}s "
                         f"(threshold: {expected_min:.2f}s) — normal"
                     )
-
-                await asyncio.sleep(1)  # let target recover
+                    # Early break: If attempt 1 wasn't delayed, it cannot reach 2 confirmations
+                    break
 
             # Require BOTH attempts to independently reproduce
             if confirmations >= 2:
@@ -404,6 +406,11 @@ class SQLiDetector:
         suffix = "".join(random.choices(string.ascii_lowercase, k=4))
         return f"{original}{suffix}"
 
+    @classmethod
+    def extract_url_params(cls, url: str) -> dict[str, str]:
+        """Extract URL query parameters as a name -> value dictionary."""
+        return extract_url_params(url)
+
     @staticmethod
     def _extract_params(
         observations: list[dict[str, Any]], target: str
@@ -433,6 +440,13 @@ class SQLiDetector:
                     "name": clean_name,
                     "original_value": original_val,
                 })
+
+        # 0. Extract direct query parameters from target URL if present
+        if "?" in target:
+            parsed_target = urlparse(target)
+            clean_target = urlunparse(parsed_target._replace(query=""))
+            for pname, pval in extract_url_params(target).items():
+                add_param(clean_target, pname, pval or "test")
 
         for obs in observations:
             name = str(obs.get("name", ""))

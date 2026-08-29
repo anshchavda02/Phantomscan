@@ -34,41 +34,83 @@ if exist "%ROOT%requirements.txt" (
 )
 
 echo.
-echo Compiling Go Port Scanner...
-cd /d "%ROOT%engines\go"
-go build -o bin\phantomscan-go.exe main.go
+where go >nul 2>nul
+if not errorlevel 1 (
+  echo Compiling Go Port Scanner...
+  cd /d "%ROOT%engines\go"
+  if not exist "bin" mkdir "bin"
+  go build -o bin\phantomscan-go.exe main.go 2>nul
+  cd /d "%ROOT%"
+) else (
+  echo [info] Go not found on PATH. Python native port scanner will be used.
+)
 
-echo Compiling Rust TLS Inspector...
-cd /d "%ROOT%engines\rust"
-cargo build --release
-cd /d "%ROOT%"
+where cargo >nul 2>nul
+if not errorlevel 1 (
+  echo Compiling Rust TLS Inspector...
+  cd /d "%ROOT%engines\rust"
+  cargo build --release 2>nul
+  cd /d "%ROOT%"
+) else (
+  echo [info] Rust/Cargo not found on PATH. Python native TLS inspector will be used.
+)
 
 echo.
-echo Setting up Node Headless Browser Engine...
 where npm >nul 2>nul
 if not errorlevel 1 (
-  cd /d "%ROOT%engines\node"
-  call npm install --no-audit --no-fund
-  call npx playwright install chromium
-  cd /d "%ROOT%"
+  if exist "%ROOT%engines\node" (
+    echo Setting up Node Headless Browser Engine...
+    cd /d "%ROOT%engines\node"
+    call npm install --no-audit --no-fund 2>nul
+    call npx playwright install chromium 2>nul
+    cd /d "%ROOT%"
+  )
+) else (
+  echo [info] Node/NPM not found on PATH. Optional headless browser engine skipped.
 )
 
 (
   echo @echo off
   echo setlocal
   echo title PhantomScan Launcher
-  echo powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%%~dp0PhantomScan-Launcher.ps1"
+  echo cd /d "%%~dp0"
+  echo chcp 65001 ^>nul 2^>^&1
+  echo where powershell.exe ^>nul 2^>^&1
+  echo if errorlevel 1 ^(
+  echo     if exist "%%~dp0.venv\Scripts\python.exe" ^(
+  echo         "%%~dp0.venv\Scripts\python.exe" "%%~dp0phantomscan.py" %%*
+  echo     ^) else ^(
+  echo         python "%%~dp0phantomscan.py" %%*
+  echo     ^)
+  echo     if errorlevel 1 pause
+  echo     exit /b %%errorlevel%%
+  echo ^)
+  echo if "%%~1"=="" ^(
+  echo     powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%%~dp0PhantomScan-Launcher.ps1"
+  echo ^) else ^(
+  echo     if exist "%%~dp0.venv\Scripts\python.exe" ^(
+  echo         "%%~dp0.venv\Scripts\python.exe" "%%~dp0phantomscan.py" %%*
+  echo     ^) else ^(
+  echo         python "%%~dp0phantomscan.py" %%*
+  echo     ^)
+  echo ^)
   echo if errorlevel 1 pause
 ) > "%ROOT%PhantomScan Launcher.bat"
+copy /y "%ROOT%PhantomScan Launcher.bat" "%ROOT%launcher.bat" >nul
 
 (
   echo @echo off
   echo setlocal
-  echo title PhantomScan
-  echo "%VENV%\Scripts\python.exe" "%ROOT%phantomscan.py" %%*
+  echo title PhantomScan CLI
+  echo cd /d "%%~dp0"
+  echo if exist "%%~dp0.venv\Scripts\python.exe" ^(
+  echo     "%%~dp0.venv\Scripts\python.exe" "%%~dp0phantomscan.py" %%*
+  echo ^) else ^(
+  echo     python "%%~dp0phantomscan.py" %%*
+  echo ^)
 ) > "%ROOT%phantomscan-cli.bat"
 
-copy /Y "%ROOT%PhantomScan Launcher.bat" "%DESKTOP%\PhantomScan Launcher.bat" >nul
+copy /Y "%ROOT%PhantomScan Launcher.bat" "%DESKTOP%\PhantomScan Launcher.bat" >nul 2>nul
 
 echo.
 echo [ok] PhantomScan installed.

@@ -60,13 +60,18 @@ class JWTOAuthTester:
             tokens.append(auth_tok)
         endpoints = self._guess_jwt_endpoints(target, observations)
 
-        for token in tokens[:5]:
-            for endpoint in endpoints[:3]:
-                jwt_findings = await self._test_jwt(token, endpoint)
-                findings.extend(jwt_findings)
+        import asyncio
 
-        oauth_findings = await self._test_oauth(target)
-        findings.extend(oauth_findings)
+        tasks = [
+            self._test_jwt(token, endpoint)
+            for token in tokens[:5]
+            for endpoint in endpoints[:3]
+        ]
+        tasks.append(self._test_oauth(target))
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         return findings
 

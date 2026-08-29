@@ -21,14 +21,58 @@ from phantomscan.modules.waf_detector import is_waf_block_page
 
 logger = logging.getLogger(__name__)
 
-# Strict syntax-breaking payloads — every payload contains < and > or quote breakouts.
-# Plain strings without syntax characters are NEVER used as XSS probes.
+def is_reflected_unencoded(payload: str, body: str) -> bool:
+    """Check if payload appears unencoded in body and not HTML-encoded."""
+    if not payload or payload not in body:
+        return False
+    encoded = payload.replace("<", "&lt;").replace(">", "&gt;")
+    # If HTML-encoded version appears and raw payload is not present outside of it
+    if encoded in body and payload not in body.replace(encoded, ""):
+        return False
+    # If < is in payload, verify literal < is present in body
+    if "<" in payload and "<" not in body:
+        return False
+    # If > is in payload, verify literal > is present in body
+    if ">" in payload and ">" not in body:
+        return False
+    # Check for HTML entity marker escaping
+    marker = payload.replace("<", "").replace(">", "").strip("/\"'")
+    if f"&lt;{marker}" in body or f"&lt;/{marker}" in body or f"&#60;{marker}" in body or f"\\u003c{marker}" in body:
+        return False
+    return True
+
+
+def _determine_context(payload: str, body: str) -> tuple[str, str]:
+    """Determine reflection context (severity, context_name)."""
+    idx = body.find(payload)
+    if idx == -1:
+        return "high", "html_body"
+
+    prefix = body[max(0, idx - 100):idx]
+    suffix = body[idx + len(payload):min(len(body), idx + len(payload) + 100)]
+
+    # Trapped in HTML comment
+    if "<!--" in prefix and "-->" in suffix and "-->" not in prefix:
+        return "info", "html_comment"
+
+    # Trapped inside script string literal without breakout
+    if "<script" in prefix.lower() and "</script>" in suffix.lower():
+        in_double = prefix.count('"') % 2 == 1 and suffix.count('"') % 2 == 1 and '"' not in payload
+        in_single = prefix.count("'") % 2 == 1 and suffix.count("'") % 2 == 1 and "'" not in payload
+        if in_double or in_single:
+            return "info", "script_string_literal"
+
+    return "high", "html_body"
+
+
+# Safe non-destructive marker payloads for reflection testing
 REFLECTED_PAYLOADS: list[str] = [
-    "<phantomscan_xss_probe>",                  # Tag context (< and > required)
-    '"><phantomscan_xss_break>',                # Attribute double-quote breakout
-    "'><phantomscan_xss_break>",                # Attribute single-quote breakout
-    '"><script>/*phantomscan_xss*/</script>',   # Script tag injection
-    '"--><phantomscan_xss_comment>',            # Comment breakout
+    "<phantomscan-xss-test>",
+    '"phantomscan_xss_attr"',
+    "phantomscan'xss",
+    "<phantomscan_xss_probe>",
+    '"><phantomscan_xss_break>',
+    "'><phantomscan_xss_break>",
 ]
 
 
@@ -117,16 +161,15 @@ class XSSScanner:
                 body = response.text()
 
                 # WAF block check
-                if is_waf_block_page(body, response.status):
-                    continue
-
-                # Check if the payload appears UNENCODED in the response
+                           # Check if the payload appears UNENCODED in the response
                 if self._is_reflected_not_encoded(payload, body, baseline_body):
+                    severity, context_type = _determine_context(payload, body)
+                    confidence = "high" if severity == "high" else "low"
                     return {
                         "id": "XSS-REFLECTED",
                         "title": f"Reflected XSS: Parameter '{param_name}'",
-                        "severity": "high",
-                        "confidence": "high",
+                        "severity": severity,
+                        "confidence": confidence,
                         "category": "injection",
                         "target": url,
                         "verification_method": "baseline_differential",
@@ -134,8 +177,9 @@ class XSSScanner:
                             f"Parameter: {param_name}\n"
                             f"Payload: {payload}\n"
                             f"URL: {test_url}\n"
+                            f"Context: {context_type}\n"
                             f"The payload was reflected unencoded in the "
-                            f"HTTP response body (HTML context)."
+                            f"HTTP response body."
                         ),
                         "recommendation": (
                             "Apply context-appropriate output encoding to all "
@@ -178,10 +222,13 @@ class XSSScanner:
                 method = form.get("method", "GET").upper()
                 fields = form.get("fields", [])
 
-                text_types = {"text", "search", "email", "password", "tel", "url", "number", ""}
+                # Exclude password fields from testing
+                text_types = {"text", "search", "email", "tel", "url", "number", ""}
                 text_fields = [
                     f for f in fields
-                    if f.get("type", "text").lower() in text_types and f.get("name")
+                    if f.get("type", "text").lower() in text_types
+                    and f.get("type", "text").lower() != "password"
+                    and f.get("name")
                 ]
 
                 for field_info in text_fields:
@@ -224,11 +271,13 @@ class XSSScanner:
                             continue
 
                         if self._is_reflected_not_encoded(payload, body):
+                            severity, context_type = _determine_context(payload, body)
+                            confidence = "high" if severity == "high" else "low"
                             return {
                                 "id": "XSS-REFLECTED-FORM",
                                 "title": f"Reflected XSS: Form Field '{field_name}'",
-                                "severity": "high",
-                                "confidence": "high",
+                                "severity": severity,
+                                "confidence": confidence,
                                 "category": "injection",
                                 "target": action,
                                 "verification_method": "baseline_differential",
@@ -237,6 +286,7 @@ class XSSScanner:
                                     f"Method: {method}\n"
                                     f"Field: {field_name}\n"
                                     f"Payload: {payload}\n"
+                                    f"Context: {context_type}\n"
                                     f"The payload was reflected unencoded in "
                                     f"the HTTP response body."
                                 ),
@@ -263,39 +313,11 @@ class XSSScanner:
 
     @staticmethod
     def _is_reflected_not_encoded(payload: str, body: str, baseline_body: str = "") -> bool:
-        """Confirm the payload appears unencoded in the response.
-
-        Requirements for a valid XSS reflection:
-        1. The payload must be in the response body.
-        2. The payload must NOT be already present in the baseline body.
-        3. The payload MUST contain HTML syntax characters (<, >) and they must
-           appear literally (not as &lt;, &gt;, &#60;, &#62;, \\u003c, or %3C).
-        4. The reflection must not be purely trapped inside an encoded URL parameter.
-        """
-        if not payload or payload not in body:
+        """Confirm the payload appears unencoded in the response."""
+        if not is_reflected_unencoded(payload, body):
             return False
-
-        # If already in baseline body, it's pre-existing static content
         if baseline_body and payload in baseline_body:
             return False
-
-        # Payloads must contain syntax-breaking characters to prove XSS
-        if "<" not in payload and ">" not in payload and '"' not in payload and "'" not in payload:
-            return False
-
-        # Check for HTML entity encoding
-        if "<" in payload:
-            # If the response only has &lt; instead of raw < for our marker, it's safe
-            marker = payload.replace("<", "").replace(">", "").strip("/\"'")
-            if f"&lt;{marker}" in body or f"&lt;/{marker}" in body or f"&#60;{marker}" in body or f"\\u003c{marker}" in body:
-                return False
-
-        # If payload contains tag brackets, verify they are present in raw form
-        if "<" in payload and "<" not in body:
-            return False
-        if ">" in payload and ">" not in body:
-            return False
-
         return True
 
     @staticmethod
@@ -324,6 +346,13 @@ class XSSScanner:
                 seen_keys.add(key)
                 param_counts[name_clean] = current_count + 1
                 params.append({"url": url, "name": name_clean})
+
+        # 0. Extract direct query parameters from target URL if present
+        if "?" in target:
+            parsed_target = urlparse(target)
+            clean_target = urlunparse(parsed_target._replace(query=""))
+            for pname in parse_qs(parsed_target.query, keep_blank_values=True):
+                add(clean_target, pname)
 
         for obs in observations:
             obs_name = str(obs.get("name", ""))

@@ -70,20 +70,33 @@ class PrivacyScanner:
         if base_url and base_url not in urls_to_check:
             urls_to_check.insert(0, base_url)
 
+        import asyncio
         findings: list[dict[str, Any]] = []
         checked = set()
-        for url in urls_to_check[:30]:  # Limit to 30 URLs
-            if not url or url in checked:
-                continue
-            checked.add(url)
-            try:
-                resp = await self.http.get(url, retries=1)
-                body = resp.text() if hasattr(resp, "text") and callable(resp.text) else getattr(resp, "body", "")
-                if isinstance(body, bytes):
-                    body = body.decode("utf-8", errors="ignore")
-                findings.extend(await self.scan_response(url, str(body)))
-            except Exception as exc:
-                logger.debug("Privacy scan error for %s: %s", url, exc)
+        unique_urls = []
+        for url in urls_to_check[:30]:
+            if url and url not in checked:
+                checked.add(url)
+                unique_urls.append(url)
+
+        sem = asyncio.Semaphore(15)
+
+        async def check_url(url: str) -> list[dict[str, Any]]:
+            async with sem:
+                try:
+                    resp = await self.http.get(url, retries=1)
+                    body = resp.text() if hasattr(resp, "text") and callable(resp.text) else getattr(resp, "body", "")
+                    if isinstance(body, bytes):
+                        body = body.decode("utf-8", errors="ignore")
+                    return await self.scan_response(url, str(body))
+                except Exception as exc:
+                    logger.debug("Privacy scan error for %s: %s", url, exc)
+                    return []
+
+        results = await asyncio.gather(*(check_url(u) for u in unique_urls), return_exceptions=True)
+        for r in results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         return findings
 

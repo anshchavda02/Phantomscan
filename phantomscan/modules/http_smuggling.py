@@ -40,17 +40,15 @@ class HTTPSmugglingDetector:
         if port == 443:
             port = 80
 
-        clte = await self._test_clte(host, port)
-        if clte:
-            findings.append(clte)
-
-        tecl = await self._test_tecl(host, port)
-        if tecl:
-            findings.append(tecl)
-
-        tete = await self._test_tete(host, port)
-        if tete:
-            findings.append(tete)
+        results = await asyncio.gather(
+            self._test_clte(host, port),
+            self._test_tecl(host, port),
+            self._test_tete(host, port),
+            return_exceptions=True,
+        )
+        for r in results:
+            if isinstance(r, dict) and r:
+                findings.append(r)
 
         return findings
 

@@ -151,6 +151,9 @@ class CloudMetadataDetector:
 
     async def _probe_metadata_direct(self) -> list[dict[str, Any]]:
         """Probe metadata endpoints directly (useful if scanner is in the cloud)."""
+        import aiohttp as _aiohttp
+        import asyncio
+
         findings: list[dict[str, Any]] = []
         probes = [
             ("AWS IMDSv1", "http://169.254.169.254/latest/meta-data/",
@@ -160,14 +163,16 @@ class CloudMetadataDetector:
             ("Azure", "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
              {"Metadata": "true"}, ["compute", "vmId"]),
         ]
-        for provider, url, headers, signals in probes:
+
+        async def probe_one(provider: str, url: str, headers: dict[str, str], signals: list[str]) -> dict[str, Any] | None:
             try:
                 response = await self.http.get(
                     url, headers=headers, retries=1,
+                    timeout=_aiohttp.ClientTimeout(total=1.5, connect=1.0),
                 )
                 body = response.text()
                 if response.status == 200 and any(s in body for s in signals):
-                    findings.append({
+                    return {
                         "id": f"CLOUD-METADATA-DIRECT-{provider.split()[0].upper()}",
                         "title": f"Cloud Metadata Service Accessible ({provider})",
                         "severity": "critical",
@@ -183,7 +188,13 @@ class CloudMetadataDetector:
                             f"For all: restrict metadata access via network "
                             f"policies and firewall rules."
                         ),
-                    })
+                    }
             except Exception:
-                continue
+                pass
+            return None
+
+        results = await asyncio.gather(*(probe_one(*p) for p in probes), return_exceptions=True)
+        for r in results:
+            if isinstance(r, dict) and r:
+                findings.append(r)
         return findings

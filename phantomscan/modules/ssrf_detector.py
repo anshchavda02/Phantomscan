@@ -79,21 +79,27 @@ class SSRFDetector:
         except Exception:
             pass
 
-        for param_info in url_params[:15]:
+        sem = asyncio.Semaphore(10)
+
+        async def test_one_param(param_info: dict[str, Any]) -> list[dict[str, Any]]:
             url = param_info["url"]
             param = param_info["name"]
+            res: list[dict[str, Any]] = []
+            async with sem:
+                meta_findings = await self._test_cloud_metadata(url, param, baseline_body)
+                res.extend(meta_findings)
 
-            # Test 1: Cloud metadata via SSRF
-            meta_findings = await self._test_cloud_metadata(url, param, baseline_body)
-            findings.extend(meta_findings)
+                bypass_findings = await self._test_ssrf_bypass(url, param, baseline_body)
+                res.extend(bypass_findings)
 
-            # Test 2: SSRF bypass techniques
-            bypass_findings = await self._test_ssrf_bypass(url, param, baseline_body)
-            findings.extend(bypass_findings)
+                oob_findings = await self._test_blind_ssrf(url, param)
+                res.extend(oob_findings)
+            return res
 
-            # Test 3: Blind SSRF via OOB
-            oob_findings = await self._test_blind_ssrf(url, param)
-            findings.extend(oob_findings)
+        results = await asyncio.gather(*(test_one_param(p) for p in url_params[:15]), return_exceptions=True)
+        for r in results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         return findings
 

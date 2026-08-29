@@ -12,4 +12,10 @@ node_modules/
 .pytest_cache/
 *.zip
 *.pptx
+*.docx
+*.tex
+*.bib
+docs/research_paper/
+research/
 .DS_Store
+benchmark_results_*.json
