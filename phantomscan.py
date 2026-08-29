@@ -40,6 +40,8 @@ from phantomscan.advanced_scan import run_advanced_modules
 from phantomscan.http_client import RobustHTTPClient, http_client
 from phantomscan.js_analyzer import JSRouteExtractor
 from phantomscan.openapi_parser import OpenAPIParser
+from phantomscan.web_crawler import WebCrawler
+from phantomscan.local_app_profiles import detect_app_profile, get_profile, profile_to_observations
 
 # Enterprise modules
 from modules.http_pool import SharedHTTPPool
@@ -107,7 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan_group.add_argument(
         "--profile",
         default="quick",
-        choices=["quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep"],
+        choices=["quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "deepscan"],
         help="Scan profile to execute:\n"
              "  quick      - Fast HTTP checks, top 100 ports, basic TLS\n"
              "  full       - Deep web analysis, full TLS, concurrent port scan, YAML engine\n"
@@ -115,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
              "  api        - API-focused HTTP analysis without web crawling\n"
              "  network    - Intensive Go port-scanner focused profile\n"
              "  advanced   - Run 35 advanced security modules (Logic, IDOR, AI/Vibe-Coded, Takeover, PII, etc.)\n"
-             "  deep       - Full scan + Advanced scan modules combined"
+             "  deep/deepscan - Comprehensive all-in-one scan: Full reconnaissance, deep crawling, port scan, TLS, and all 35+ advanced security modules"
     )
     scan_group.add_argument("--ports", default="top100", help="Ports to scan (e.g., 'top100', 'top1000', or '80,443,8080')")
     scan_group.add_argument("--proxy", help="Start Passive Proxy Mode on HOST:PORT (e.g., 127.0.0.1:8080) to intercept and feed browser traffic to the YAML engine")
@@ -123,6 +125,13 @@ def build_parser() -> argparse.ArgumentParser:
     scan_group.add_argument("--modules", help="Comma-separated list of specific advanced modules to run (e.g., 'ai_app_security,idor')")
     scan_group.add_argument("--source-path", help="Path to local source code for hybrid black-box + white-box analysis (enables ORM, Prisma, Drizzle, and .env git-history checks)")
     scan_group.add_argument("--check-slopsquatting", action="store_true", help="Check project dependencies for AI-hallucinated packages (slopsquatting). Requires --source-path.")
+    scan_group.add_argument(
+        "--local-app",
+        choices=["juiceshop", "dvwa", "webgoat", "bwapp", "vulnweb", "auto"],
+        help="Optimize scan for a known vulnerable app (auto-detects if 'auto')",
+    )
+    scan_group.add_argument("--crawl-depth", type=int, default=None,
+                           help="Web crawler depth (overrides --depth for crawling)")
 
 
     # Authenticated & Multi-Role Scanning (Module 1)
@@ -316,6 +325,8 @@ async def scan_one(
     args: argparse.Namespace, target_value: str, root: Path
 ) -> dict[str, Any]:
     """Run one authorised scan and return the full report dict."""
+    if getattr(args, "profile", "") == "deepscan":
+        args.profile = "deep"
     target = parse_target(target_value)
     logger = setup_logger(root, target.host, args.debug, args.log_file)
     logger.info(
@@ -395,7 +406,7 @@ async def scan_one(
             findings.extend(item.to_dict() if hasattr(item, "to_dict") else item for item in open_findings)
 
     # ── SPA & JavaScript Route Analysis ───────────────────────────────────────
-    DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep")
+    DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep", "deepscan")
     if args.profile in DEEP_PROFILES:
         async def _run_js_analyzer() -> tuple[list[Any], list[Any]]:
             async with http_client() as client:
@@ -419,8 +430,67 @@ async def scan_one(
         if isinstance(js_sec_res, (list, tuple)):
             findings.extend(item.to_dict() if hasattr(item, "to_dict") else item for item in js_sec_res)
 
+    # ── Emit is_local_target observation for score calibration ─────────────
+    if target.is_local:
+        observations.append(
+            Observation("is_local_target", True, "scope").to_dict()
+        )
+
+    # ── Local app profile detection + known endpoints ─────────────────────
+    local_app_key = getattr(args, "local_app", None)
+    if local_app_key == "auto" or (target.is_local and not local_app_key):
+        # Auto-detect by fingerprinting the main page body
+        body_sample = ""
+        for obs in observations:
+            if obs.get("name") == "body_sample":
+                body_sample = str(obs.get("value", ""))
+                break
+        detected = detect_app_profile(body_sample, target_host=target.host)
+        if detected:
+            local_app_key = detected
+            if not args.silent:
+                cprint(f"[*] Auto-detected local app: {get_profile(detected)['name']}", "green")
+
+    if local_app_key and local_app_key != "auto":
+        profile_obs = profile_to_observations(local_app_key, effective_url)
+        observations.extend(profile_obs)
+        logger.info(
+            "Local app profile '%s' injected %d known endpoints",
+            local_app_key, len([o for o in profile_obs if o.get("name") == "discovered_urls"]),
+        )
+
+    # ── Web crawling (parameter & form discovery) ─────────────────────────
+    CRAWL_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep", "deepscan")
+    if args.profile in CRAWL_PROFILES or args.profile != "passive":
+        crawl_depth = getattr(args, "crawl_depth", None) or args.depth
+        if args.profile in ("deep", "deepscan"):
+            crawler_pages = 100
+            crawler_depth = max(crawl_depth, 3)
+        elif args.profile in ("owasp", "advanced"):
+            crawler_pages = 60
+            crawler_depth = max(crawl_depth, 2)
+        else:
+            crawler_pages = 50
+            crawler_depth = crawl_depth
+
+        async def _run_crawler() -> list[Any]:
+            async with http_client() as client:
+                crawler = WebCrawler(client, max_pages=crawler_pages, max_depth=crawler_depth)
+                result = await crawler.crawl(effective_url)
+                return crawler.to_observations(result, effective_url)
+
+        crawl_obs = await timed_step(
+            "Web crawling (links, forms, APIs)", logger, observations, args.silent,
+            _run_crawler,
+        )
+        if isinstance(crawl_obs, list):
+            observations.extend(
+                item.to_dict() if hasattr(item, "to_dict") else item
+                for item in crawl_obs
+            )
+
     # Deep web analysis (sensitive paths, CORS, disclosures, redirect)
-    DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep")
+    DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep", "deepscan")
     if args.profile in DEEP_PROFILES:
         deep_findings = await timed_step(
             "Deep web analysis", logger, observations, args.silent,
@@ -521,12 +591,12 @@ async def scan_one(
                     cprint(f"[!] {name}: {warning}", "yellow")
 
     # ── Advanced modules phase ────────────────────────────────────────────────
-    if args.advanced or args.modules or args.profile in ("advanced", "deep", "monitor"):
+    if args.advanced or args.modules or args.profile in ("advanced", "deep", "deepscan", "monitor"):
         client = RobustHTTPClient()
         await client.start()
         try:
             adv_profile = args.modules if args.modules else args.profile
-            if args.advanced and adv_profile not in ("advanced", "deep", "monitor") and not args.modules:
+            if args.advanced and adv_profile not in ("advanced", "deep", "deepscan", "monitor") and not args.modules:
                 adv_profile = "advanced"
 
             adv_findings, new_obs = await timed_step(

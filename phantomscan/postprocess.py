@@ -261,12 +261,28 @@ def _observation_text(observations: list[dict[str, Any]], needle: str) -> str:
 def _scan_completeness_penalty(observations: list[dict[str, Any]]) -> int:
     names = {str(_get_obs_field(item, "name", "")) for item in observations}
     text = " ".join(str(_get_obs_field(item, "value", "")) for item in observations).lower()
+
+    # Detect if this is a local target — skip infra penalties that are
+    # irrelevant for local dev servers (WHOIS, DNS, TLS)
+    is_local = False
+    for item in observations:
+        if _get_obs_field(item, "name") == "is_local_target":
+            is_local = bool(_get_obs_field(item, "value"))
+            break
+        if _get_obs_field(item, "name") == "local_app_profile":
+            is_local = True
+            break
+        ip_val = str(_get_obs_field(item, "value", ""))
+        if _get_obs_field(item, "name") == "ip" and ip_val in ("127.0.0.1", "::1"):
+            is_local = True
+            break
+
     penalty = 0
-    if "http_error" in names:
+    if "http_error" in names and not is_local:
         penalty += 8
-    if "tls_error" in names or "tls service could not be verified" in text:
+    if ("tls_error" in names or "tls service could not be verified" in text) and not is_local:
         penalty += 6
-    if "whois_info" in names and "unavailable" in text:
+    if "whois_info" in names and "unavailable" in text and not is_local:
         penalty += 2
     # Port scan penalty — covers both Go engine and Python fallback observation names
     port_scan_done = (
@@ -274,8 +290,9 @@ def _scan_completeness_penalty(observations: list[dict[str, Any]]) -> int:
         or "port_scan_results" in names
         or any("go-portscan" in name or "python-portscan" in name for name in names)
     )
-    if not port_scan_done:
+    if not port_scan_done and not is_local:
         penalty += 3
-    if "dns_error" in names:
+    if "dns_error" in names and not is_local:
         penalty += 8
     return min(25, penalty)
+

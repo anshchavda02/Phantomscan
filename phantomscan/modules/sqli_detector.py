@@ -104,32 +104,44 @@ class SQLiDetector:
         target = base_url.rstrip("/")
 
         params = self._extract_params(observations, target)
-        for param_info in params[:15]:  # Cap to avoid excessive requests
+        sem = asyncio.Semaphore(10)
+
+        async def test_one(param_info: dict[str, Any]) -> list[dict[str, Any]]:
             url = param_info.get("url", target)
             param_name = param_info.get("name", "q")
             original_value = param_info.get("original_value", "test")
+            res: list[dict[str, Any]] = []
 
-            # Error-based detection
-            error_finding = await self._test_error_based(
-                url, param_name, original_value
-            )
-            if error_finding:
-                # Final boolean differential verification
-                if await self._verify_boolean_differential(url, param_name):
-                    findings.append(error_finding)
-                else:
-                    self._log_fp_suppression(
-                        error_finding,
-                        "Failed boolean differential verification — "
-                        "TRUE/FALSE responses are nearly identical",
+            async with sem:
+                # Error-based detection
+                error_finding = await self._test_error_based(
+                    url, param_name, original_value
+                )
+                if error_finding:
+                    # Final boolean differential verification
+                    if await self._verify_boolean_differential(url, param_name):
+                        res.append(error_finding)
+                    else:
+                        self._log_fp_suppression(
+                            error_finding,
+                            "Failed boolean differential verification — "
+                            "TRUE/FALSE responses are nearly identical",
+                        )
+
+                # If no error finding, test time-based blind detection
+                if not res:
+                    time_finding = await self._test_time_based(
+                        url, param_name, original_value
                     )
+                    if time_finding:
+                        res.append(time_finding)
+            return res
 
-            # Time-based blind detection
-            time_finding = await self._test_time_based(
-                url, param_name, original_value
-            )
-            if time_finding:
-                findings.append(time_finding)
+        tasks = [test_one(p) for p in params[:30]]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         return findings
 
@@ -398,13 +410,29 @@ class SQLiDetector:
     ) -> list[dict[str, Any]]:
         """Extract injectable parameters from scan observations and discovered API routes."""
         params: list[dict[str, Any]] = []
-        seen_keys: set[tuple[str, str]] = set()
+        seen_params: set[tuple[str, str]] = set()
+        param_counts: dict[str, int] = {}
 
         def add_param(url: str, name: str, original_val: str = "test") -> None:
-            key = (url, name)
-            if key not in seen_keys and len(params) < 40:
-                seen_keys.add(key)
-                params.append({"url": url, "name": name, "original_value": original_val})
+            clean_name = name.strip()
+            if clean_name.startswith("amp;"):
+                clean_name = clean_name.removeprefix("amp;")
+            if not clean_name:
+                return
+
+            current_count = param_counts.get(clean_name, 0)
+            if current_count >= 2:
+                return
+
+            key = (url, clean_name)
+            if key not in seen_params and len(params) < 40:
+                seen_params.add(key)
+                param_counts[clean_name] = current_count + 1
+                params.append({
+                    "url": url,
+                    "name": clean_name,
+                    "original_value": original_val,
+                })
 
         for obs in observations:
             name = str(obs.get("name", ""))
@@ -425,7 +453,33 @@ class SQLiDetector:
                             for p in ("q", "search", "id", "query", "name"):
                                 add_param(clean_url, p, "test")
 
-            # 2. Discovered API routes (from JS bundles)
+            # 2. Parameterized URLs from web crawler
+            if name == "parameterized_urls" and isinstance(val, list):
+                for u in val:
+                    if isinstance(u, str) and u.startswith("http"):
+                        parsed = urlparse(u)
+                        clean_url = urlunparse(parsed._replace(query=""))
+                        qs = parse_qs(parsed.query)
+                        for pname, pvalues in qs.items():
+                            add_param(clean_url, pname, pvalues[0] if pvalues else "test")
+
+            # 3. Discovered forms — extract text input fields
+            if name == "discovered_forms" and isinstance(val, list):
+                for form in val:
+                    if not isinstance(form, dict):
+                        continue
+                    action = form.get("action", target)
+                    fields = form.get("fields", [])
+                    injectable_types = {"text", "search", "email", "password", "number", ""}
+                    for fld in fields:
+                        if isinstance(fld, dict):
+                            ftype = fld.get("type", "text").lower()
+                            fname = fld.get("name", "")
+                            fval = fld.get("value", "test")
+                            if ftype in injectable_types and fname:
+                                add_param(action, fname, fval or "test")
+
+            # 4. Discovered API routes (from JS bundles)
             if "discovered_api_routes" in name and isinstance(val, list):
                 for route in val:
                     if isinstance(route, str) and not route.startswith("#"):
@@ -434,7 +488,22 @@ class SQLiDetector:
                             for p in ("q", "search", "id", "query"):
                                 add_param(full_url, p, "test")
 
-            # 3. OpenAPI endpoints
+            # 5. Discovered API endpoints from crawler
+            if name == "discovered_api_endpoints" and isinstance(val, list):
+                for ep in val:
+                    if isinstance(ep, dict) and "url" in ep:
+                        ep_url = ep["url"]
+                        parsed = urlparse(ep_url)
+                        clean_url = urlunparse(parsed._replace(query=""))
+                        qs = parse_qs(parsed.query)
+                        for pname, pvalues in qs.items():
+                            add_param(clean_url, pname, pvalues[0] if pvalues else "test")
+                        # For API endpoints, also test common param names
+                        if any(kw in ep_url.lower() for kw in ["search", "product", "user", "filter", "find", "query"]):
+                            for p in ("q", "search", "id", "query"):
+                                add_param(clean_url, p, "test")
+
+            # 6. OpenAPI endpoints
             if "openapi_endpoints" in name and isinstance(val, list):
                 for ep in val:
                     if isinstance(ep, dict) and "url" in ep:

@@ -52,6 +52,10 @@ MODULE_REGISTRY: dict[str, str] = {
     "ai_app_security":      ".ai_app_security.AIAppSecurityScanner",
     # SQL Injection with multi-layer verification
     "sqli_detector":        ".sqli_detector.SQLiDetector",
+    # Reflected XSS detection via parameter/form testing
+    "xss_scanner":          ".xss_scanner.XSSScanner",
+    # Path traversal / local file inclusion
+    "path_traversal":       ".path_traversal.PathTraversalScanner",
 }
 
 
