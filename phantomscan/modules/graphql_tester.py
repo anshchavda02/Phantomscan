@@ -36,31 +36,36 @@ class GraphQLTester:
         findings: list[dict[str, Any]] = []
         target = base_url.rstrip("/")
 
-        # Discover GraphQL endpoints
+        import asyncio
+
+        # Discover GraphQL endpoints concurrently
         endpoints = await self._discover_graphql(target)
 
-        for endpoint in endpoints:
-            introspection = await self._test_introspection(endpoint)
-            if introspection:
-                findings.append(introspection)
+        async def test_endpoint(endpoint: str) -> list[dict[str, Any]]:
+            res: list[dict[str, Any]] = []
+            tasks = [
+                self._test_introspection(endpoint),
+                self._test_depth_limit(endpoint),
+                self._test_batching(endpoint),
+                self._test_field_suggestions(endpoint),
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for r in results:
+                if isinstance(r, dict) and r:
+                    res.append(r)
+            return res
 
-            depth = await self._test_depth_limit(endpoint)
-            if depth:
-                findings.append(depth)
-
-            batch = await self._test_batching(endpoint)
-            if batch:
-                findings.append(batch)
-
-            suggestions = await self._test_field_suggestions(endpoint)
-            if suggestions:
-                findings.append(suggestions)
+        endpoint_results = await asyncio.gather(*(test_endpoint(ep) for ep in endpoints), return_exceptions=True)
+        for r in endpoint_results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         return findings
 
     async def _discover_graphql(self, target: str) -> list[str]:
-        found: list[str] = []
-        for path in _GRAPHQL_PATHS:
+        import asyncio
+
+        async def check_path(path: str) -> str | None:
             url = f"{target}{path}"
             try:
                 response = await self.http.post(
@@ -72,10 +77,13 @@ class GraphQLTester:
                 if response.status == 200 and (
                     "__typename" in body or "data" in body or "errors" in body
                 ):
-                    found.append(url)
+                    return url
             except Exception:
-                continue
-        return found
+                pass
+            return None
+
+        results = await asyncio.gather(*(check_path(p) for p in _GRAPHQL_PATHS), return_exceptions=True)
+        return [r for r in results if isinstance(r, str) and r]
 
     async def _test_introspection(self, endpoint: str) -> dict[str, Any] | None:
         try:

@@ -1986,44 +1986,52 @@ class EnvDebugScanner:
         """Probe each path and return findings for exposed resources."""
         findings: list[dict[str, Any]] = []
         from urllib.parse import urlparse
+        import asyncio
         parsed = urlparse(target)
         if parsed.scheme and parsed.netloc:
             base = f"{parsed.scheme}://{parsed.netloc}"
         else:
             base = target.rstrip("/")
 
-        for path in self.PATHS_TO_CHECK:
+        sem = asyncio.Semaphore(15)
+
+        async def probe_one(path: str) -> dict[str, Any] | None:
             url = base + path
-            try:
-                resp = await self.http.get(url, retries=1)
-                status = getattr(resp, "status", getattr(resp, "status_code", 0))
-                if status != 200:
-                    continue
+            async with sem:
+                try:
+                    resp = await self.http.get(url, retries=1)
+                    status = getattr(resp, "status", getattr(resp, "status_code", 0))
+                    if status != 200:
+                        return None
 
-                if hasattr(resp, "text"):
-                    if callable(resp.text):
-                        body = resp.text()
+                    if hasattr(resp, "text"):
+                        if callable(resp.text):
+                            body = resp.text()
+                        else:
+                            body = str(resp.text)
+                    elif hasattr(resp, "body"):
+                        if isinstance(resp.body, bytes):
+                            body = resp.body.decode("utf-8", errors="ignore")
+                        else:
+                            body = str(resp.body)
                     else:
-                        body = str(resp.text)
-                elif hasattr(resp, "body"):
-                    if isinstance(resp.body, bytes):
-                        body = resp.body.decode("utf-8", errors="ignore")
-                    else:
-                        body = str(resp.body)
-                else:
-                    body = str(resp)
+                        body = str(resp)
 
-                headers = getattr(resp, "headers", {})
-                ct = ""
-                if isinstance(headers, dict):
-                    ct = headers.get("content-type", headers.get("Content-Type", "")).lower()
+                    headers = getattr(resp, "headers", {})
+                    ct = ""
+                    if isinstance(headers, dict):
+                        ct = headers.get("content-type", headers.get("Content-Type", "")).lower()
 
-                finding = self._classify(path, url, body, ct)
-                if finding:
-                    findings.append(finding)
+                    return self._classify(path, url, body, ct)
 
-            except Exception as exc:
-                logger.debug("Env/debug scan error %s: %s", url, exc)
+                except Exception as exc:
+                    logger.debug("Env/debug scan error %s: %s", url, exc)
+                    return None
+
+        results = await asyncio.gather(*(probe_one(p) for p in self.PATHS_TO_CHECK), return_exceptions=True)
+        for r in results:
+            if isinstance(r, dict) and r:
+                findings.append(r)
 
         return findings
 
@@ -2170,21 +2178,24 @@ class DefaultCredChecker:
         """Try default credentials against discovered login endpoints."""
         findings: list[dict[str, Any]] = []
         base = target.rstrip("/")
+        import asyncio
 
-        for login_path in self.LOGIN_PATHS:
+        async def probe_endpoint(login_path: str) -> str | None:
             url = base + login_path
-
-            # First verify this endpoint actually exists
             try:
                 probe = await self.http.post(
                     url, json={"username": "", "password": ""}, retries=1,
                 )
-                # Skip endpoints that 404 or 405
-                if probe.status in (404, 405):
-                    continue
+                if probe.status not in (404, 405):
+                    return url
             except Exception:
-                continue
+                pass
+            return None
 
+        probe_results = await asyncio.gather(*(probe_endpoint(p) for p in self.LOGIN_PATHS), return_exceptions=True)
+        valid_urls = [r for r in probe_results if isinstance(r, str) and r]
+
+        for url in valid_urls:
             # Try each default credential pair
             for username, password, label in self.DEFAULT_CREDENTIALS:
                 try:
@@ -2370,34 +2381,38 @@ class AIAppSecurityScanner:
             fb_findings = await fb_auditor.audit_legacy(fb_url)
             findings.extend(fb_findings)
 
-        # ── Sub-scanner 5: Alternative Backend Auditor ──────────────────
+        # ── Concurrently run independent sub-scanners (5, 6, 7, 10, 12, 13, 14) ──
+        logger.info("Running AI backend, ORM, tRPC, abuse, CRUD, env, and cred sub-scanners concurrently...")
         alt_auditor = AlternativeBackendAuditor(self.http)
-        mongo_findings = await alt_auditor.check_mongodb_exposure(html_body)
-        findings.extend(mongo_findings)
-        pg_findings = await alt_auditor.check_raw_postgres_exposure(html_body)
-        findings.extend(pg_findings)
-
-        # ── Sub-scanner 6: ORM Misconfiguration Detector ────────────────
         orm_detector = ORMMisconfigDetector(self.http)
-        prisma_findings = await orm_detector.check_prisma(source_path, html_body)
-        findings.extend(prisma_findings)
-
-        # ── Sub-scanner 7: tRPC Endpoint Prober ─────────────────────────
-        logger.info("Running tRPC Prober...")
         trpc_prober = TRPCProber(self.http)
-        trpc_findings = await trpc_prober.discover_and_test(target)
-        findings.extend(trpc_findings)
-
-        # ── Sub-scanner 10: Serverless Abuse Detector ───────────────────
-        logger.info("Running Serverless Abuse Detector...")
         abuse_detector = ServerlessAbuseDetector(self.http)
-        abuse_findings = await abuse_detector.detect(target, crawled_urls)
-        findings.extend(abuse_findings)
+        crud_checker = CRUDOwnershipChecker(self.http) if api_endpoints else None
+        env_scanner = EnvDebugScanner(self.http)
+        cred_checker = DefaultCredChecker(self.http)
+
+        async def _noop() -> list[dict[str, Any]]:
+            return []
+
+        sub_tasks = [
+            alt_auditor.check_mongodb_exposure(html_body),
+            alt_auditor.check_raw_postgres_exposure(html_body),
+            orm_detector.check_prisma(source_path, html_body),
+            trpc_prober.discover_and_test(target),
+            abuse_detector.detect(target, crawled_urls),
+            crud_checker.check(api_endpoints) if crud_checker else _noop(),
+            env_scanner.scan(target),
+            cred_checker.check(target),
+        ]
+        sub_results = await asyncio.gather(*sub_tasks, return_exceptions=True)
+        for r in sub_results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         # ── Sub-scanner 11: System Prompt Leak Detector ─────────────────
         ai_endpoints_found = [
             f["target"]
-            for f in abuse_findings
+            for f in findings
             if f.get("id") == "AI-PROXY-UNAUTH"
         ]
         if ai_endpoints_found:
@@ -2406,25 +2421,6 @@ class AIAppSecurityScanner:
             for ep in ai_endpoints_found[:3]:
                 leak_findings = await leak_detector.test(ep)
                 findings.extend(leak_findings)
-
-        # ── Sub-scanner 12: CRUD Ownership Checker ──────────────────────
-        if api_endpoints:
-            logger.info("Running CRUD Ownership Checker...")
-            crud_checker = CRUDOwnershipChecker(self.http)
-            crud_findings = await crud_checker.check(api_endpoints)
-            findings.extend(crud_findings)
-
-        # ── Sub-scanner 13: Env & Debug Route Scanner ───────────────────
-        logger.info("Running Environment & Debug Scanner...")
-        env_scanner = EnvDebugScanner(self.http)
-        env_findings = await env_scanner.scan(target)
-        findings.extend(env_findings)
-
-        # ── Sub-scanner 14: Default Credential Checker ──────────────────
-        logger.info("Running Default Credential Checker...")
-        cred_checker = DefaultCredChecker(self.http)
-        cred_findings = await cred_checker.check(target)
-        findings.extend(cred_findings)
 
         # ── Sub-scanner 9: Hybrid Source-Aware Scan ─────────────────────
         if source_path:

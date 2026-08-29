@@ -17,7 +17,5 @@ node_modules/
 *.bib
 docs/research_paper/
 research/
-*research*paper*
-*RESEARCH*PAPER*
 .DS_Store
-
+benchmark_results_*.json

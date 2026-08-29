@@ -32,7 +32,7 @@ class CatchAllDetector:
         else:
             root = web_root.rstrip("/")
 
-        test_path = f"/{uuid.uuid4().hex[:12]}"
+        test_path = f"/{uuid.uuid4().hex}"
         test_url = root.rstrip("/") + test_path
 
         client = self.http

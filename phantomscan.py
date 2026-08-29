@@ -351,23 +351,24 @@ async def scan_one(
     )
     observations.extend(item.to_dict() for item in dns_obs)
 
-    detail_obs = await timed_step(
-        "Fetching DNS records", logger, observations, args.silent,
-        collect_dns_records, target, logger,
-    )
-    observations.extend(item.to_dict() for item in detail_obs)
+    if not target.is_local:
+        detail_obs = await timed_step(
+            "Fetching DNS records", logger, observations, args.silent,
+            collect_dns_records, target, logger,
+        )
+        observations.extend(item.to_dict() for item in detail_obs)
 
-    whois_obs = await timed_step(
-        "Running WHOIS/RDAP lookup", logger, observations, args.silent,
-        lookup_whois, target, 15.0, logger,
-    )
-    observations.extend(item.to_dict() for item in whois_obs)
+        whois_obs = await timed_step(
+            "Running WHOIS/RDAP lookup", logger, observations, args.silent,
+            lookup_whois, target, 15.0, logger,
+        )
+        observations.extend(item.to_dict() for item in whois_obs)
 
-    subdomain_obs = await timed_step(
-        "Enumerating subdomains", logger, observations, args.silent,
-        enumerate_subdomains, target, logger,
-    )
-    observations.extend(item.to_dict() for item in subdomain_obs)
+        subdomain_obs = await timed_step(
+            "Enumerating subdomains", logger, observations, args.silent,
+            enumerate_subdomains, target, logger,
+        )
+        observations.extend(item.to_dict() for item in subdomain_obs)
 
     # ── HTTP analysis ─────────────────────────────────────────────────────────
     http_obs, http_findings = await timed_step(
@@ -573,22 +574,31 @@ async def scan_one(
         observations.extend(item.to_dict() for item in tls_obs)
         findings.extend(tls_findings)
 
-        for name, command in engine_specs:
-            result = await run_engine(command, request, name, target)
-            payload = result.to_dict()
-            db.save_engine_run(scan_id, name, result.status, payload)
-            observations.append(
-                Observation(f"engine_{name}", result.status, "engine").to_dict()
-            )
-            observations.extend(payload.get("observations", []))
-            findings.extend(payload.get("findings", []))
-            for warning in payload.get("warnings", []):
+        async def _run_single_engine(name: str, command: list[str]) -> tuple[str, Any]:
+            res = await run_engine(command, request, name, target)
+            return name, res
+
+        engine_results = await asyncio.gather(
+            *(_run_single_engine(name, cmd) for name, cmd in engine_specs),
+            return_exceptions=True,
+        )
+        for r in engine_results:
+            if isinstance(r, tuple):
+                name, result = r
+                payload = result.to_dict()
+                db.save_engine_run(scan_id, name, result.status, payload)
                 observations.append(
-                    Observation(f"{name}_warning", warning, "engine").to_dict()
+                    Observation(f"engine_{name}", result.status, "engine").to_dict()
                 )
-                logger.warning("%s warning: %s", name, warning)
-                if not args.silent:
-                    cprint(f"[!] {name}: {warning}", "yellow")
+                observations.extend(payload.get("observations", []))
+                findings.extend(payload.get("findings", []))
+                for warning in payload.get("warnings", []):
+                    observations.append(
+                        Observation(f"{name}_warning", warning, "engine").to_dict()
+                    )
+                    logger.warning("%s warning: %s", name, warning)
+                    if not args.silent:
+                        cprint(f"[!] {name}: {warning}", "yellow")
 
     # ── Advanced modules phase ────────────────────────────────────────────────
     if args.advanced or args.modules or args.profile in ("advanced", "deep", "deepscan", "monitor"):
@@ -880,12 +890,6 @@ def main() -> int:
         return 0
 
     return asyncio.run(main_async())
-
-
-if __name__ == "__main__":
-    if sys.platform == "win32":
-        sys.stdout.reconfigure(encoding='utf-8')
-    raise SystemExit(main())
 
 
 if __name__ == "__main__":

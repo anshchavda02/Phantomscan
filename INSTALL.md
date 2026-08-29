@@ -168,7 +168,7 @@ phantomscan --target example.com --advanced --source-path ./my-app --check-slops
 
 Run the test suite across all modules:
 ```bash
-# Python test suite (197 passing tests)
+# Python test suite (216 passing tests)
 python -m pytest
 
 # Run all multi-language engine tests

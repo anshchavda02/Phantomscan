@@ -129,7 +129,7 @@ async def inspect_tls(target: Target, logger: logging.Logger) -> tuple[list[Obse
     logger.info("Inspecting TLS on %s:%s", target.host, tls_port)
     started = time.perf_counter()
     try:
-        result = await asyncio.to_thread(_inspect_tls_blocking, target.host, tls_port, 10.0)
+        result = await asyncio.to_thread(_inspect_tls_blocking, target.host, tls_port, 2.5)
     except (OSError, ssl.SSLError, TimeoutError) as exc:
         logger.warning("TLS inspection failed for %s: %s", target.host, exc)
         logger.debug("TLS inspection failure details: %r", exc)

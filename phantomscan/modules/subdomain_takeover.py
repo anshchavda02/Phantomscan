@@ -135,55 +135,63 @@ class SubdomainTakeoverDetector:
     async def detect(self, subdomains: list[str]) -> list[dict[str, Any]]:
         """Check each subdomain for dangling CNAME takeover vulnerability."""
         findings: list[dict[str, Any]] = []
+        import asyncio
+        sem = asyncio.Semaphore(20)
 
-        for subdomain in subdomains:
+        async def check_one(subdomain: str) -> list[dict[str, Any]]:
             if not subdomain:
-                continue
+                return []
+            res: list[dict[str, Any]] = []
+            async with sem:
+                cname = await self._get_cname(subdomain)
+                if not cname:
+                    return []
 
-            cname = await self._get_cname(subdomain)
-            if not cname:
-                continue
+                for _service_key, fingerprint in TAKEOVER_FINGERPRINTS.items():
+                    if not re.match(fingerprint["cname_pattern"], cname, re.IGNORECASE):
+                        continue
 
-            for _service_key, fingerprint in TAKEOVER_FINGERPRINTS.items():
-                if not re.match(fingerprint["cname_pattern"], cname, re.IGNORECASE):
-                    continue
-
-                # CNAME points to a known service — verify the resource is unclaimed
-                try:
-                    resp = await self.http.request(
-                        "GET", f"https://{subdomain}",
-                        timeout=10,
-                    )
-                    body = resp.get("body", "")
-                    if isinstance(body, bytes):
-                        body = body.decode("utf-8", errors="ignore")
-
-                    if fingerprint["response_signature"] in body:
-                        findings.append({
-                            "title": f"Subdomain Takeover: {subdomain}",
-                            "severity": "critical",
-                            "confidence": "high",
-                            "category": "subdomain_takeover",
-                            "target": subdomain,
-                            "evidence": (
-                                f"CNAME: {cname}\n"
-                                f"Service: {fingerprint['service']}\n"
-                                f"Signature found: '{fingerprint['response_signature']}'"
-                            ),
-                            "recommendation": (
-                                f"Either claim the {fingerprint['service']} resource "
-                                f"immediately or remove the dangling CNAME record for {subdomain}"
-                            ),
-                            "references": ["CWE-350"],
-                            "module": "subdomain_takeover",
-                        })
-                        logger.warning(
-                            "CRITICAL: Subdomain takeover possible on %s via %s",
-                            subdomain, fingerprint["service"],
+                    # CNAME points to a known service — verify the resource is unclaimed
+                    try:
+                        resp = await self.http.request(
+                            "GET", f"https://{subdomain}",
+                            timeout=5,
                         )
-                except Exception as exc:
-                    # Connection failure to a dangling CNAME is itself suspicious
-                    logger.debug("Takeover check error for %s: %s", subdomain, exc)
+                        body = resp.get("body", "") if isinstance(resp, dict) else (resp.text() if hasattr(resp, "text") and callable(resp.text) else getattr(resp, "body", ""))
+                        if isinstance(body, bytes):
+                            body = body.decode("utf-8", errors="ignore")
+
+                        if fingerprint["response_signature"] in str(body):
+                            res.append({
+                                "title": f"Subdomain Takeover: {subdomain}",
+                                "severity": "critical",
+                                "confidence": "high",
+                                "category": "subdomain_takeover",
+                                "target": subdomain,
+                                "evidence": (
+                                    f"CNAME: {cname}\n"
+                                    f"Service: {fingerprint['service']}\n"
+                                    f"Signature found: '{fingerprint['response_signature']}'"
+                                    ),
+                                "recommendation": (
+                                    f"Either claim the {fingerprint['service']} resource "
+                                    f"immediately or remove the dangling CNAME record for {subdomain}"
+                                ),
+                                "references": ["CWE-350"],
+                                "module": "subdomain_takeover",
+                            })
+                            logger.warning(
+                                "CRITICAL: Subdomain takeover possible on %s via %s",
+                                subdomain, fingerprint["service"],
+                            )
+                    except Exception as exc:
+                        logger.debug("Takeover check error for %s: %s", subdomain, exc)
+            return res
+
+        results = await asyncio.gather(*(check_one(s) for s in subdomains), return_exceptions=True)
+        for r in results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         return findings
 

@@ -687,10 +687,10 @@
 <body>
     <!-- Data Bridge for JS -->
     <script id="chart-data-json" type="application/json">
-        {{ chart_data | safe }}
+        {{ chart_data | tojson }}
     </script>
     <script id="d3-data-json" type="application/json">
-        {{ d3_data | safe }}
+        {{ d3_data | tojson }}
     </script>
 
     <!-- Core Global Script Engine -->

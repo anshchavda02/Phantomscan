@@ -147,7 +147,7 @@ class WebCrawler:
             resp = await self.http.get(
                 url,
                 retries=1,
-                timeout=_aiohttp.ClientTimeout(total=10),
+                timeout=_aiohttp.ClientTimeout(total=5),
             )
         except Exception as exc:
             logger.debug("Crawl fetch failed %s: %s", url, exc)
@@ -173,7 +173,7 @@ class WebCrawler:
         # Recurse into discovered links
         tasks = []
         for link in links:
-            if len(self._visited) >= self.max_pages or len(tasks) >= 10:
+            if len(self._visited) >= self.max_pages or len(tasks) >= 15:
                 break
             link_norm = link.split("#")[0].rstrip("/")
             if link_norm not in self._visited:
@@ -274,7 +274,7 @@ class WebCrawler:
         found: list[dict[str, Any]] = []
         import aiohttp as _aiohttp
 
-        sem = asyncio.Semaphore(5)
+        sem = asyncio.Semaphore(15)
 
         async def probe(path: str) -> dict[str, Any] | None:
             url = base + path
@@ -283,7 +283,7 @@ class WebCrawler:
                     r = await self.http.get(
                         url,
                         retries=1,
-                        timeout=_aiohttp.ClientTimeout(total=8),
+                        timeout=_aiohttp.ClientTimeout(total=4),
                     )
                     ct = r.headers.get("content-type", "")
                     # Accept JSON, JavaScript, XML, and HTML responses with data

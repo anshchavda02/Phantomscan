@@ -77,10 +77,9 @@ class SensitivePathScanner:
             "severity": "Critical",
             "verify_body": [
                 "<?xml", "<configuration>",
-                "connectionString", "appSettings",
             ],
-            "verify_type": "contains_any",
-            "false_positive_note": "Must be XML config format. HTML = ASP.NET catch-all, not exposed.",
+            "verify_type": "contains_all",
+            "false_positive_note": "Must be XML config format containing <?xml and <configuration>. HTML = ASP.NET catch-all, not exposed.",
         },
         {
             "path": "/config.php",
@@ -299,29 +298,26 @@ class SensitivePathScanner:
             detector = CatchAllDetector(http_client=client)
             catch_all = await detector.detect(web_root)
 
-        try:
-            for path_config in self.SENSITIVE_PATHS:
-                probe_url = web_root.rstrip("/") + path_config["path"]
+        sem = asyncio.Semaphore(20)
 
+        async def _probe_one(path_config: dict[str, Any]) -> list[Finding]:
+            probe_url = web_root.rstrip("/") + path_config["path"]
+            path_findings: list[Finding] = []
+            async with sem:
                 try:
                     response = await client.get(
                         probe_url,
-                        timeout=10,
+                        timeout=5,
                         allow_redirects=False,
                     )
 
                     status = getattr(response, "status", getattr(response, "status_code", 0))
 
                     # Step 1: Status code pre-filter
-                    # Only continue checking if 200 or 206
-                    # Redirect (301/302/307/308) = not exposed
-                    # 403 = exists but blocked (only report as Info, not as a vulnerability)
-                    # 404 = not present (skip)
-                    # 500 = server error (skip)
                     if status not in [200, 206]:
                         if status == 403:
                             if path_config["severity"] in ("Critical", "High", "critical", "high"):
-                                findings.append(Finding(
+                                path_findings.append(Finding(
                                     id=f"SENSITIVE-PATH-BLOCKED-{path_config['path'].replace('/', '-').strip('-').upper()}",
                                     title=f"Sensitive Path Exists (Access Blocked): {path_config['path']}",
                                     severity="info",
@@ -338,7 +334,7 @@ class SensitivePathScanner:
                                     verification_method="baseline_differential",
                                     cwe="CWE-538",
                                 ))
-                        continue
+                        return path_findings
 
                     # Extract body, content_type, and body_len
                     if hasattr(response, "body") and isinstance(response.body, bytes):
@@ -364,7 +360,7 @@ class SensitivePathScanner:
                     if catch_all.has_catch_all:
                         if ResponseContentValidator.is_catch_all_response(body, catch_all.baseline_body_length):
                             logger.debug("SUPPRESSED false positive: %s body matches catch-all baseline size", probe_url)
-                            continue
+                            return path_findings
 
                     # Step 2: Verify the response body actually matches what this file type should contain
                     verify_result = self.verify_response(
@@ -376,11 +372,11 @@ class SensitivePathScanner:
                             "SUPPRESSED false positive: %s returned HTTP 200 but body verification failed. Reason: %s",
                             probe_url, verify_result.reason
                         )
-                        continue
+                        return path_findings
 
                     # Step 3: Confirmed — body matches expected content for this file type
                     severity = path_config["severity"].lower()
-                    findings.append(Finding(
+                    path_findings.append(Finding(
                         id=f"SENSITIVE-PATH-{path_config['path'].replace('/', '-').strip('-').upper()}",
                         title=f"Sensitive Path Accessible: {path_config['path']}",
                         severity=severity,
@@ -405,6 +401,15 @@ class SensitivePathScanner:
 
                 except Exception as e:
                     logger.debug("Sensitive path probe failed for %s: %s", probe_url, e)
+
+            return path_findings
+
+        try:
+            tasks = [_probe_one(pc) for pc in self.SENSITIVE_PATHS]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for r in results:
+                if isinstance(r, list):
+                    findings.extend(r)
         finally:
             if should_close and client:
                 await client.close()
@@ -440,6 +445,34 @@ class SensitivePathScanner:
             return VerifyResult(
                 confirmed=False,
                 reason=f"Content-Type '{content_type}' does not match expected types",
+            )
+
+        # Body content verification - contains_all
+        if verify_type == "contains_all":
+            patterns = path_config.get("verify_body", [])
+            for pattern in patterns:
+                if not re.search(pattern, body, re.IGNORECASE):
+                    return VerifyResult(
+                        confirmed=False,
+                        reason=f"Body missing required pattern: {pattern}",
+                    )
+
+            # If catch-all was detected, verify it's not an HTML catch-all page
+            if catch_all and catch_all.has_catch_all:
+                if ResponseContentValidator.is_html_page(body, content_type) and path_config.get("path") not in ("/admin/", "/phpmyadmin/"):
+                    return VerifyResult(
+                        confirmed=False,
+                        reason="Catch-all detected and body is HTML — suppressed as false positive",
+                    )
+                if ResponseContentValidator.is_catch_all_response(body, catch_all.baseline_body_length):
+                    return VerifyResult(
+                        confirmed=False,
+                        reason="Catch-all detected and body size within 20% of baseline — suppressed as false positive",
+                    )
+
+            return VerifyResult(
+                confirmed=True,
+                reason=f"Body contains all required pattern(s): {', '.join(repr(p) for p in patterns)}",
             )
 
         # Body content verification

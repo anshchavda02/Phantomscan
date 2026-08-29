@@ -76,13 +76,13 @@
                 <div id="chat-output-{{ card_uid }}" style="font-size: 11.5px; color: var(--text-primary); margin-bottom: 8px; max-height: 140px; overflow-y: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 8px 10px; line-height: 1.5; display: none;">
                 </div>
                 <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">
-                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='How do I remediate this vulnerability?'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">How to fix?</button>
-                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='Explain the root cause and exploit scenario.'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Root Cause</button>
-                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='Provide a secure code snippet patch.'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Code Patch</button>
+                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='How do I remediate this vulnerability?'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}')">How to fix?</button>
+                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='Explain the root cause and exploit scenario.'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}')">Root Cause</button>
+                    <button type="button" class="pill" style="font-size: 9px; cursor: pointer; padding: 2px 6px;" onclick="document.getElementById('chat-input-{{ card_uid }}').value='Provide a secure code snippet patch.'; askFindingQuestion('{{ card_uid }}', '{{ finding.id }}')">Code Patch</button>
                 </div>
                 <div style="display: flex; gap: 4px;">
-                    <input type="text" id="chat-input-{{ card_uid }}" placeholder="Ask AI about this finding..." style="flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 6px 10px; font-size: 11px; font-family: inherit;" onkeypress="if(event.key==='Enter') askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">
-                    <button class="btn-ghost" style="padding: 5px 12px; font-size: 11px;" onclick="askFindingQuestion('{{ card_uid }}', '{{ finding.id }}', '{{ finding.title | escape }}')">Ask</button>
+                    <input type="text" id="chat-input-{{ card_uid }}" placeholder="Ask AI about this finding..." style="flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--r-compact); padding: 6px 10px; font-size: 11px; font-family: inherit;" onkeypress="if(event.key==='Enter') askFindingQuestion('{{ card_uid }}', '{{ finding.id }}')">
+                    <button class="btn-ghost" style="padding: 5px 12px; font-size: 11px;" onclick="askFindingQuestion('{{ card_uid }}', '{{ finding.id }}')">Ask</button>
                 </div>
             </div>
         </div>

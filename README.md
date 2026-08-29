@@ -11,7 +11,7 @@
 ### **Enterprise-Grade Polyglot Vulnerability Scanner**
 *Tailored for AI-Generated & Vibe-Coded Web Apps, Cloud Backends, and Modern APIs*
 
-[![Tests](https://img.shields.io/badge/tests-197%20passed-brightgreen.svg?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-216%20passed-brightgreen.svg?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
 [![Go](https://img.shields.io/badge/engine-Go%20%7C%20Rust%20%7C%20Node%20%7C%20Python-blueviolet.svg?style=flat-square)](engines/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg?style=flat-square)](INSTALL.md)
@@ -211,7 +211,7 @@ reports/
 PhantomScan maintains strict quality benchmarks across all engines and modules:
 
 ```bash
-# Run complete Python test suite (197 Passing Tests)
+# Run complete Python test suite (216 Passing Tests)
 python -m pytest
 
 # Run multi-language engine unit tests

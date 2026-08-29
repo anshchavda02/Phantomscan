@@ -63,14 +63,14 @@ class RobustHTTPClient:
 
     def __init__(self) -> None:
         self.session: aiohttp.ClientSession | None = None
-        self._timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_read=15)
+        self._timeout = aiohttp.ClientTimeout(total=8, connect=3, sock_read=5)
         self._connector: aiohttp.TCPConnector | None = None
 
     async def start(self) -> None:
         """Create the underlying aiohttp session and connector."""
         self._connector = aiohttp.TCPConnector(
-            limit=20,
-            limit_per_host=5,
+            limit=100,
+            limit_per_host=30,
             ttl_dns_cache=300,
             ssl=False,
             force_close=False,
@@ -94,7 +94,7 @@ class RobustHTTPClient:
     async def get(
         self,
         url: str,
-        retries: int = 3,
+        retries: int = 1,
         allow_redirects: bool = True,
         timeout: aiohttp.ClientTimeout | None = None,
         **kwargs: Any,
@@ -163,7 +163,10 @@ class RobustHTTPClient:
         last_exc: Exception = ScanError(f"Cannot reach {host}")
         for scheme in ("https", "http"):
             try:
-                return await self.get(f"{scheme}://{host}")
+                return await self.get(
+                    f"{scheme}://{host}",
+                    timeout=aiohttp.ClientTimeout(total=4.0, connect=2.0),
+                )
             except Exception as exc:
                 logger.debug("%s failed for %s: %s", scheme, host, exc)
                 last_exc = exc
@@ -173,7 +176,7 @@ class RobustHTTPClient:
         self,
         method: str,
         url: str,
-        retries: int = 2,
+        retries: int = 1,
         allow_redirects: bool = True,
         timeout: aiohttp.ClientTimeout | None = None,
         **kwargs: Any,

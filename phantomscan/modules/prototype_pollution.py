@@ -43,82 +43,85 @@ class PrototypePollutionDetector:
     ) -> list[dict[str, Any]]:
         findings: list[dict[str, Any]] = []
         target = base_url.rstrip("/")
-
         endpoints = self._find_json_endpoints(target, observations)
 
-        for url in endpoints[:15]:
-            # Server-side test
-            for payload in _SERVER_PAYLOADS:
+        sem = asyncio.Semaphore(15)
+
+        async def test_server_endpoint(url: str) -> dict[str, Any] | None:
+            async with sem:
+                for payload in _SERVER_PAYLOADS:
+                    try:
+                        response = await self.http.post(
+                            url, json=payload, retries=1,
+                        )
+                        body = response.text()
+                        if (
+                            "phantomscan_pp" in body
+                            or response.status == 500
+                            or ("isAdmin" in body and "true" in body.lower())
+                        ):
+                            return {
+                                "id": "PROTO-POLLUTION-SERVER",
+                                "title": "Server-Side Prototype Pollution",
+                                "severity": "high",
+                                "confidence": "high" if "phantomscan_pp" in body else "medium",
+                                "category": "prototype-pollution",
+                                "target": url,
+                                "evidence": (
+                                    f"Payload: {json.dumps(payload)}\n"
+                                    f"Response: HTTP {response.status}\n"
+                                    f"Body preview: {body[:300]}"
+                                ),
+                                "recommendation": (
+                                    "Sanitize JSON input to reject __proto__ and "
+                                    "constructor.prototype keys. Use Object.create(null) "
+                                    "for lookup objects. Freeze Object.prototype in "
+                                    "Node.js. CWE-1321."
+                                ),
+                                "references": [
+                                    "https://cwe.mitre.org/data/definitions/1321.html",
+                                ],
+                            }
+                    except Exception:
+                        continue
+            return None
+
+        async def test_client_qs(qs: str) -> dict[str, Any] | None:
+            test_url = f"{target}/?{qs}"
+            async with sem:
                 try:
-                    response = await self.http.post(
-                        url, json=payload, retries=1,
-                    )
+                    response = await self.http.get(test_url, retries=1)
                     body = response.text()
                     if (
-                        "phantomscan_pp" in body
-                        or response.status == 500
-                        or ("isAdmin" in body and "true" in body.lower())
-                    ):
-                        findings.append({
-                            "id": "PROTO-POLLUTION-SERVER",
-                            "title": "Server-Side Prototype Pollution",
-                            "severity": "high",
-                            "confidence": "high" if "phantomscan_pp" in body else "medium",
+                        response.headers.get("content-type", "").startswith("application/json")
+                        and ("\"phantomscan_pp\"" in body or "\"isAdmin\":true" in body)
+                    ) or "window.phantomscan_pp" in body or "Object.prototype.phantomscan_pp" in body:
+                        return {
+                            "id": "PROTO-POLLUTION-CLIENT",
+                            "title": "Client-Side Prototype Pollution",
+                            "severity": "medium",
+                            "confidence": "high",
                             "category": "prototype-pollution",
-                            "target": url,
+                            "target": test_url,
                             "evidence": (
-                                f"Payload: {json.dumps(payload)}\n"
-                                f"Response: HTTP {response.status}\n"
-                                f"Body preview: {body[:300]}"
+                                f"Query string: {qs}\n"
+                                f"Pollution marker executed in JS context or JSON API state."
                             ),
                             "recommendation": (
-                                "Sanitize JSON input to reject __proto__ and "
-                                "constructor.prototype keys. Use Object.create(null) "
-                                "for lookup objects. Freeze Object.prototype in "
-                                "Node.js. CWE-1321."
+                                "Avoid using object bracket notation with unvalidated user input. "
+                                "Freeze Object.prototype. Validate query parameter keys. CWE-1321."
                             ),
-                            "references": [
-                                "https://cwe.mitre.org/data/definitions/1321.html",
-                            ],
-                        })
-                        break  # one finding per endpoint
+                            "references": ["https://cwe.mitre.org/data/definitions/1321.html"],
+                        }
                 except Exception:
-                    continue
+                    pass
+            return None
 
-        # Client-side test via query string
-        for qs in _CLIENT_QS_PAYLOADS:
-            test_url = f"{target}/?{qs}"
-            try:
-                response = await self.http.get(test_url, retries=1)
-                body = response.text()
-                # Must reflect inside JSON API or JavaScript window state, not simple HTML canonical URL reflection
-                if (
-                    response.headers.get("content-type", "").startswith("application/json")
-                    and ("\"phantomscan_pp\"" in body or "\"isAdmin\":true" in body)
-                ) or "window.phantomscan_pp" in body or "Object.prototype.phantomscan_pp" in body:
-                    findings.append({
-                        "id": "PROTO-POLLUTION-CLIENT",
-                        "title": "Client-Side Prototype Pollution",
-                        "severity": "medium",
-                        "confidence": "high",
-                        "category": "prototype-pollution",
-                        "target": test_url,
-                        "evidence": (
-                            f"Query string: {qs}\n"
-                            f"Pollution marker executed in JS context or JSON API state."
-                        ),
-                        "recommendation": (
-                            "Sanitize URL query parameters. Use libraries "
-                            "that safely parse query strings without polluting "
-                            "Object.prototype. CWE-1321."
-                        ),
-                        "references": [
-                            "https://cwe.mitre.org/data/definitions/1321.html",
-                        ],
-                    })
-                    break
-            except Exception:
-                continue
+        tasks = [test_server_endpoint(u) for u in endpoints[:15]] + [test_client_qs(qs) for qs in _CLIENT_QS_PAYLOADS]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in results:
+            if isinstance(r, dict):
+                findings.append(r)
 
         return findings
 

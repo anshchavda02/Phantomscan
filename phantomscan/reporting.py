@@ -450,7 +450,11 @@ class ReportGenerator:
     def __init__(self, template_dir: str = "templates"):
         self.env = Environment(
             loader=FileSystemLoader(template_dir),
-            autoescape=select_autoescape(['html']),
+            autoescape=select_autoescape(
+                enabled_extensions=['html', 'htm', 'xml', 'j2', 'html.j2'],
+                default_for_string=True,
+                default=True,
+            ),
             trim_blocks=True,
             lstrip_blocks=True
         )
@@ -512,7 +516,7 @@ class ReportGenerator:
             supply_chain=scan_data.supply_chain,
             threat_intel=scan_data.threat_intel,
             attack_paths=scan_data.attack_paths,
-            d3_data=json.dumps(d3_data),
+            d3_data=d3_data,
             compliance=scan_data.compliance,
             checklist=scan_data.checklist,
             screenshots=scan_data.screenshots,
@@ -520,7 +524,7 @@ class ReportGenerator:
             diff=scan_data.diff,
             score=scan_data.score,
             engagement=scan_data.engagement,
-            chart_data=json.dumps(chart_data),
+            chart_data=chart_data,
             generated_at=datetime.now(timezone.utc).isoformat(),
             report_version="2.0.0"
         )

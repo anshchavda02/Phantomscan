@@ -317,8 +317,16 @@ async def enumerate_subdomains(
     if not all_names:
         return [Observation("subdomains", [], "subdomain-enum")]
 
-    tasks = [_validate_subdomain(name, log) for name in all_names]
-    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+    async with http_client() as client:
+        sem = asyncio.Semaphore(25)
+
+        async def _bound_validate(name: str) -> dict[str, Any]:
+            async with sem:
+                return await _validate_subdomain_with_client(name, client, log)
+
+        tasks = [_bound_validate(name) for name in all_names]
+        raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
     found = [r for r in raw_results if isinstance(r, dict) and r.get("resolved")]
     found.sort(key=lambda x: (not x.get("interesting"), x["subdomain"]))
     log.info("Subdomain enumeration complete: %d resolved", len(found))
@@ -333,7 +341,7 @@ async def _query_crtsh(domain: str, log: logging.Logger) -> set[str]:
         try:
             result = await client.get(
                 url,
-                timeout=__import__("aiohttp").ClientTimeout(total=30),
+                timeout=__import__("aiohttp").ClientTimeout(total=10),
             )
             if result.status == 200:
                 try:
@@ -361,7 +369,7 @@ async def _dns_brute(candidates: list[str], log: logging.Logger) -> set[str]:
     async def check(name: str) -> str | None:
         async with sem:
             try:
-                await resolver.resolve(name, "A", lifetime=3.0)
+                await resolver.resolve(name, "A", lifetime=2.0)
                 return name
             except dns.exception.DNSException:
                 return None
@@ -373,35 +381,35 @@ async def _dns_brute(candidates: list[str], log: logging.Logger) -> set[str]:
     return found
 
 
-async def _validate_subdomain(name: str, log: logging.Logger) -> dict[str, Any]:
-    """Resolve + HTTP-probe a single subdomain and return a metadata dict."""
+async def _validate_subdomain_with_client(
+    name: str, client: RobustHTTPClient, log: logging.Logger
+) -> dict[str, Any]:
+    """Resolve + HTTP-probe a single subdomain with a shared client."""
     resolver = _make_resolver()
     try:
-        answers = await resolver.resolve(name, "A", lifetime=3.0)
+        answers = await resolver.resolve(name, "A", lifetime=2.0)
         ips = [str(r) for r in answers]
     except Exception:
         return {"subdomain": name, "resolved": False}
 
     status, title = 0, ""
     try:
-        async with http_client() as c:
-            res = await c.get(
-                f"https://{name}",
+        res = await client.get(
+            f"https://{name}",
+            retries=1,
+            timeout=__import__("aiohttp").ClientTimeout(total=3.5, connect=1.5),
+        )
+        status = res.status
+        title = _extract_title(res.text())
+    except Exception:
+        try:
+            res = await client.get(
+                f"http://{name}",
                 retries=1,
-                timeout=__import__("aiohttp").ClientTimeout(total=8),
+                timeout=__import__("aiohttp").ClientTimeout(total=3.5, connect=1.5),
             )
             status = res.status
             title = _extract_title(res.text())
-    except Exception:
-        try:
-            async with http_client() as c:
-                res = await c.get(
-                    f"http://{name}",
-                    retries=1,
-                    timeout=__import__("aiohttp").ClientTimeout(total=8),
-                )
-                status = res.status
-                title = _extract_title(res.text())
         except Exception:
             pass
 
@@ -420,6 +428,12 @@ async def _validate_subdomain(name: str, log: logging.Logger) -> dict[str, Any]:
         "interesting": interesting,
         "source": "enumeration",
     }
+
+
+async def _validate_subdomain(name: str, log: logging.Logger) -> dict[str, Any]:
+    """Resolve + HTTP-probe a single subdomain (standalone fallback)."""
+    async with http_client() as client:
+        return await _validate_subdomain_with_client(name, client, log)
 
 
 def _extract_title(body: str) -> str:
@@ -452,11 +466,25 @@ async def fetch_headers(
 
     try:
         async with http_client() as client:
-            if target.scheme:
-                result = await client.get(
-                    target.base_url,
-                    timeout=_aiohttp.ClientTimeout(total=timeout),
-                )
+            if getattr(target, "has_explicit_scheme", False) and target.scheme:
+                try:
+                    result = await client.get(
+                        target.base_url,
+                        timeout=_aiohttp.ClientTimeout(total=min(timeout, 5.0), connect=2.5),
+                    )
+                except Exception as exc:
+                    log.debug("Explicit scheme %s failed for %s: %s; trying alternative protocol", target.scheme, target.netloc, exc)
+                    if target.scheme == "https":
+                        alt_url = f"http://{target.netloc}"
+                        try:
+                            result = await client.get(
+                                alt_url,
+                                timeout=_aiohttp.ClientTimeout(total=min(timeout, 5.0), connect=2.5),
+                            )
+                        except Exception:
+                            raise exc
+                    else:
+                        raise
             else:
                 result = await client.try_both_protocols(target.netloc)
     except (ScanError, _aiohttp.ClientError, OSError, asyncio.TimeoutError) as exc:

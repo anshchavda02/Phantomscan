@@ -47,19 +47,29 @@ class AntiAutomationTester:
                         ]):
                             login_urls.append(url_str)
 
-        # Also check common login paths
+        # Also check common login paths concurrently if none found
         if not login_urls and base_url:
-            for path in ["/login", "/signin", "/auth/login", "/wp-login.php", "/admin", "/rest/user/login"]:
+            async def probe_login_path(path: str) -> str | None:
+                url = f"{base_url.rstrip('/')}{path}"
                 try:
-                    resp = await self.http.get(f"{base_url.rstrip('/')}{path}", retries=1)
+                    resp = await self.http.get(url, retries=1)
                     if getattr(resp, "status", 0) in (200, 301, 302):
-                        login_urls.append(f"{base_url.rstrip('/')}{path}")
+                        return url
                 except Exception:
                     pass
+                return None
+
+            common_paths = ["/login", "/signin", "/auth/login", "/wp-login.php", "/admin", "/rest/user/login"]
+            probe_results = await asyncio.gather(*(probe_login_path(p) for p in common_paths), return_exceptions=True)
+            for r in probe_results:
+                if isinstance(r, str) and r:
+                    login_urls.append(r)
 
         findings: list[dict[str, Any]] = []
-        for url in login_urls[:3]:  # Test at most 3 login endpoints
-            findings.extend(await self.test(url))
+        test_results = await asyncio.gather(*(self.test(u) for u in login_urls[:3]), return_exceptions=True)
+        for r in test_results:
+            if isinstance(r, list):
+                findings.extend(r)
 
         return findings
 

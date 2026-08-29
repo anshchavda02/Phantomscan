@@ -53,48 +53,57 @@ class IDORDetector:
         urls = self._collect_urls(target, observations)
         candidates = self._find_id_candidates(urls)
 
-        for candidate in candidates[:30]:  # limit scope
+        import asyncio
+        sem = asyncio.Semaphore(15)
+
+        async def test_one_candidate(candidate: dict[str, Any]) -> dict[str, Any] | None:
             url = candidate["url"]
             original_id = candidate["id"]
             test_ids = self._generate_test_ids(original_id)
 
-            for test_id in test_ids:
-                test_url = url.replace(original_id, test_id, 1)
-                if test_url == url:
-                    continue
-                try:
-                    response = await self.http.get(test_url, retries=1)
-                    if response.status == 200 and self._looks_like_data(response.text()):
-                        findings.append({
-                            "id": "IDOR-BOLA",
-                            "title": "Potential IDOR / BOLA — Object ID Manipulation",
-                            "severity": "high",
-                            "confidence": "medium",
-                            "category": "idor",
-                            "target": url,
-                            "evidence": (
-                                f"Original URL: {url}\n"
-                                f"Modified URL: {test_url}\n"
-                                f"Response: HTTP {response.status} "
-                                f"({len(response.body)} bytes). "
-                                f"Data-like content detected — manual "
-                                f"verification required."
-                            ),
-                            "recommendation": (
-                                "Implement proper authorization checks: verify "
-                                "that the authenticated user owns the requested "
-                                "object before returning data. Never rely solely "
-                                "on object IDs for access control. CWE-639, "
-                                "OWASP API1:2023 BOLA."
-                            ),
-                            "references": [
-                                "https://cwe.mitre.org/data/definitions/639.html",
-                                "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/",
-                            ],
-                        })
-                        break  # one finding per original URL
-                except Exception:
-                    continue
+            async with sem:
+                for test_id in test_ids:
+                    test_url = url.replace(original_id, test_id, 1)
+                    if test_url == url:
+                        continue
+                    try:
+                        response = await self.http.get(test_url, retries=1)
+                        if response.status == 200 and self._looks_like_data(response.text()):
+                            return {
+                                "id": "IDOR-BOLA",
+                                "title": "Potential IDOR / BOLA — Object ID Manipulation",
+                                "severity": "high",
+                                "confidence": "medium",
+                                "category": "idor",
+                                "target": url,
+                                "evidence": (
+                                    f"Original URL: {url}\n"
+                                    f"Modified URL: {test_url}\n"
+                                    f"Response: HTTP {response.status} "
+                                    f"({len(response.body)} bytes). "
+                                    f"Data-like content detected — manual "
+                                    f"verification required."
+                                ),
+                                "recommendation": (
+                                    "Implement proper authorization checks: verify "
+                                    "that the authenticated user owns the requested "
+                                    "object before returning data. Never rely solely "
+                                    "on object IDs for access control. CWE-639, "
+                                    "OWASP API1:2023 BOLA."
+                                ),
+                                "references": [
+                                    "https://cwe.mitre.org/data/definitions/639.html",
+                                    "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/",
+                                ],
+                            }
+                    except Exception:
+                        continue
+            return None
+
+        results = await asyncio.gather(*(test_one_candidate(c) for c in candidates[:30]), return_exceptions=True)
+        for r in results:
+            if isinstance(r, dict):
+                findings.append(r)
         return findings
 
     # ── Helpers ───────────────────────────────────────────────────────────────
