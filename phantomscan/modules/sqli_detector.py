@@ -249,7 +249,7 @@ class SQLiDetector:
             elapsed = time.perf_counter() - t0
             if resp is not None:
                 baseline_times.append(elapsed)
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(0.05)
 
         if len(baseline_times) < 2:
             logger.debug(
@@ -283,7 +283,7 @@ class SQLiDetector:
                         f"Attempt {attempt + 1}: {elapsed:.2f}s "
                         f"— FAILED (timeout/error, not counted)"
                     )
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)
                     continue
 
                 # Require response to take at least baseline_avg + 4.5s

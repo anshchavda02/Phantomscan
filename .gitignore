@@ -8,6 +8,8 @@ evidence/
 engines/go/bin/
 engines/rust/target/
 node_modules/
+**/node_modules/
+.pytest_cache/
 *.zip
 *.pptx
 *.docx

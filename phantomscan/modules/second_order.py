@@ -86,7 +86,7 @@ class SecondOrderDetector:
             return findings
 
         # Brief wait for server-side processing
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.2)
 
         # Phase 2: Check output pages for payload execution
         for check_path in _CHECK_PATHS:

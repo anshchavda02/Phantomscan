@@ -11,6 +11,7 @@ Provides:
 
 from __future__ import annotations
 
+import aiohttp as _aiohttp
 import asyncio
 import json
 import logging

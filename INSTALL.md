@@ -2,146 +2,184 @@
 
 PhantomScan is for authorized security assessment only. Run it only against systems you own or have explicit written permission to test.
 
-## Windows
+---
 
-1. Install Python 3.10 or newer from <https://www.python.org/downloads/windows/>.
-2. Download or clone this repository.
-3. Open the `Phantomscan` folder.
-4. Double-click `install.bat`.
-5. The installer creates a virtual environment, installs Python dependencies, creates `phantomscan-cli.bat`, and places `PhantomScan Launcher.bat` on your Desktop.
+## Quick Start by Operating System
 
-Start the option-based launcher:
+### 1. Linux CLI
 
-```bat
-PhantomScan Launcher.bat
-```
-
-Run the CLI directly:
-
-```bat
-phantomscan-cli.bat --target example.com --profile passive
-phantomscan-cli.bat --target example.com --profile full --debug
-phantomscan-cli.bat --target 127.0.0.1 --profile network --ports top100
-```
-
-## Linux
-
-1. Install Python 3.10 or newer.
-2. Clone the repository.
-3. Run the installer.
-
+#### Automated Install (Recommended)
 ```bash
 git clone https://github.com/anshchavda02/Phantomscan.git phantomscan
 cd phantomscan
 bash scripts/install.sh
 ```
 
-If `~/.local/bin` is not already in your shell PATH, run:
-
+If `~/.local/bin` is not already in your PATH, add it to your shell configuration (`~/.bashrc` or `~/.zshrc`):
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-After that, start PhantomScan from inside the project folder:
-
+#### Manual / Virtual Environment Install
 ```bash
-cd phantomscan
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Optional: Build fast native engines (if Go, Rust, and Node are installed)
+bash scripts/build.sh
+```
+
+#### Run CLI on Linux
+```bash
 phantomscan --target example.com --profile passive
+phantomscan --target example.com --profile full --debug
+phantomscan --target 127.0.0.1 --profile network --ports top100
+phantomscan --target example.com --advanced
 ```
 
-## macOS
+---
 
-1. Install Python 3.10 or newer. With Homebrew:
+### 2. macOS CLI
 
+#### Automated Install (Recommended)
 ```bash
+# 1. Install prerequisites with Homebrew (if needed)
 brew install python
-```
 
-2. Clone and install:
+# Optional native engines:
+brew install go rust node
 
-```bash
+# 2. Clone and install
 git clone https://github.com/anshchavda02/Phantomscan.git phantomscan
 cd phantomscan
 bash scripts/install_macos.sh
 ```
 
-3. Add `~/.local/bin` to PATH if needed:
-
+Ensure `~/.local/bin` is in your shell PATH (`~/.zshrc`):
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-4. Run:
-
+#### Run CLI on macOS
 ```bash
 phantomscan --target example.com --profile passive
+phantomscan --target example.com --profile quick
+phantomscan --target example.com --profile full --debug
 ```
 
-## Option-Based Launcher
+---
 
-The Windows launcher opens a menu with:
+### 3. Windows
 
-- Passive scan: HTTP/DNS/email checks only.
-- Quick scan: real HTTP/DNS plus TCP/TLS fallback checks.
-- Full scan: real TCP port scanning and TLS inspection.
-- API scan: API-oriented profile.
-- Network scan: network-oriented profile.
-- Custom profile: choose from available profiles.
-- JSON output toggle.
-- HTML auto-open toggle.
-- Debug logging toggle.
+1. Install Python 3.10 or newer from <https://www.python.org/downloads/windows/> (ensure *"Add Python to PATH"* is checked).
+2. Download or clone this repository:
+   ```cmd
+   git clone https://github.com/anshchavda02/Phantomscan.git
+   cd Phantomscan
+   ```
+3. Run `install.bat` (or double-click it in Windows Explorer):
+   ```cmd
+   install.bat
+   ```
+4. The installer creates a virtual environment, installs dependencies, sets up the Node/Playwright engine, and compiles Go/Rust binaries if present.
 
-Reports are saved in `reports/`. Logs are saved in `logs/`.
+#### Run on Windows
+- **Interactive Menu**: Double-click `PhantomScan Launcher.bat` or run:
+  ```cmd
+  "PhantomScan Launcher.bat"
+  ```
+- **CLI Direct**:
+  ```cmd
+  phantomscan-cli.bat --target example.com --profile passive
+  phantomscan-cli.bat --target example.com --profile full --debug
+  ```
 
-## CLI Reference
+---
 
-Basic scans:
+## Multi-Engine Architecture & Tooling
 
+PhantomScan operates with a hybrid polyglot architecture:
+- **Python (Core & Modules)**: Runs the scanner orchestrator, 35+ vulnerability modules, pattern analysis, and HTML report generator.
+- **Go Engine (`engines/go`)**: High-speed, concurrent TCP port scanner (`bin/phantomscan-go`).
+- **Rust Engine (`engines/rust`)**: Low-level TLS/SSL cryptographic inspector (`phantomscan-rust`).
+- **Node Engine (`engines/node`)**: Headless browser engine with Playwright & Chromium for SPA / DOM inspection and visual screenshot capture.
+
+*Note: If Go, Rust, or Node are not installed on your system, PhantomScan automatically falls back to native Python sockets and HTTP inspection gracefully.*
+
+---
+
+## CLI Reference & Common Commands
+
+### Basic Scans
 ```bash
-phantomscan --target example.com
+# Passive Recon (HTTP, DNS, Whois, Headers, Secrets)
 phantomscan --target example.com --profile passive
+
+# Quick Scan
+phantomscan --target example.com --profile quick
+
+# Full Deep Security Scan
 phantomscan --target example.com --profile full
-phantomscan --target https://example.com/app --profile quick
+
+# Run all 35 Advanced Modules (including Vibe App Security Suite)
+phantomscan --target example.com --advanced
 ```
 
-Port options:
-
+### Port Specification
 ```bash
 phantomscan --target example.com --ports top100
 phantomscan --target example.com --ports top1000
-phantomscan --target example.com --ports 80,443,8080
+phantomscan --target example.com --ports 80,443,8080,8443
 phantomscan --target example.com --ports 1-1000
 ```
 
-Reporting:
-
+### Reporting & Formats
 ```bash
+# JSON Output to stdout
 phantomscan --target example.com --json
-phantomscan --target example.com --json-out findings.json
-phantomscan --target example.com --checklist
+
+# Export JSON to File
+phantomscan --target example.com --json-out reports/scan_result.json
+
+# OWASP Compliance View
 phantomscan --target example.com --compliance owasp
+
+# Security Checklist View
+phantomscan --target example.com --checklist
 ```
 
-Debugging:
+### Authenticated & Hybrid Scans
+```bash
+# Authenticated Scan with Cookie
+phantomscan --target example.com --auth-cookie "session_id=abcdef123456"
+
+# Authenticated Scan with Bearer Token
+phantomscan --target example.com --auth-token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Hybrid Scan (Correlate live endpoints with local source code)
+phantomscan --target example.com --advanced --source-path ./my-app --check-slopsquatting
+```
+
+---
+
+## Testing & Verification
+
+Run the test suite across all modules:
+```bash
+# Python test suite (197 passing tests)
+python -m pytest
+
+# Run all multi-language engine tests
+make test
+```
+
+---
+
+## Optional Packages
 
 ```bash
-phantomscan --target example.com --profile full --debug
-phantomscan --target example.com --log-file logs/example.log
+# PDF Report Generation (requires system cairo/pango)
+pip install -r requirements-optional.txt
 ```
-
-## Output Files
-
-- HTML report: `reports/<target>_<timestamp>.html`
-- JSON report: `reports/<target>_<timestamp>.json`
-- False-positive log: `reports/fp_log_<target>_<timestamp>.json`
-- Scan logs: `logs/phantomscan_<target>_<timestamp>.log`
-
-## Notes
-
-For proxy interception mode only:
-```bash
-pip install mitmproxy>=10.0
-# or: pip install -r requirements-optional.txt
-```
-
-Full scans perform real network checks and can take 20-60 seconds depending on target reachability, DNS latency, and selected ports.

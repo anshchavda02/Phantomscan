@@ -116,18 +116,26 @@ python phantomscan.py --target example.com --profile passive --json
 
 ## Installation & Setup
 
-For full installation guide across Windows, macOS, and Linux, consult [INSTALL.md](INSTALL.md).
+For the complete installation guide across Linux, macOS, and Windows, see [INSTALL.md](INSTALL.md).
 
+### Linux & macOS CLI Quickstart
 ```bash
 # Clone Repository
-git clone https://github.com/anshchavda02/Phantomscan.git
-cd Phantomscan
+git clone https://github.com/anshchavda02/Phantomscan.git phantomscan
+cd phantomscan
 
-# Install Python Dependencies
-pip install -r requirements.txt
+# Run automated installer
+bash scripts/install.sh       # On Linux
+# or: bash scripts/install_macos.sh  # On macOS
 
-# Verify Test Suite (81 Passing Tests)
-python -m pytest tests/python -v
+# Execute Scan
+phantomscan --target example.com --profile passive
+```
+
+### Running Tests
+```bash
+# Verify Full Test Suite (197 Passing Tests)
+python -m pytest
 ```
 
 ---

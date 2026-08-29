@@ -200,7 +200,7 @@ class SSRFDetector:
         except Exception:
             pass
 
-        await asyncio.sleep(5)
+        await asyncio.sleep(0.5)
 
         if oob_listener.check_hit(uid):
             findings.append({
