@@ -43,6 +43,16 @@ cd /d "%ROOT%engines\rust"
 cargo build --release
 cd /d "%ROOT%"
 
+echo.
+echo Setting up Node Headless Browser Engine...
+where npm >nul 2>nul
+if not errorlevel 1 (
+  cd /d "%ROOT%engines\node"
+  call npm install --no-audit --no-fund
+  call npx playwright install chromium
+  cd /d "%ROOT%"
+)
+
 (
   echo @echo off
   echo setlocal

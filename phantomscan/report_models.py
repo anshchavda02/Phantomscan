@@ -1,8 +1,10 @@
 """Data models for the HTML report system."""
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from phantomscan.models import Finding
+from phantomscan.models import Confidence, Finding, Severity
 
 @dataclass
 class ModuleStatus:
@@ -168,10 +170,15 @@ class ChecklistData:
 
 @dataclass
 class Screenshot:
-    url: str
-    image_base64: str
-    status: str
+    url: str = ""
+    image_base64: str = ""
+    status: str = "200"
     interesting: bool = False
+    data_uri: str = ""
+    title: str = "Page Screenshot"
+    description: str = "Automated visual rendering"
+    timestamp: str = ""
+    related_finding_id: str = ""
 
 @dataclass
 class SuppressedFinding:

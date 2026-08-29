@@ -43,6 +43,7 @@ async function main() {
   const started = now();
   const request = JSON.parse(await readStdin());
   const observations = [];
+  const findings = [];
   const warnings = [];
   const screenshotMode = request.screenshot || false;
 
@@ -92,6 +93,9 @@ async function main() {
       });
 
       const html = await page.content();
+      const currentUrl = page.url() || `https://${request.target}`;
+      const isLoginDetected = detectLoginSignals(html, currentUrl);
+
       observations.push({
         name: "browser_status",
         value: 200,
@@ -99,9 +103,48 @@ async function main() {
       });
       observations.push({
         name: "login_page_detected",
-        value: detectLoginSignals(html, page.url()),
+        value: isLoginDetected,
         source: "node-browser",
       });
+
+      if (isLoginDetected) {
+        findings.push({
+          id: "BROWSER-LOGIN-INTERFACE-EXPOSED",
+          title: "Authentication / Login Interface Detected via Headless Browser",
+          severity: "info",
+          confidence: "high",
+          category: "recon",
+          target: currentUrl,
+          evidence: `A login or authentication interface with credential inputs or login endpoints was rendered and confirmed by the headless browser engine at ${currentUrl}.`,
+          recommendation: "Ensure authentication endpoints enforce rate limiting (brute force protection), TLS/HTTPS only, and multi-factor authentication (MFA).",
+          references: [
+            "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+          ]
+        });
+      }
+
+      // Capture automated visual rendering screenshot
+      try {
+        const screenshotBuf = await page.screenshot({ type: "jpeg", quality: 80 });
+        const screenshotBase64 = screenshotBuf.toString("base64");
+        const dataUri = `data:image/jpeg;base64,${screenshotBase64}`;
+        observations.push({
+          name: "screenshot",
+          value: {
+            url: currentUrl,
+            data_uri: dataUri,
+            image_base64: screenshotBase64,
+            title: `Visual Render: ${request.target}`,
+            description: `Automated headless browser rendering of ${request.target}`,
+            timestamp: now(),
+            status: "200",
+            related_finding_id: isLoginDetected ? "BROWSER-LOGIN-INTERFACE-EXPOSED" : ""
+          },
+          source: "node-browser",
+        });
+      } catch (screenshotErr) {
+        // Screenshot capture failed or not required
+      }
 
       await context.close();
       usedPlaywright = true;
@@ -124,8 +167,27 @@ async function main() {
         signal: AbortSignal.timeout((request.timeout_seconds || 5) * 1000)
       });
       const html = await response.text();
+      const currentUrl = response.url || `https://${request.target}`;
+      const isLoginDetected = detectLoginSignals(html, currentUrl);
+
       observations.push({name: "browser_status", value: response.status, source: "node-browser"});
-      observations.push({name: "login_page_detected", value: detectLoginSignals(html, response.url), source: "node-browser"});
+      observations.push({name: "login_page_detected", value: isLoginDetected, source: "node-browser"});
+
+      if (isLoginDetected) {
+        findings.push({
+          id: "BROWSER-LOGIN-INTERFACE-EXPOSED",
+          title: "Authentication / Login Interface Detected",
+          severity: "info",
+          confidence: "medium",
+          category: "recon",
+          target: currentUrl,
+          evidence: `Login or authentication pathways detected at ${currentUrl}.`,
+          recommendation: "Ensure authentication endpoints enforce rate limiting (brute force protection) and multi-factor authentication (MFA).",
+          references: [
+            "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+          ]
+        });
+      }
     } catch (error) {
       warnings.push(String(error.message || error));
     }
@@ -138,7 +200,7 @@ async function main() {
     target: request.target,
     started_at: started,
     finished_at: now(),
-    findings: [],
+    findings,
     observations,
     warnings
   };

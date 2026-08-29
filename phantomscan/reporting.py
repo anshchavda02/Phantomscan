@@ -9,7 +9,32 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from phantomscan.report_models import ScanData
+from phantomscan.report_models import (
+    APISecurityData,
+    AttackPathMap,
+    ChainFinding,
+    ChecklistData,
+    ComplianceData,
+    DiffData,
+    DNSRecords,
+    EmailSecurityData,
+    EngagementProfile,
+    IntelligenceData,
+    IPIntel,
+    ModuleStatus,
+    PortResult,
+    ScanData,
+    ScanResult,
+    Score,
+    ScoreHistory,
+    Screenshot,
+    SSLResult,
+    Subdomain,
+    SupplyChainData,
+    Technology,
+    ThreatIntelReport,
+    WhoisData,
+)
 
 
 def write_json_report(path: Path, payload: dict[str, Any]) -> None:
@@ -40,7 +65,7 @@ def dict_to_finding(f_dict: dict) -> Any:
     from phantomscan.models import Finding
     try:
         return Finding.from_dict(f_dict)
-    except:
+    except Exception:
         return f_dict
 
 def _calculate_days_remaining(date_str: str) -> int | None:
@@ -61,10 +86,6 @@ def _get_obs_field(item: Any, field: str, default: Any = "") -> Any:
 
 
 def parse_intel(observations: list[dict]) -> IntelligenceData:
-    from phantomscan.report_models import (
-        IntelligenceData, WhoisData, DNSRecords, Subdomain, 
-        IPIntel, SSLResult, Technology, EmailSecurityData, PortResult
-    )
     obs = {_get_obs_field(o, "name"): _get_obs_field(o, "value") for o in observations if _get_obs_field(o, "name")}
     
     # 1. WHOIS
@@ -209,8 +230,64 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     )
 
 
+def parse_screenshots(observations: list[dict], payload: dict[str, Any]) -> list[Screenshot]:
+    """Extract and normalize screenshots from observations and payload."""
+    screenshots: list[Screenshot] = []
+    
+    # 1. Direct screenshots in payload
+    for ss in payload.get("screenshots", []):
+        if isinstance(ss, dict):
+            img_b64 = ss.get("image_base64", "")
+            data_uri = ss.get("data_uri") or (f"data:image/jpeg;base64,{img_b64}" if img_b64 else "")
+            screenshots.append(Screenshot(
+                url=ss.get("url", ""),
+                image_base64=img_b64,
+                status=str(ss.get("status", "200")),
+                interesting=bool(ss.get("interesting", False)),
+                data_uri=data_uri,
+                title=ss.get("title", "Page Screenshot"),
+                description=ss.get("description", "Automated visual rendering"),
+                timestamp=ss.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                related_finding_id=ss.get("related_finding_id", ""),
+            ))
+        elif isinstance(ss, Screenshot):
+            screenshots.append(ss)
+
+    # 2. Screenshots emitted as observations by node-browser or other modules
+    for obs in observations:
+        name = _get_obs_field(obs, "name")
+        val = _get_obs_field(obs, "value")
+        if name in ("screenshot", "browser_screenshot"):
+            if isinstance(val, dict):
+                img_b64 = val.get("image_base64", "")
+                data_uri = val.get("data_uri") or (f"data:image/jpeg;base64,{img_b64}" if img_b64 else "")
+                screenshots.append(Screenshot(
+                    url=val.get("url", payload.get("target", "")),
+                    image_base64=img_b64,
+                    status=str(val.get("status", "200")),
+                    interesting=bool(val.get("interesting", False)),
+                    data_uri=data_uri,
+                    title=val.get("title", f"Visual Render: {payload.get('target', '')}"),
+                    description=val.get("description", "Automated headless browser rendering"),
+                    timestamp=val.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                    related_finding_id=val.get("related_finding_id", ""),
+                ))
+            elif isinstance(val, str) and val.startswith("data:image"):
+                screenshots.append(Screenshot(
+                    url=payload.get("target", ""),
+                    image_base64="",
+                    status="200",
+                    interesting=False,
+                    data_uri=val,
+                    title=f"Visual Render: {payload.get('target', '')}",
+                    description="Automated headless browser rendering",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                ))
+
+    return screenshots
+
+
 def parse_chains_from_findings(findings: list[Any]) -> list[Any]:
-    from phantomscan.report_models import ChainFinding
     chains = []
     for f in findings:
         fid = str(getattr(f, 'id', '') or (f.get('id', '') if isinstance(f, dict) else ''))
@@ -248,13 +325,6 @@ def parse_chains_from_findings(findings: list[Any]) -> list[Any]:
 
 def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     """Legacy wrapper to convert payload to ScanData and generate HTML."""
-    from phantomscan.report_models import (
-        ScanData, ScanResult, IntelligenceData, Score, 
-        ScoreHistory, DiffData, ChecklistData, ComplianceData,
-        AttackPathMap, ThreatIntelReport, SupplyChainData,
-        APISecurityData, EngagementProfile
-    )
-    
     # Calculate duration dynamically if duration key is missing
     raw_duration = payload.get("duration")
     if not raw_duration or raw_duration <= 0.0:
@@ -330,6 +400,7 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     
     intel_data = parse_intel(payload.get("observations", []))
     chains_data = parse_chains_from_findings(findings)
+    screenshots_data = parse_screenshots(payload.get("observations", []), payload)
     
     scan_data = ScanData(
         scan_meta=scan_meta,
@@ -344,7 +415,7 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
         attack_paths=AttackPathMap(),
         compliance=ComplianceData(),
         checklist=ChecklistData(),
-        screenshots=[],
+        screenshots=screenshots_data,
         fp_log=suppressed,
         diff=DiffData(),
         score=Score(value=payload.get("score", 0), grade=payload.get("grade", "F")),

@@ -1,1 +1,13 @@
-mitmproxy>=10.0  # Required for --proxy mode only
+# Optional PDF Report Generator (requires system cairo/pango libraries)
+weasyprint>=62.0.0
+
+# Optional Live Proxy Interception Mode (--proxy)
+mitmproxy>=10.0.0
+
+# Optional Paper & Document Generator
+python-docx>=1.1.0
+
+# Optional Audio/Video Narration & Presentation Modules
+Pillow>=10.0.0
+pyttsx3>=2.90
+moviepy>=1.0.3
