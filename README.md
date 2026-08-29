@@ -23,7 +23,7 @@
 
 ---
 
-## 📌 Executive Summary
+##  Executive Summary
 
 **PhantomScan v2.0.0** is an enterprise-grade automated security assessment engine engineered for security engineers, penetration testers, and DevSecOps teams.
 
@@ -31,15 +31,15 @@ Traditional dynamic vulnerability scanners focus almost exclusively on legacy we
 
 ---
 
-## ⚡ Polyglot Architecture
+##  Polyglot Architecture
 
 PhantomScan combines four programming ecosystems into a unified scanning pipeline for optimal execution speed, deep cryptographic rigor, and rich DOM rendering:
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                               PHANTOMSCAN CORE                                    │
-│                     Python Orchestrator & FindingGate™                            │
-└──────────────┬──────────────────┬──────────────────┬──────────────────┬───────────┘
+  ┌───────────────────────────────────────────────────────────────────────────────────┐
+  │                               PHANTOMSCAN CORE                                    │
+  │                     Python Orchestrator & FindingGate™                            │
+  └────────────┬──────────────────┬──────────────────┬──────────────────┬─────────────┘
                │                  │                  │                  │
                ▼                  ▼                  ▼                  ▼
      ┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐
@@ -58,14 +58,14 @@ PhantomScan combines four programming ecosystems into a unified scanning pipelin
                           └───────────────────────────────────┘
 ```
 
-- 🧠 **Python (Orchestrator & Intelligence)**: Manages the execution pipeline, 35+ specialized detection modules, CVSS scoring, and reporting engines.
-- ⚡ **Go (Network Muscle)**: High-concurrency TCP SYN port scanner built with goroutines to enumerate network surfaces in seconds.
-- 🦀 **Rust (Cryptographic Inspector)**: Low-level TLS/SSL analyzer inspecting cipher suites, handshake negotiation, and certificate chains natively.
-- 🌐 **Node.js + Playwright (Browser Engine)**: Headless browser rendering SPA frontends, discovering exposed login endpoints, and capturing high-resolution visual evidence screenshots.
+-  **Python (Orchestrator & Intelligence)**: Manages the execution pipeline, 35+ specialized detection modules, CVSS scoring, and reporting engines.
+-  **Go (Network Muscle)**: High-concurrency TCP SYN port scanner built with goroutines to enumerate network surfaces in seconds.
+-  **Rust (Cryptographic Inspector)**: Low-level TLS/SSL analyzer inspecting cipher suites, handshake negotiation, and certificate chains natively.
+-  **Node.js + Playwright (Browser Engine)**: Headless browser rendering SPA frontends, discovering exposed login endpoints, and capturing high-resolution visual evidence screenshots.
 
 ---
 
-## 🛡️ Core Capabilities
+##  Core Capabilities
 
 ### 1. Vibe-Coded & AI App Security Suite
 Designed to audit modern AI-assisted web applications and serverless backends:
@@ -95,7 +95,7 @@ Alert fatigue is eliminated through a multi-tier confirmation gate:
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Installation
 
@@ -124,7 +124,7 @@ install.bat
 
 ---
 
-## 💻 CLI Command Reference
+##  CLI Command Reference
 
 ### Basic Scans
 ```bash
@@ -187,7 +187,7 @@ phantomscan --target example.com --advanced --source-path ./my-app --check-slops
 
 ---
 
-## 📊 Enterprise Reporting
+##  Enterprise Reporting
 
 PhantomScan generates **Wiz/Snyk-tier interactive HTML reports** along with machine-readable **JSON** and **CSV** artifacts:
 
@@ -206,7 +206,7 @@ reports/
 
 ---
 
-## 🧪 Testing & Verification
+##  Testing & Verification
 
 PhantomScan maintains strict quality benchmarks across all engines and modules:
 
@@ -220,7 +220,7 @@ make test
 
 ---
 
-## ⚖️ Ethical Use & Legal Disclaimer
+##  Ethical Use & Legal Disclaimer
 
 > [!IMPORTANT]
 > **PhantomScan is intended strictly for authorized security auditing, penetration testing, and educational research.**
