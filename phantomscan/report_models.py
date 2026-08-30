@@ -145,11 +145,18 @@ class CVEFinding(Finding):
 @dataclass
 class APISecurityData:
     endpoints: List[Dict[str, Any]] = field(default_factory=list)
+    auth_issues: List[Dict[str, Any]] = field(default_factory=list)
+    graphql_endpoints: List[Dict[str, Any]] = field(default_factory=list)
+    websocket_endpoints: List[Dict[str, Any]] = field(default_factory=list)
+    mobile_apis: List[Dict[str, Any]] = field(default_factory=list)
 
 @dataclass
 class SupplyChainData:
     secrets: List[Dict[str, str]] = field(default_factory=list)
     external_scripts: List[Dict[str, Any]] = field(default_factory=list)
+    dependencies: List[Dict[str, Any]] = field(default_factory=list)
+    dependency_confusion: List[Dict[str, Any]] = field(default_factory=list)
+    slopsquatting: List[Dict[str, Any]] = field(default_factory=list)
 
 @dataclass
 class ThreatIntelReport:

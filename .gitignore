@@ -19,3 +19,5 @@ docs/research_paper/
 research/
 .DS_Store
 benchmark_results_*.json
+.agents/
+

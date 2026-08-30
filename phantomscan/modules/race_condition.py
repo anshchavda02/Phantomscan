@@ -34,12 +34,14 @@ class RaceConditionDetector:
         concurrent: int = 20,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
+        # Enforce SEC-E03 concurrency ceiling
+        effective_concurrent = min(max(1, concurrent), 20)
         findings: list[dict[str, Any]] = []
         target = base_url.rstrip("/")
         endpoints = self._find_race_endpoints(target, observations)
 
         for url in endpoints[:10]:
-            result = await self._test_race(url, concurrent)
+            result = await self._test_race(url, effective_concurrent)
             if result:
                 findings.append(result)
         return findings
@@ -47,8 +49,9 @@ class RaceConditionDetector:
     async def _test_race(
         self, url: str, concurrent: int
     ) -> dict[str, Any] | None:
+        effective_concurrent = min(max(1, concurrent), 20)
         tasks = []
-        for _ in range(concurrent):
+        for _ in range(effective_concurrent):
             tasks.append(self._single_request(url))
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

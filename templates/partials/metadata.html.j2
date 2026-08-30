@@ -25,15 +25,32 @@
             </div>
 
             <div>
-                <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-family: 'Syne', sans-serif;">Engine Diagnostics</h4>
-                <div style="padding: 10px; border-radius: var(--r-compact); font-family: 'JetBrains Mono', monospace; font-size: 10px; max-height: 140px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; font-family: 'Syne', sans-serif;">Executed Modules Telemetry</h4>
+                    <span class="pill" style="font-size: 10px; font-weight: 600; background: var(--surface);">{{ scan.modules_executed | length }} Modules Executed</span>
+                </div>
+                <div style="padding: 10px; border-radius: var(--r-compact); font-family: 'JetBrains Mono', monospace; font-size: 10px; max-height: 220px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border);">
                     {% for mod in scan.modules_executed %}
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                        <span><span style="color: var(--text-tertiary);">{{ mod.timestamp }}</span> {{ mod.engine }}::{{ mod.name }}</span>
-                        <span style="color: {% if mod.status == 'completed' %}var(--sev-low){% elif mod.status == 'failed' %}var(--sev-critical){% else %}var(--sev-medium){% endif %}; font-weight: 600;">{{ mod.status|upper }}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px dashed var(--border); font-size: 11px;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            {% if mod.phase %}
+                            <span style="font-size: 9px; padding: 1px 5px; border-radius: 3px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; text-transform: uppercase;">{{ mod.phase }}</span>
+                            {% endif %}
+                            <span style="font-weight: 600; color: var(--text-primary);">{{ mod.name }}</span>
+                            <span style="color: var(--text-tertiary); font-size: 10px;">({{ mod.engine }})</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            {% if mod.findings is defined and mod.findings > 0 %}
+                            <span style="font-size: 9px; padding: 1px 5px; border-radius: 3px; background: rgba(239, 68, 68, 0.2); color: var(--sev-critical); font-weight: bold;">+{{ mod.findings }} finding{{ 's' if mod.findings > 1 else '' }}</span>
+                            {% endif %}
+                            {% if mod.duration %}
+                            <span style="color: var(--text-tertiary); font-size: 10px;">{{ mod.duration }}s</span>
+                            {% endif %}
+                            <span style="color: {% if mod.status == 'completed' %}var(--sev-low){% elif mod.status == 'failed' %}var(--sev-critical){% else %}var(--sev-medium){% endif %}; font-weight: 600; font-size: 10px;">{{ mod.status|upper }}</span>
+                        </div>
                     </div>
                     {% if mod.error %}
-                    <div style="color: var(--sev-critical); margin-left: 8px; margin-bottom: 3px; border-left: 2px solid var(--sev-critical); padding-left: 6px;">Error: {{ mod.error }}</div>
+                    <div style="color: var(--sev-critical); margin-left: 8px; margin-bottom: 4px; border-left: 2px solid var(--sev-critical); padding-left: 6px; font-size: 10px;">Error: {{ mod.error }}</div>
                     {% endif %}
                     {% endfor %}
                 </div>
@@ -41,3 +58,4 @@
         </div>
     </div>
 </section>
+

@@ -95,6 +95,7 @@ if not errorlevel 1 (
   echo     ^)
   echo ^)
   echo if errorlevel 1 pause
+  echo exit /b %%errorlevel%%
 ) > "%ROOT%PhantomScan Launcher.bat"
 copy /y "%ROOT%PhantomScan Launcher.bat" "%ROOT%launcher.bat" >nul
 
@@ -103,12 +104,15 @@ copy /y "%ROOT%PhantomScan Launcher.bat" "%ROOT%launcher.bat" >nul
   echo setlocal
   echo title PhantomScan CLI
   echo cd /d "%%~dp0"
+  echo chcp 65001 ^>nul 2^>^&1
   echo if exist "%%~dp0.venv\Scripts\python.exe" ^(
   echo     "%%~dp0.venv\Scripts\python.exe" "%%~dp0phantomscan.py" %%*
   echo ^) else ^(
   echo     python "%%~dp0phantomscan.py" %%*
   echo ^)
+  echo exit /b %%errorlevel%%
 ) > "%ROOT%phantomscan-cli.bat"
+
 
 copy /Y "%ROOT%PhantomScan Launcher.bat" "%DESKTOP%\PhantomScan Launcher.bat" >nul 2>nul
 

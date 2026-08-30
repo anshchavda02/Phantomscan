@@ -21,19 +21,22 @@ logger = logging.getLogger(__name__)
 # Regex patterns for extracting endpoints from JavaScript
 _ROUTE_PATTERNS = [
     # Explicit REST/API routes: "/rest/...", "/api/...", "/v1/..."
-    re.compile(r"""["'](/(?:rest|api|v\d+|b2b|ftp|auth|oauth|admin|graphql|user|users|products|basket|order|order-history|feedback|snippets|encryptionkeys|profile|file-upload)[a-zA-Z0-9_/\-.:?=&#]*)["']"""),
-    
+    re.compile(r"""["'`]((?:/(?:rest|api|v\d+|b2b|ftp|auth|oauth|admin|graphql|user|users|products|basket|order|order-history|feedback|snippets|encryptionkeys|profile|file-upload|app|dashboard|account|settings|checkout)[a-zA-Z0-9_/\-.:?=&#\[\]$]*)?)["'`]"""),
+
     # Generic API paths
-    re.compile(r"""["'](/api/[a-zA-Z0-9_/\-.:?=&#]+)["']"""),
-    
-    # Common JS fetch / axios calls: fetch('/...') or .get('/...')
-    re.compile(r"""(?:fetch|\.get|\.post|\.put|\.delete|\.patch)\s*\(\s*["']([^"'`\s]+)["']"""),
-    
-    # Angular / Vue / React route definitions: path: '...'
-    re.compile(r"""(?:path|url|endpoint|route)\s*:\s*["']([^"'`\s]+)["']"""),
-    
+    re.compile(r"""["'`](/api/[a-zA-Z0-9_/\-.:?=&#\[\]$]+)["'`]"""),
+
+    # Common JS fetch / axios / xhr calls: fetch('/...') or .get('/...')
+    re.compile(r"""(?:fetch|\.get|\.post|\.put|\.delete|\.patch|\.request|\$http)\s*\(\s*["'`]((?:/[^"'`\s]+|https?://[^"'`\s]+))["'`]"""),
+
+    # Angular / Vue / React / Next.js route definitions: path: '...'
+    re.compile(r"""(?:path|url|endpoint|route|href|to)\s*:\s*["'`]((?:/[^"'`\s]+))["'`]"""),
+
     # HTML / SPA hash routes: /#/search, /#/login
-    re.compile(r"""["'](/#[a-zA-Z0-9_/\-.:?=&#]*)["']"""),
+    re.compile(r"""["'`](/#[a-zA-Z0-9_/\-.:?=&#]*)["'`]"""),
+
+    # GraphQL operation names
+    re.compile(r"""(?:query|mutation|subscription)\s+([A-Za-z0-9_]+)\s*(?:\([^\)]*\))?\s*\{"""),
 ]
 
 # Sensitive keywords / exposed secrets in JavaScript
@@ -42,6 +45,7 @@ _SECRET_PATTERNS = [
     (re.compile(r"""["'](eyJ[a-zA-Z0-9_\-]{10,}\.eyJ[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-]*)["']"""), "Hardcoded JWT Token"),
     (re.compile(r"""["']((?:AKIA|ASIA)[0-9A-Z]{16})["']"""), "Hardcoded AWS Access Key"),
 ]
+
 
 
 class JSRouteExtractor:

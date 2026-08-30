@@ -39,7 +39,10 @@ class OpenAPIParser:
         self.http = http
 
     async def discover_and_parse(
-        self, base_url: str, logger_inst: logging.Logger | None = None
+        self,
+        base_url: str,
+        logger_inst: logging.Logger | None = None,
+        asset_graph: Any | None = None,
     ) -> tuple[list[str], list[Observation], list[Finding]]:
         """Probe for OpenAPI documentation and extract all endpoints."""
         log = logger_inst or logger
@@ -81,10 +84,13 @@ class OpenAPIParser:
 
         extracted_endpoints: list[dict[str, Any]] = []
 
+        if asset_graph is not None:
+            asset_graph.add_technology("OpenAPI/Swagger", version=str(version), evidence=found_spec_url)
+
         for route, path_item in paths_dict.items():
             if not isinstance(path_item, dict):
                 continue
-            
+
             full_path = f"{base_path.rstrip('/')}/{route.lstrip('/')}"
             full_url = f"{base}{full_path}"
             discovered_urls.append(full_url)
@@ -101,13 +107,24 @@ class OpenAPIParser:
                         if isinstance(p, dict) and "name" in p:
                             params.append({"name": p["name"], "in": p.get("in", "query")})
 
+                    method_upper = method.upper()
                     extracted_endpoints.append({
                         "url": full_url,
                         "path": full_path,
-                        "method": method.upper(),
+                        "method": method_upper,
                         "summary": op.get("summary", ""),
                         "parameters": params,
                     })
+
+                    if asset_graph is not None:
+                        asset_graph.add_endpoint(url=full_url, method=method_upper, tags=["openapi"])
+                        for param_info in params:
+                            asset_graph.add_parameter(
+                                url=full_url,
+                                method=method_upper,
+                                param_name=param_info["name"],
+                                param_type=param_info.get("in", "query"),
+                            )
 
         findings.append(
             Finding(
@@ -131,3 +148,4 @@ class OpenAPIParser:
 
         log.info("OpenAPI parser extracted %d API operations from %s", len(extracted_endpoints), found_spec_url)
         return discovered_urls, observations, findings
+

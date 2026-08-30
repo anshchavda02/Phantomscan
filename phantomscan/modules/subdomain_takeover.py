@@ -163,16 +163,18 @@ class SubdomainTakeoverDetector:
 
                         if fingerprint["response_signature"] in str(body):
                             res.append({
+                                "id": "SUBDOMAIN-TAKEOVER",
                                 "title": f"Subdomain Takeover: {subdomain}",
                                 "severity": "critical",
                                 "confidence": "high",
                                 "category": "subdomain_takeover",
                                 "target": subdomain,
+                                "verification_method": "cname_signature_match",
                                 "evidence": (
                                     f"CNAME: {cname}\n"
                                     f"Service: {fingerprint['service']}\n"
                                     f"Signature found: '{fingerprint['response_signature']}'"
-                                    ),
+                                ),
                                 "recommendation": (
                                     f"Either claim the {fingerprint['service']} resource "
                                     f"immediately or remove the dangling CNAME record for {subdomain}"

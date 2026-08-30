@@ -44,11 +44,15 @@ class ScanTimeout(ScanError):
     """Raised when a scan operation times out."""
 
 
+class ScopeViolationError(ScanError):
+    """Raised when an HTTP request or redirect violates declared scan scope or SSRF protection (SEC-S01, SEC-S02)."""
+
+
 # ── Robust HTTP client ────────────────────────────────────────────────────────
 
 
 class RobustHTTPClient:
-    """Async HTTP client with retry, exponential backoff, and connection pooling.
+    """Async HTTP client with retry, exponential backoff, connection pooling, and centralized scope enforcement.
 
     Must be used as an async context manager or via :func:`http_client`.
     """
@@ -61,10 +65,11 @@ class RobustHTTPClient:
         "Connection": "keep-alive",
     }
 
-    def __init__(self) -> None:
+    def __init__(self, scope_policy: Any | None = None) -> None:
         self.session: aiohttp.ClientSession | None = None
         self._timeout = aiohttp.ClientTimeout(total=8, connect=3, sock_read=5)
         self._connector: aiohttp.TCPConnector | None = None
+        self.scope_policy = scope_policy
 
     async def start(self) -> None:
         """Create the underlying aiohttp session and connector."""
@@ -91,86 +96,28 @@ class RobustHTTPClient:
             await self._connector.close()
             self._connector = None
 
-    async def get(
-        self,
-        url: str,
-        retries: int = 1,
-        allow_redirects: bool = True,
-        timeout: aiohttp.ClientTimeout | None = None,
-        **kwargs: Any,
-    ) -> HTTPResult:
-        """GET *url* with retry and exponential backoff.
+    def _check_scope(self, url: str) -> None:
+        """Validate target against scope policy before sending network traffic."""
+        if self.scope_policy is not None:
+            allowed, reason = self.scope_policy.validate_target(url)
+            if not allowed:
+                logger.warning("Central scope rejected request to %s: %s", url, reason)
+                raise ScopeViolationError(f"Scope violation: {reason} ({url})")
 
-        Args:
-            url: Full URL to fetch.
-            retries: Maximum number of attempts.
-            allow_redirects: Follow HTTP redirects.
-            timeout: Override the default timeout.
-            **kwargs: Extra arguments forwarded to ``aiohttp.ClientSession.get``.
-
-        Returns:
-            Populated :class:`HTTPResult`.
-
-        Raises:
-            The last exception after all retries are exhausted.
-        """
-        if self.session is None:
-            raise RuntimeError("RobustHTTPClient must be started with start() first")
-        effective_timeout = timeout or self._timeout
-        last_exc: Exception = RuntimeError("no attempts were made")
-
-        for attempt in range(retries):
-            try:
-                t0 = time.perf_counter()
-                async with self.session.get(
-                    url,
-                    timeout=effective_timeout,
-                    allow_redirects=allow_redirects,
-                    max_redirects=10,
-                    ssl=False,
-                    **kwargs,
-                ) as response:
-                    body = await response.read()
-                    elapsed_ms = int((time.perf_counter() - t0) * 1000)
-                    raw_set_cookies = response.headers.getall("Set-Cookie", [])
-                    return HTTPResult(
-                        url=str(response.url),
-                        status=response.status,
-                        headers={k.lower(): v for k, v in response.headers.items()},
-                        cookies={k: v.value for k, v in response.cookies.items()},
-                        body=body[:1_000_000],
-                        raw_set_cookies=raw_set_cookies,
-                        redirect_chain=[str(r.url) for r in response.history],
-                        response_time_ms=elapsed_ms,
-                        content_type=response.content_type or "",
-                    )
-            except asyncio.TimeoutError as exc:
-                last_exc = exc
-                logger.warning("Timeout on %s (attempt %d/%d)", url, attempt + 1, retries)
-            except aiohttp.ClientError as exc:
-                last_exc = exc
-                logger.warning("HTTP error on %s: %s", url, exc)
-
-            if attempt < retries - 1:
-                delay = 2**attempt
-                logger.debug("Retrying %s in %ds", url, delay)
-                await asyncio.sleep(delay)
-
-        raise last_exc
-
-    async def try_both_protocols(self, host: str) -> HTTPResult:
-        """Try HTTPS first, then HTTP; raise :class:`ScanError` if both fail."""
-        last_exc: Exception = ScanError(f"Cannot reach {host}")
-        for scheme in ("https", "http"):
-            try:
-                return await self.get(
-                    f"{scheme}://{host}",
-                    timeout=aiohttp.ClientTimeout(total=4.0, connect=2.0),
-                )
-            except Exception as exc:
-                logger.debug("%s failed for %s: %s", scheme, host, exc)
-                last_exc = exc
-        raise ScanError(f"Cannot reach {host} over HTTPS or HTTP") from last_exc
+    def _check_redirect_scope(self, response: aiohttp.ClientResponse) -> None:
+        """Enforce scope and private IP protection across HTTP redirect chains (SEC-S03)."""
+        if self.scope_policy is not None and response.history:
+            for hop in response.history:
+                hop_url = str(hop.url)
+                allowed, reason = self.scope_policy.validate_target(hop_url)
+                if not allowed:
+                    logger.warning("Redirect scope violation at hop %s: %s", hop_url, reason)
+                    raise ScopeViolationError(f"Redirect hop scope violation: {reason} ({hop_url})")
+            final_url = str(response.url)
+            allowed, reason = self.scope_policy.validate_target(final_url)
+            if not allowed:
+                logger.warning("Redirect final destination scope violation at %s: %s", final_url, reason)
+                raise ScopeViolationError(f"Redirect final destination scope violation: {reason} ({final_url})")
 
     async def request(
         self,
@@ -181,13 +128,13 @@ class RobustHTTPClient:
         timeout: aiohttp.ClientTimeout | None = None,
         **kwargs: Any,
     ) -> HTTPResult:
-        """Send an HTTP request with the given *method*, retry, and backoff.
-
-        This is the generic verb method used by :meth:`post`, :meth:`put`,
-        :meth:`delete`, and :meth:`patch`.
-        """
+        """Send an HTTP request with method, retry, backoff, and scope enforcement."""
         if self.session is None:
             raise RuntimeError("RobustHTTPClient must be started with start() first")
+
+        # Central scope verification before sending traffic (SEC-S01, SEC-S02)
+        self._check_scope(url)
+
         effective_timeout = timeout or self._timeout
         last_exc: Exception = RuntimeError("no attempts were made")
 
@@ -203,6 +150,9 @@ class RobustHTTPClient:
                     ssl=False,
                     **kwargs,
                 ) as response:
+                    # Validate redirect hops against scope policy (SEC-S03)
+                    self._check_redirect_scope(response)
+
                     body = await response.read()
                     elapsed_ms = int((time.perf_counter() - t0) * 1000)
                     raw_set_cookies = response.headers.getall("Set-Cookie", [])
@@ -217,6 +167,8 @@ class RobustHTTPClient:
                         response_time_ms=elapsed_ms,
                         content_type=response.content_type or "",
                     )
+            except ScopeViolationError:
+                raise
             except asyncio.TimeoutError as exc:
                 last_exc = exc
                 logger.warning("Timeout on %s %s (attempt %d/%d)", method, url, attempt + 1, retries)
@@ -228,6 +180,38 @@ class RobustHTTPClient:
                 await asyncio.sleep(2**attempt)
 
         raise last_exc
+
+    async def get(
+        self,
+        url: str,
+        retries: int = 1,
+        allow_redirects: bool = True,
+        timeout: aiohttp.ClientTimeout | None = None,
+        **kwargs: Any,
+    ) -> HTTPResult:
+        """GET *url* with retry, exponential backoff, and scope enforcement."""
+        return await self.request(
+            "GET",
+            url,
+            retries=retries,
+            allow_redirects=allow_redirects,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    async def try_both_protocols(self, host: str) -> HTTPResult:
+        """Try HTTPS first, then HTTP; raise :class:`ScanError` if both fail."""
+        last_exc: Exception = ScanError(f"Cannot reach {host}")
+        for scheme in ("https", "http"):
+            try:
+                return await self.get(
+                    f"{scheme}://{host}",
+                    timeout=aiohttp.ClientTimeout(total=4.0, connect=2.0),
+                )
+            except Exception as exc:
+                logger.debug("%s failed for %s: %s", scheme, host, exc)
+                last_exc = exc
+        raise ScanError(f"Cannot reach {host} over HTTPS or HTTP") from last_exc
 
     async def post(self, url: str, **kwargs: Any) -> HTTPResult:
         """POST *url* with retry."""
@@ -305,9 +289,9 @@ class RobustHTTPClient:
 
 
 @asynccontextmanager
-async def http_client() -> AsyncIterator[RobustHTTPClient]:
+async def http_client(scope_policy: Any | None = None) -> AsyncIterator[RobustHTTPClient]:
     """Yield a ready :class:`RobustHTTPClient` and close it on exit."""
-    client = RobustHTTPClient()
+    client = RobustHTTPClient(scope_policy=scope_policy)
     await client.start()
     try:
         yield client
