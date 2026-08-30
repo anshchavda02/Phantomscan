@@ -8,8 +8,8 @@ from typing import Any
 
 
 SEVERITY_ORDER = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
-DEDUCTIONS = {"critical": 30, "high": 15, "medium": 8, "low": 3, "info": 1}
-DEDUCTION_CAPS = {"critical": 60, "high": 45, "medium": 30, "low": 20, "info": 10}
+DEDUCTIONS = {"critical": 30, "high": 15, "medium": 8, "low": 3, "info": 0}
+DEDUCTION_CAPS = {"critical": 30, "high": 24, "medium": 18, "low": 10, "info": 0}
 
 
 def load_known_platform(data_dir: Path, host: str) -> dict[str, Any] | None:
@@ -139,25 +139,30 @@ def score(
     # Extract SSL grade from structured observation first, then fall back to text
     ssl_grade = _extract_ssl_grade(obs)
 
+    # PR-S02: Positive Security Bonuses
     bonus_total = 0
-    if ssl_grade in ("a+", "a"):
-        bonus_total += 3 if ssl_grade == "a+" else 2
+    # HTTPS active: +10
+    if "https" in text or any("https" in str(_get_obs_field(item, "value")).lower() for item in obs if "scheme" in str(_get_obs_field(item, "name")).lower()):
+        bonus_total += 10
+    # Valid SSL cert: +10, Grade A/A+: +5
     if ssl_grade and ssl_grade not in ("f", "unknown"):
-        bonus_total += 1  # cert is at least valid
+        bonus_total += 10
+        if ssl_grade in ("a+", "a"):
+            bonus_total += 5
+    # WAF detected: +5
     if any(
-        any(w in str(_get_obs_field(item, "value")).lower() for w in ("cloudflare", "waf", "shield", "armor", "google"))
+        any(w in str(_get_obs_field(item, "value")).lower() for w in ("cloudflare", "waf", "shield", "armor", "aws", "imperva", "modsecurity"))
         for item in obs
         if "waf" in str(_get_obs_field(item, "name")).lower() or "technologies" in str(_get_obs_field(item, "name")).lower()
     ):
-        bonus_total += 2
-    if "cloudflare" in text or "fastly" in text or "akamai" in text or "cloudfront" in text or "google" in text:
-        bonus_total += 1  # CDN bonus
-    if "dmarc1" in text or "dmarc record" in text:
-        bonus_total += 1
-    if "hsts" in text or "strict-transport-security" in text:
-        bonus_total += 2
-    if "http/3" in text or "\"h3\"" in text or "alt-svc" in text:
-        bonus_total += 1
+        bonus_total += 5
+    # CDN detected: +3
+    if any(
+        any(c in str(_get_obs_field(item, "value")).lower() for c in ("cloudflare", "fastly", "akamai", "cloudfront", "google", "cdn"))
+        for item in obs
+        if "cdn" in str(_get_obs_field(item, "name")).lower()
+    ) or "cloudflare" in text or "fastly" in text or "akamai" in text or "cloudfront" in text:
+        bonus_total += 3
 
     # Base score starts at 100 + bonus (capped at 100 before deductions)
     base_score = min(100, 100 + bonus_total)

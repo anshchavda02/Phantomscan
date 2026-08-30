@@ -180,3 +180,43 @@ class EngineHealthChecker:
                 "[bold red]!  One or more required engines are unavailable. "
                 "Scan will use Python fallbacks where possible.[/]"
             )
+
+
+def validate_preflight_target(
+    target: Any,
+    scope_policy: Any | None = None,
+) -> tuple[bool, list[str]]:
+    """Perform pre-flight sanity and scope boundary checks on a target before scanning begins.
+
+    Returns (is_valid, list_of_warning_or_error_messages).
+    """
+    errors: list[str] = []
+    if not getattr(target, "host", ""):
+        errors.append("Target hostname is empty or invalid")
+        return False, errors
+
+    host = str(target.host).strip()
+
+    # If non-local target points to private/link-local/cloud-metadata space
+    if not getattr(target, "is_local", False):
+        import ipaddress
+        from phantomscan.scope import CLOUD_METADATA_HOSTS, PRIVATE_IP_RANGES
+
+        if host in CLOUD_METADATA_HOSTS:
+            errors.append(f"Target '{host}' is a prohibited cloud metadata endpoint (SEC-S02)")
+
+        try:
+            ip_obj = ipaddress.ip_address(host)
+            if any(ip_obj in net for net in PRIVATE_IP_RANGES):
+                errors.append(
+                    f"Target '{host}' resolves to private/loopback range without is_local=True (SEC-S02)"
+                )
+        except ValueError:
+            pass
+
+    if scope_policy is not None:
+        allowed, reason = scope_policy.validate_target(host)
+        if not allowed:
+            errors.append(f"Target fails declared scope policy: {reason}")
+
+    return len(errors) == 0, errors

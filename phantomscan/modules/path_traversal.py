@@ -185,6 +185,10 @@ class PathTraversalScanner:
 
                 body = response.text()
 
+                # PR-D02 / PR-D06: Body verification — ensure response isn't a WAF block or generic HTML 404
+                if response.status in (403, 401) or "access denied" in body.lower() or "blocked" in body.lower():
+                    continue
+
                 linux_found = (
                     any(ind in body for ind in LINUX_INDICATORS)
                     and not baseline_has_linux
@@ -196,6 +200,7 @@ class PathTraversalScanner:
 
                 if linux_found or windows_found:
                     os_type = "Linux" if linux_found else "Windows"
+                    matched_ind = next((ind for ind in LINUX_INDICATORS if ind in body), "") if linux_found else next((ind for ind in WINDOWS_INDICATORS if ind in body), "")
                     return {
                         "id": "PATH-TRAVERSAL",
                         "title": f"Path Traversal: Parameter '{param}'",
@@ -208,7 +213,7 @@ class PathTraversalScanner:
                             f"Parameter: {param}\n"
                             f"Payload: {payload}\n"
                             f"Tested URL: {test_evidence_url}\n"
-                            f"OS indicator found: {os_type} system file "
+                            f"OS indicator found ({matched_ind}): {os_type} system file "
                             f"content detected in response body."
                         ),
                         "recommendation": (

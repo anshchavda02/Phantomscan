@@ -13,8 +13,11 @@ from .models import EngineResult
 from .scope import Target
 
 
+MAX_ENGINE_OUTPUT_BYTES = 10 * 1024 * 1024  # 10MB per SEC-P02
+
+
 async def run_engine(command: list[str], request: dict[str, Any], engine: str, target: Target | str) -> EngineResult:
-    """Run one JSON-speaking engine with graceful failure."""
+    """Run one JSON-speaking engine with graceful failure and bounded output size."""
     target_host = target.host if hasattr(target, "host") else str(target)
     executable = command[0]
     if _is_path_command(executable):
@@ -42,11 +45,18 @@ async def run_engine(command: list[str], request: dict[str, Any], engine: str, t
         return EngineResult.skipped(engine, target_host, f"engine command not executable: {blocked}")
     except OSError as exc:
         return EngineResult.skipped(engine, target_host, f"engine launch failed: {exc}")
+
     stdout, stderr = await proc.communicate(json.dumps(request).encode("utf-8"))
+
+    # SEC-P02: Subprocess output limit enforcement
+    if len(stdout) > MAX_ENGINE_OUTPUT_BYTES:
+        stdout = stdout[:MAX_ENGINE_OUTPUT_BYTES]
+
     if proc.returncode != 0:
         result = EngineResult.skipped(engine, target_host, stderr.decode("utf-8", errors="replace").strip())
         result.status = "error"
         return result
+
     try:
         payload = json.loads(stdout.decode("utf-8"))
     except json.JSONDecodeError as exc:

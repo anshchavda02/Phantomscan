@@ -58,13 +58,16 @@ class RemediationVerifier:
         if not self.http:
             self.http = RobustHTTPClient()
 
-        # Simple verification attempt: re-fetch affected endpoint
+        # Verification attempt: re-fetch affected endpoint
         try:
-            resp = await self.http.request("GET", target, timeout=8)
-            status = resp.get("status", 0)
-            body = resp.get("body", "")
-            if isinstance(body, bytes):
-                body = body.decode("utf-8", errors="ignore")
+            if hasattr(self.http, "get"):
+                resp = await self.http.get(target, retries=1)
+                body = resp.text() if hasattr(resp, "text") else str(resp.body)
+            else:
+                resp = await self.http.request("GET", target, timeout=8)
+                body = resp.get("body", "")
+                if isinstance(body, bytes):
+                    body = body.decode("utf-8", errors="ignore")
 
             # Check if evidence snippet still exists in response
             snippet = finding.get("evidence", "").split("\n")[0][:40]
@@ -84,6 +87,7 @@ class RemediationVerifier:
                 status="STILL_PRESENT",
                 message=f"Could not verify fix: connection error ({exc})",
             )
+
 
     async def start_server(self, host: str = "127.0.0.1", port: int = 8420) -> None:
         """Start lightweight aiohttp verification server."""

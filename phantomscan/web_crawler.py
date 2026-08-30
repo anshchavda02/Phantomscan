@@ -31,8 +31,48 @@ logger = logging.getLogger(__name__)
 class FormField:
     """A single form input field."""
     name: str
-    field_type: str = "text"       # text | password | hidden | email | etc.
+    field_type: str = "text"       # text | password | hidden | email | select | textarea | etc.
     default_value: str = ""
+    options: list[str] = field(default_factory=list)
+    pattern: str = ""
+    required: bool = False
+    min_val: str = ""
+    max_val: str = ""
+    maxlength: int | None = None
+
+
+def generate_form_baseline_payload(fields: list[FormField]) -> dict[str, str]:
+    """Generate valid, realistic dummy values for form inputs to capture clean baselines (PR-D01)."""
+    payload: dict[str, str] = {}
+    for f in fields:
+        if not f.name:
+            continue
+        ftype = f.field_type.lower()
+        if ftype == "hidden":
+            payload[f.name] = f.default_value
+        elif f.default_value:
+            payload[f.name] = f.default_value
+        elif ftype == "email":
+            payload[f.name] = "testuser@example.com"
+        elif ftype in ("number", "range"):
+            payload[f.name] = f.min_val or "1"
+        elif ftype == "tel":
+            payload[f.name] = "5550199283"
+        elif ftype == "url":
+            payload[f.name] = "https://example.com"
+        elif ftype == "password":
+            payload[f.name] = "P@ssw0rd123!"
+        elif ftype in ("date", "datetime-local"):
+            payload[f.name] = "2026-01-01"
+        elif ftype == "search":
+            payload[f.name] = "test"
+        elif ftype == "select" and f.options:
+            payload[f.name] = f.options[0]
+        elif ftype in ("checkbox", "radio"):
+            payload[f.name] = f.default_value or "on"
+        else:
+            payload[f.name] = "test"
+    return payload
 
 
 @dataclass
@@ -45,7 +85,7 @@ class DiscoveredForm:
     @property
     def text_fields(self) -> list[FormField]:
         """Return fields suitable for injection testing."""
-        injectable = {"text", "search", "email", "password", "tel", "url", "number", ""}
+        injectable = {"text", "search", "email", "password", "tel", "url", "number", "textarea", "select", ""}
         return [f for f in self.fields if f.field_type.lower() in injectable and f.name]
 
 
@@ -56,6 +96,7 @@ class CrawlResult:
     forms: list[DiscoveredForm] = field(default_factory=list)
     api_endpoints: list[dict[str, Any]] = field(default_factory=list)
     parameterized_urls: list[str] = field(default_factory=list)
+
 
 
 # ── Common API paths to probe ────────────────────────────────────────────────
@@ -237,20 +278,24 @@ class WebCrawler:
 
             # Extract input fields
             fields: list[FormField] = []
-            for input_match in re.finditer(
-                r"<(?:input|textarea|select)\s([^>]*?)/?>"  , form_body, re.I
-            ):
+
+            # 1. Standard <input> tags
+            for input_match in re.finditer(r"<input\s([^>]*?)/?>", form_body, re.I):
                 input_attrs = input_match.group(1)
                 name_match = re.search(r'name=["\']([^"\']*)', input_attrs, re.I)
                 type_match = re.search(r'type=["\']([^"\']*)', input_attrs, re.I)
                 value_match = re.search(r'value=["\']([^"\']*)', input_attrs, re.I)
+                pattern_match = re.search(r'pattern=["\']([^"\']*)', input_attrs, re.I)
+                min_match = re.search(r'min=["\']([^"\']*)', input_attrs, re.I)
+                max_match = re.search(r'max=["\']([^"\']*)', input_attrs, re.I)
+                maxlength_match = re.search(r'maxlength=["\'](\d+)["\']', input_attrs, re.I)
+                required = bool(re.search(r'\brequired\b', input_attrs, re.I))
 
                 if name_match:
                     fname = html.unescape(name_match.group(1).strip())
                     ftype = type_match.group(1).lower() if type_match else "text"
                     fvalue = html.unescape(value_match.group(1).strip()) if value_match else ""
 
-                    # Skip submit/button/image types
                     if ftype in ("submit", "button", "image", "reset", "file"):
                         continue
 
@@ -258,6 +303,57 @@ class WebCrawler:
                         name=fname,
                         field_type=ftype,
                         default_value=fvalue,
+                        pattern=pattern_match.group(1) if pattern_match else "",
+                        required=required,
+                        min_val=min_match.group(1) if min_match else "",
+                        max_val=max_match.group(1) if max_match else "",
+                        maxlength=int(maxlength_match.group(1)) if maxlength_match else None,
+                    ))
+
+            # 2. <textarea> tags
+            for ta_match in re.finditer(r"<textarea\s([^>]*?)>(.*?)</textarea>", form_body, re.I | re.S):
+                ta_attrs = ta_match.group(1)
+                ta_content = html.unescape(ta_match.group(2).strip())
+                name_match = re.search(r'name=["\']([^"\']*)', ta_attrs, re.I)
+                required = bool(re.search(r'\brequired\b', ta_attrs, re.I))
+
+                if name_match:
+                    fname = html.unescape(name_match.group(1).strip())
+                    fields.append(FormField(
+                        name=fname,
+                        field_type="textarea",
+                        default_value=ta_content,
+                        required=required,
+                    ))
+
+            # 3. <select> tags with <option> items
+            for sel_match in re.finditer(r"<select\s([^>]*?)>(.*?)</select>", form_body, re.I | re.S):
+                sel_attrs = sel_match.group(1)
+                sel_body = sel_match.group(2)
+                name_match = re.search(r'name=["\']([^"\']*)', sel_attrs, re.I)
+                required = bool(re.search(r'\brequired\b', sel_attrs, re.I))
+
+                if name_match:
+                    fname = html.unescape(name_match.group(1).strip())
+                    options: list[str] = []
+                    default_opt = ""
+                    for opt_match in re.finditer(r"<option\s*([^>]*)>(.*?)</option>", sel_body, re.I | re.S):
+                        opt_attrs = opt_match.group(1)
+                        val_m = re.search(r'value=["\']([^"\']*)', opt_attrs, re.I)
+                        opt_val = html.unescape(val_m.group(1).strip()) if val_m else html.unescape(opt_match.group(2).strip())
+                        options.append(opt_val)
+                        if "selected" in opt_attrs.lower() and not default_opt:
+                            default_opt = opt_val
+
+                    if options and not default_opt:
+                        default_opt = options[0]
+
+                    fields.append(FormField(
+                        name=fname,
+                        field_type="select",
+                        default_value=default_opt,
+                        options=options,
+                        required=required,
                     ))
 
             if fields:
@@ -266,6 +362,15 @@ class WebCrawler:
                     method=method,
                     fields=fields,
                 ))
+
+                # Check for alternative button formaction overrides
+                for btn_match in re.finditer(r'<button\s[^>]*formaction=["\']([^"\']+)["\']', form_body, re.I):
+                    btn_action = urljoin(page_url, html.unescape(btn_match.group(1).strip()))
+                    forms.append(DiscoveredForm(
+                        action=btn_action,
+                        method=method,
+                        fields=list(fields),
+                    ))
 
         return forms
 

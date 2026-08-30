@@ -7,11 +7,25 @@
             <h3 style="margin: 0 0 4px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                 {{ finding.title }}
                 <span class="pill badge-{{ finding.severity | string | lower }}" style="font-size: 10px;">{{ finding.severity | string | upper }}</span>
+                {% if finding.cvss_score %}
+                <span class="pill badge-critical" style="font-size: 9px; font-weight: 700;">CVSS {{ finding.cvss_score }}</span>
+                {% endif %}
             </h3>
             <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--text-tertiary); align-items: center;">
                 <span class="pill badge-cat badge-cat-{{ cat_slug }}">{{ finding.category | string | upper }}</span>
+                {% if finding.verification_method %}
+                <span class="pill" style="font-size: 9px; background: rgba(20, 184, 166, 0.1); color: var(--teal-light); border-color: rgba(20, 184, 166, 0.3);">
+                    &#10003; {{ finding.verification_method | replace('_', ' ') | upper }}
+                </span>
+                {% endif %}
                 {% if finding.confidence %}
-                <span class="pill" style="font-size: 10px;">Confidence: {{ finding.confidence | string | upper }}</span>
+                <span class="pill" style="font-size: 10px;">CONFIDENCE: {{ finding.confidence | string | upper }}</span>
+                {% endif %}
+                {% if finding.owasp_category %}
+                <span class="pill" style="font-size: 9px; background: rgba(99, 102, 241, 0.1); color: #818cf8; border-color: rgba(99, 102, 241, 0.3);">{{ finding.owasp_category }}</span>
+                {% endif %}
+                {% if finding.fingerprint %}
+                <span class="pill" style="font-size: 9px; font-family: 'JetBrains Mono', monospace;" title="SHA-256 Fingerprint: {{ finding.fingerprint }}">FP: {{ finding.fingerprint[:10] }}&hellip;</span>
                 {% endif %}
                 {% if finding.target %}
                 <span class="pill" style="font-size: 10px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ finding.target }}">{{ finding.target }}</span>
@@ -25,7 +39,7 @@
         <!-- Tab Bar -->
         <div class="tab-bar" style="margin-bottom: 14px;">
             <div class="tab-item active" data-tab="details" onclick="window.switchFindingTab(this, 'details')">Details</div>
-            <div class="tab-item" data-tab="evidence" onclick="window.switchFindingTab(this, 'evidence')">Evidence</div>
+            <div class="tab-item" data-tab="evidence" onclick="window.switchFindingTab(this, 'evidence')">Evidence & Reproduction</div>
             {% if finding.references %}
             <div class="tab-item" data-tab="refs" onclick="window.switchFindingTab(this, 'refs')">References</div>
             {% endif %}
@@ -33,17 +47,31 @@
 
         <!-- Details Tab -->
         <div class="tab-content" data-tab="details">
-            <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-family: 'Syne', sans-serif;">Recommendation</h4>
+            {% if finding.impact %}
+            <div style="margin-bottom: 12px; padding: 10px 12px; background: var(--sev-critical-bg); border-left: 3px solid var(--sev-critical); border-radius: var(--r-compact);">
+                <h4 style="color: var(--sev-critical); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 4px 0; font-family: 'Syne', sans-serif;">Security Impact</h4>
+                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-primary);">{{ finding.impact }}</p>
+            </div>
+            {% endif %}
+
+            <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-family: 'Syne', sans-serif;">Remediation Recommendation</h4>
             <p style="margin-bottom: 12px; font-size: 12.5px; line-height: 1.5;">{{ finding.recommendation }}</p>
+
+            {% if finding.remediation_guidance %}
+            <div style="margin-bottom: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 10px 12px;">
+                <h4 style="color: var(--teal-light); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 6px 0; font-family: 'Syne', sans-serif;">Code Patch Guidance</h4>
+                <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; word-break: break-all; font-family: 'JetBrains Mono', monospace; line-height: 1.45;">{{ finding.remediation_guidance }}</pre>
+            </div>
+            {% endif %}
 
             <!-- Action Toolbar -->
             <div style="display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; align-items: center;">
                 <a href="http://localhost:8420/verify?finding={{ finding.id }}" target="_blank" class="btn-ghost" style="text-decoration: none;">
-                    Verify Fix
+                    &#9654; Verify Fix (Local Server)
                 </a>
 
                 <button class="btn-ghost btn-ghost-teal" onclick="document.getElementById('chat-panel-{{ card_uid }}').classList.toggle('hidden')">
-                    Ask AI
+                    Ask AI Assistant
                 </button>
 
                 {% if finding.badge %}
@@ -87,11 +115,39 @@
             </div>
         </div>
 
-        <!-- Evidence Tab -->
+        <!-- Evidence & Reproduction Tab -->
         <div class="tab-content hidden" data-tab="evidence">
-            <div style="background: var(--surface); border-radius: var(--r-compact); padding: 14px; overflow-x: auto; position: relative;">
-                <button class="copy-btn" onclick="window.copyText(this.closest('.tab-content').querySelector('pre.evidence').textContent, this)" style="position: absolute; top: 8px; right: 8px; font-size: 9px; padding: 2px 6px; background: transparent; border: 1px solid var(--border); color: var(--text-tertiary); border-radius: var(--r-sharp); cursor: pointer;">COPY</button>
-                <pre class="evidence" id="evidence-{{ card_uid }}" style="margin: 0; font-size: 11px; white-space: pre-wrap; word-break: break-all; font-family: 'JetBrains Mono', 'Fira Code', monospace; line-height: 1.5;">{{ finding.evidence }}</pre>
+            {% if finding.reproduction_steps %}
+            <div style="margin-bottom: 12px;">
+                <h4 style="color: var(--text-secondary); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px 0; font-family: 'Syne', sans-serif;">Reproduction Steps</h4>
+                <ol style="margin: 0; padding-left: 18px; font-size: 11.5px; line-height: 1.6; color: var(--text-primary);">
+                    {% for step in finding.reproduction_steps %}
+                    <li>{{ step }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+
+            {% if finding.request_sample %}
+            <div style="margin-bottom: 12px;">
+                <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;">HTTP Request Sample</h4>
+                <pre style="margin: 0; font-size: 11px; background: var(--surface); padding: 10px; border-radius: var(--r-compact); border: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; word-break: break-all;">{{ finding.request_sample }}</pre>
+            </div>
+            {% endif %}
+
+            {% if finding.response_sample %}
+            <div style="margin-bottom: 12px;">
+                <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;">HTTP Response Sample</h4>
+                <pre style="margin: 0; font-size: 11px; background: var(--surface); padding: 10px; border-radius: var(--r-compact); border: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; word-break: break-all;">{{ finding.response_sample }}</pre>
+            </div>
+            {% endif %}
+
+            <div>
+                <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;">Raw Evidence Output</h4>
+                <div style="background: var(--surface); border-radius: var(--r-compact); padding: 14px; overflow-x: auto; position: relative;">
+                    <button class="copy-btn" onclick="window.copyText(this.closest('.tab-content').querySelector('pre.evidence').textContent, this)" style="position: absolute; top: 8px; right: 8px; font-size: 9px; padding: 2px 6px; background: transparent; border: 1px solid var(--border); color: var(--text-tertiary); border-radius: var(--r-sharp); cursor: pointer;">COPY</button>
+                    <pre class="evidence" id="evidence-{{ card_uid }}" style="margin: 0; font-size: 11px; white-space: pre-wrap; word-break: break-all; font-family: 'JetBrains Mono', 'Fira Code', monospace; line-height: 1.5;">{{ finding.evidence }}</pre>
+                </div>
             </div>
         </div>
 
@@ -113,3 +169,4 @@
         {% endif %}
     </div>
 </div>
+

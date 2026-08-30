@@ -225,3 +225,13 @@ def extract_injection_targets(
             )
 
     return targets
+
+
+def build_asset_graph(
+    observations: list[dict[str, Any]],
+    base_url: str = "",
+) -> Any:
+    """Convenience helper to construct an AssetGraph from scan observations."""
+    from phantomscan.asset_graph import AssetGraph
+    return AssetGraph.from_observations(observations, base_url=base_url)
+

@@ -1,14 +1,15 @@
 <!-- API Security Section -->
-{% if api_data and (api_data.endpoints or api_data.auth_issues) %}
+{% if api_data and (api_data.endpoints or api_data.auth_issues or api_data.graphql_endpoints or api_data.websocket_endpoints or api_data.mobile_apis) %}
 <section id="api" class="section">
     <div class="section-label">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
-        <span style="color: var(--teal);">API SECURITY ANALYSIS</span>
+        <span style="color: var(--teal);">API & MODERN WEB PROTOCOLS</span>
     </div>
 
     <div class="grid-2">
+        {% if api_data.endpoints %}
         <div class="card" style="border-left: 3px solid var(--teal);">
-            <h3 style="color: var(--teal); margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">API Endpoints Discovered</h3>
+            <h3 style="color: var(--teal); margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">Discovered REST & OpenAPI Endpoints ({{ api_data.endpoints | length }})</h3>
             <div style="display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto;">
                 {% for ep in api_data.endpoints %}
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface); border-radius: var(--r-compact); font-family: 'JetBrains Mono', monospace; font-size: 11px; border: 1px solid var(--border);">
@@ -25,11 +26,12 @@
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
 
         {% if api_data.auth_issues %}
         <div class="card" style="border-left: 3px solid var(--sev-critical);">
-            <h3 style="color: var(--sev-critical); margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">Authentication Issues (BOLA/BFLA)</h3>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
+            <h3 style="color: var(--sev-critical); margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">Authentication & Authorization Issues (BOLA / IDOR)</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto;">
                 {% for issue in api_data.auth_issues %}
                 <div style="padding: 10px; background: var(--sev-critical-bg); border: 1px solid var(--sev-critical-bd); border-radius: var(--r-compact);">
                     <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 2px;">{{ issue.title }}</div>
@@ -40,6 +42,39 @@
             </div>
         </div>
         {% endif %}
+
+        {% if api_data.graphql_endpoints %}
+        <div class="card" style="border-left: 3px solid #818cf8;">
+            <h3 style="color: #818cf8; margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">GraphQL Endpoints & Schema Status</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                {% for gql in api_data.graphql_endpoints %}
+                <div style="padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                    <div style="color: var(--text-primary); font-weight: 600;">{{ gql.url | default(gql) }}</div>
+                    {% if gql.introspection_enabled %}
+                    <span class="pill badge-critical" style="font-size: 9px; margin-top: 4px;">INTROSPECTION ENABLED</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if api_data.websocket_endpoints %}
+        <div class="card" style="border-left: 3px solid var(--brand-light);">
+            <h3 style="color: var(--brand-light); margin-bottom: 12px; font-size: 13px; font-family: 'Syne', sans-serif;">WebSocket Endpoints & CSWSH Status</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                {% for ws in api_data.websocket_endpoints %}
+                <div style="padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                    <div style="color: var(--text-primary); font-weight: 600;">{{ ws.url | default(ws) }}</div>
+                    {% if ws.origin_validation_bypassed %}
+                    <span class="pill badge-critical" style="font-size: 9px; margin-top: 4px;">ORIGIN VALIDATION BYPASSED</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endif %}
+

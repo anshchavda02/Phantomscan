@@ -287,13 +287,14 @@ async def timed_step(
     func: Any,
     *args: Any,
     returns_tuple: bool = False,
+    **kwargs: Any,
 ) -> Any:
     """Run and time one scan step, catching recoverable errors."""
     started = time.perf_counter()
 
     async def _run_func() -> Any:
         try:
-            return await func(*args)
+            return await func(*args, **kwargs)
         except (OSError, TimeoutError, ValueError, RuntimeError, Exception) as exc:
             logger.exception("%s failed: %s", name, exc)
             observations.append(
@@ -308,6 +309,7 @@ async def timed_step(
             result = await _run_func()
     else:
         result = await _run_func()
+
 
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     observations.append(
@@ -465,7 +467,7 @@ async def scan_one(
     if args.profile in CRAWL_PROFILES or args.profile != "passive":
         crawl_depth = getattr(args, "crawl_depth", None) or args.depth
         if args.profile in ("deep", "deepscan"):
-            crawler_pages = 100
+            crawler_pages = 150
             crawler_depth = max(crawl_depth, 3)
         elif args.profile in ("owasp", "advanced"):
             crawler_pages = 60
@@ -609,6 +611,7 @@ async def scan_one(
             if args.advanced and adv_profile not in ("advanced", "deep", "deepscan", "monitor") and not args.modules:
                 adv_profile = "advanced"
 
+            is_deep = adv_profile in ("deep", "deepscan")
             adv_findings, new_obs = await timed_step(
                 "Running advanced modules", logger, observations, args.silent,
                 run_advanced_modules,
@@ -623,7 +626,8 @@ async def scan_one(
                 args.baseline,
                 args.webhook,
                 getattr(args, "source_path", None),
-                getattr(args, "check_slopsquatting", False),
+                getattr(args, "check_slopsquatting", False) or is_deep,
+                force_all=is_deep,
                 returns_tuple=True,
             )
             seen_keys = {

@@ -11,6 +11,7 @@ Checks performed:
 4. ``verification_method`` is present and valid
 5. HIGH/Critical severity requires HIGH confidence (else downgraded)
 6. Known-platform suppression (delegated to postprocess)
+7. Deterministic fingerprint assignment
 
 The gate operates on **dicts** (the pipeline's native format), not on
 :class:`Finding` dataclass instances.
@@ -19,9 +20,14 @@ The gate operates on **dicts** (the pipeline's native format), not on
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Optional
 
-from phantomscan.models import VALID_VERIFICATION_METHODS
+from phantomscan.models import (
+    VALID_FINDING_STATUSES,
+    VALID_VERIFICATION_METHODS,
+    compute_finding_fingerprint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +97,14 @@ def gate_finding(
             f"Invalid verification_method: '{vm}'",
         )
         return None
-    # Note: we allow empty verification_method for backward compatibility
-    # with legacy modules, but new modules SHOULD set it.
 
-    # ── Check 6: Critical/High requires HIGH confidence ───────────────────
+    # ── Check 6: status valid ─────────────────────────────────────────────
+    status = str(candidate.get("status", "confirmed")).lower()
+    if status not in VALID_FINDING_STATUSES:
+        status = "confirmed"
+    candidate["status"] = status
+
+    # ── Check 7: Critical/High requires HIGH confidence ───────────────────
     if severity in ("critical", "high") and confidence != "high":
         logger.warning(
             "Downgrading '%s' — %s severity requires HIGH confidence, "
@@ -107,7 +117,7 @@ def gate_finding(
             f"confidence was {confidence}, not high"
         )
 
-    # ── Check 7: XSS findings require syntax-breaking character evidence ─
+    # ── Check 8: XSS findings require syntax-breaking character evidence ─
     fid = str(candidate.get("id", ""))
     if fid in ("XSS-REFLECTED", "XSS-REFLECTED-FORM"):
         if "<" not in evidence and ">" not in evidence and '"' not in evidence and "'" not in evidence:
@@ -116,6 +126,28 @@ def gate_finding(
         if "javascript:phantomscan_js" in evidence:
             _reject(candidate, fp_log, "XSS finding based solely on plain javascript URI probe without HTML context escape")
             return None
+
+    # ── Enrich: ID, UID, rule_id, fingerprint ─────────────────────────────
+    if not candidate.get("id") and title:
+        candidate["id"] = "FINDING-" + re.sub(r"[^A-Z0-9]+", "-", title.upper()).strip("-")[:30]
+    if not candidate.get("rule_id"):
+        candidate["rule_id"] = candidate.get("id", "")
+    if not candidate.get("uid"):
+        base_id = candidate.get("id") or "finding"
+        clean_slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(base_id).lower()).strip("-")
+        candidate["uid"] = f"finding-{clean_slug}"
+
+    if not candidate.get("fingerprint"):
+        candidate["fingerprint"] = compute_finding_fingerprint(
+            target=str(candidate.get("target", "")),
+            url=str(candidate.get("url", "")),
+            rule_id=str(candidate.get("rule_id") or candidate.get("id", "")),
+            param_name=str(candidate.get("parameter", "")),
+            method=str(candidate.get("method", "GET")),
+            evidence=evidence,
+            title=title,
+            cwe=str(candidate.get("cwe", "")),
+        )
 
     return candidate
 
@@ -133,3 +165,4 @@ def _reject(
             **candidate,
             "gate_rejection_reason": reason,
         })
+

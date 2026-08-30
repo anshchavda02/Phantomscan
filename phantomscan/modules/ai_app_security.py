@@ -50,10 +50,12 @@ MODULE_GROUP = "AI_APP_SECURITY"
 # ---------------------------------------------------------------------------
 
 def _mask(value: str, visible: int = 6) -> str:
-    """Mask all but the first *visible* characters of a secret."""
+    """Mask all but the first *visible* characters of a secret (SEC-H02)."""
     if len(value) <= visible:
         return value
     return value[:visible] + "*" * min(len(value) - visible, 20)
+
+
 
 
 def _mask_connection_string(cs: str) -> str:
