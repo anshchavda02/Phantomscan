@@ -270,6 +270,19 @@ while ($true) {
                 }
             }
         }
+
+        if ($profile -eq "deep" -or $profile -eq "deepscan" -or $profile -eq "advanced") {
+            $useProxy = Read-YesNo "Enable Smart Auto-Proxy / VPN Rerouting (Burp Suite, Clash, V2Ray, Tor)" $true
+            if ($useProxy) {
+                $customProxy = Read-Host "Enter custom upstream proxy URL if any (or press Enter for Auto-Detect)"
+                if (-not [string]::IsNullOrWhiteSpace($customProxy)) {
+                    $scanArgs += "--upstream-proxy"
+                    $scanArgs += $customProxy
+                } else {
+                    $scanArgs += "--auto-proxy"
+                }
+            }
+        }
     }
 
     if ($enterpriseSettings) {

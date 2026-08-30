@@ -78,6 +78,13 @@ class SecondOrderDetector:
                             "input_url": url,
                             "payload": payload_def,
                         }
+                    # Fallback to form data
+                    response_form = await self.http.post(url, data=body, retries=1)
+                    if response_form.status in (200, 201, 302):
+                        return {
+                            "input_url": url,
+                            "payload": payload_def,
+                        }
                 except Exception:
                     pass
             return None

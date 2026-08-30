@@ -448,6 +448,7 @@ async def fetch_headers(
     target: Target,
     timeout: float,
     logger: logging.Logger | None = None,
+    proxy: str | None = None,
 ) -> tuple[list[Observation], list[Finding]]:
     """Fetch HTTP response headers with the robust aiohttp client.
 
@@ -465,28 +466,30 @@ async def fetch_headers(
     error: str | None = None
 
     try:
-        async with http_client() as client:
+        async with http_client(proxy=proxy) as client:
             if getattr(target, "has_explicit_scheme", False) and target.scheme:
                 try:
                     result = await client.get(
                         target.base_url,
-                        timeout=_aiohttp.ClientTimeout(total=min(timeout, 5.0), connect=2.5),
+                        timeout=_aiohttp.ClientTimeout(total=max(timeout, 15.0), connect=5.0, sock_read=10.0),
                     )
                 except Exception as exc:
-                    log.debug("Explicit scheme %s failed for %s: %s; trying alternative protocol", target.scheme, target.netloc, exc)
+                    log.info("Explicit scheme %s failed for %s: %s; trying alternative protocol", target.scheme, target.netloc, exc)
                     if target.scheme == "https":
                         alt_url = f"http://{target.netloc}"
                         try:
                             result = await client.get(
                                 alt_url,
-                                timeout=_aiohttp.ClientTimeout(total=min(timeout, 5.0), connect=2.5),
+                                timeout=_aiohttp.ClientTimeout(total=max(timeout, 15.0), connect=5.0, sock_read=10.0),
                             )
                         except Exception:
                             raise exc
                     else:
                         raise
             else:
-                result = await client.try_both_protocols(target.netloc)
+                result = await client.try_both_protocols(
+                    target.netloc,
+                )
     except (ScanError, _aiohttp.ClientError, OSError, asyncio.TimeoutError) as exc:
         error = str(exc)
         log.warning("HTTP request failed for %s: %s", target.netloc, exc)
@@ -512,9 +515,12 @@ async def fetch_headers(
         result.url, result.status, elapsed_ms, len(result.headers),
     )
 
+    scheme = "https" if result.url.startswith("https") else "http"
     observations = [
         Observation("http_status", result.status, "http"),
         Observation("http_url", result.url, "http"),
+        Observation("effective_url", result.url, "http"),
+        Observation("effective_scheme", scheme, "http"),
         Observation("headers", result.headers, "http"),
         Observation("body_sample", result.text()[:2000], "http"),
         Observation("http_response_time_ms", elapsed_ms, "http"),
@@ -533,6 +539,8 @@ async def deep_analyze_web(
     target: Target,
     base_url: str,
     logger: logging.Logger | None = None,
+    proxy: str | None = None,
+    timeout_seconds: float = 10.0,
 ) -> list[Finding]:
     """Perform deep web application analysis.
 
@@ -548,6 +556,8 @@ async def deep_analyze_web(
         target: Normalised scan target.
         base_url: The effective URL obtained from :func:`fetch_headers`.
         logger: Optional per-scan logger.
+        proxy: Optional upstream proxy URL.
+        timeout_seconds: Per-request timeout in seconds.
 
     Returns:
         List of confirmed :class:`Finding` objects.
@@ -570,7 +580,7 @@ async def deep_analyze_web(
     from modules.template_scanner import TemplateScanner
     from pathlib import Path
 
-    async with http_client() as client:
+    async with http_client(proxy=proxy, timeout_seconds=timeout_seconds) as client:
         # ── Sensitive path probing (concurrent with body verification) ────────
         detector = CatchAllDetector(http_client=client)
         catch_all = await detector.detect(web_root)
@@ -672,6 +682,25 @@ async def deep_analyze_web(
                     )
                 )
 
+            # Verbose framework error disclosure on main page
+            if re.search(r"Server Error in '.*?' Application", body, re.I) or (
+                "Version Information: Microsoft .NET Framework" in body and "ASP.NET Version" in body
+            ):
+                findings.append(
+                    Finding(
+                        id="ASP.NET-CUSTOM-ERRORS-DISABLED",
+                        title="ASP.NET Custom Errors Disabled (Verbose Error Disclosure)",
+                        severity="medium",
+                        confidence="high",
+                        category="misconfiguration",
+                        target=base,
+                        cwe="CWE-209",
+                        owasp_category="A05:2021-Security_Misconfiguration",
+                        evidence="ASP.NET detailed yellow screen error message with framework versions disclosed in HTTP response.",
+                        recommendation="Set <customErrors mode=\"On\" /> or mode=\"RemoteOnly\" in web.config.",
+                    )
+                )
+
             # PHP error disclosure
             if re.search(
                 r"(error|exception|stack.?trace|fatal|warning).*?(in|at|on)\s+[/\\][\w/\\.-]+\.php",
@@ -685,8 +714,27 @@ async def deep_analyze_web(
                         confidence="high",
                         category="web",
                         target=base,
+                        cwe="CWE-209",
+                        owasp_category="A05:2021-Security_Misconfiguration",
                         evidence="PHP error or exception message found in HTTP response body.",
                         recommendation="Set display_errors=Off in php.ini and log errors to a file.",
+                    )
+                )
+
+            # Generic Stack Trace / Debug Mode Disclosure
+            if re.search(r"(Traceback \(most recent call last\)|System\.Web\.HttpException|Exception Details:|Stack Trace:\s*\[|java\.lang\.\w+Exception)", body, re.I):
+                findings.append(
+                    Finding(
+                        id="STACK-TRACE-DISCLOSURE",
+                        title="Application Stack Trace Disclosed in Response",
+                        severity="medium",
+                        confidence="high",
+                        category="misconfiguration",
+                        target=base,
+                        cwe="CWE-209",
+                        owasp_category="A05:2021-Security_Misconfiguration",
+                        evidence="Application stack trace or debug traceback detected in HTTP response body.",
+                        recommendation="Disable debug mode in production and configure generic error pages.",
                     )
                 )
 
@@ -703,15 +751,64 @@ async def deep_analyze_web(
                         confidence="high",
                         category="web",
                         target=base,
+                        cwe="CWE-548",
+                        owasp_category="A05:2021-Security_Misconfiguration",
                         evidence="Directory listing page detected in HTTP response body.",
                         recommendation="Disable directory listing in your web server configuration (Options -Indexes in Apache; autoindex off in nginx).",
                     )
                 )
 
+            # Probe 404/invalid route to check if CustomErrors is disabled on non-existent endpoints
+            try:
+                import uuid
+                probe_404_url = f"{web_root}/ps_probe_404_{uuid.uuid4().hex[:6]}.aspx"
+                res_404 = await client.get(probe_404_url, retries=1)
+                body_404 = res_404.text() if hasattr(res_404, "text") and callable(res_404.text) else ""
+                if (
+                    "Server Error in" in body_404
+                    or "Microsoft .NET Framework Version" in body_404
+                    or "ASP.NET Version" in body_404
+                ) and not any(f.id == "ASP.NET-CUSTOM-ERRORS-DISABLED" for f in findings):
+                    findings.append(
+                        Finding(
+                            id="ASP.NET-CUSTOM-ERRORS-DISABLED",
+                            title="ASP.NET Custom Errors Disabled (Verbose 404 Discloses Framework Version)",
+                            severity="medium",
+                            confidence="high",
+                            category="misconfiguration",
+                            target=probe_404_url,
+                            cwe="CWE-209",
+                            owasp_category="A05:2021-Security_Misconfiguration",
+                            evidence=(
+                                f"Probe at {probe_404_url} returned verbose ASP.NET error page revealing:\n"
+                                f"Framework version information and internal server error details."
+                            ),
+                            recommendation="Configure customErrors mode=\"On\" or mode=\"RemoteOnly\" with custom error pages in web.config.",
+                        )
+                    )
+            except Exception:
+                pass
+
         except Exception as exc:
             log.debug("Deep body analysis failed: %s", exc)
 
-        # ── HTTP → HTTPS redirect check ────────────────────────────────────────
+        # ── HTTP / HTTPS Cleartext Transport check ────────────────────────────
+        if base.startswith("http://"):
+            findings.append(
+                Finding(
+                    id="CLEARTEXT-HTTP-TRANSMISSION",
+                    title="Unencrypted HTTP Transmission in Use",
+                    severity="medium",
+                    confidence="high",
+                    category="transport",
+                    target=base,
+                    cwe="CWE-319",
+                    owasp_category="A02:2021-Cryptographic_Failures",
+                    evidence=f"Application is accessible over plain, unencrypted HTTP ({base}). All communication, credentials, and session cookies are transmitted in cleartext without TLS.",
+                    recommendation="Migrate to HTTPS with valid TLS certificates and configure HTTP-to-HTTPS 301 redirection with HSTS.",
+                )
+            )
+
         if base.startswith("https://"):
             http_url = base.replace("https://", "http://", 1)
             try:
@@ -742,6 +839,8 @@ async def deep_analyze_web(
                             confidence="high",
                             category="web",
                             target=http_url,
+                            cwe="CWE-319",
+                            owasp_category="A02:2021-Cryptographic_Failures",
                             evidence=(
                                 f"GET {http_url} returned HTTP {redirect_result.status} "
                                 f"instead of a redirect to HTTPS."
@@ -1042,17 +1141,33 @@ def _parse_set_cookie(raw: str) -> dict[str, Any]:
 # ── Technology detection ──────────────────────────────────────────────────────
 
 
-def detect_technologies(observations: list[Observation]) -> list[Observation]:
-    """Infer technologies from headers, cookies, and HTML body sample."""
+def detect_technologies(observations: list[Any]) -> list[Observation]:
+    """Infer technologies from headers, cookies, HTML body sample, and app profile observations."""
     headers: dict[str, Any] = {}
     body = ""
-    for obs in observations:
-        if obs.name == "headers" and isinstance(obs.value, dict):
-            headers = obs.value
-        if obs.name == "body_sample" and isinstance(obs.value, str):
-            body = obs.value.lower()
-
     tech: list[dict[str, Any]] = []
+
+    for item in observations:
+        name = getattr(item, "name", None) or (item.get("name") if isinstance(item, dict) else "")
+        val = getattr(item, "value", None) if hasattr(item, "value") else (item.get("value") if isinstance(item, dict) else None)
+        if name == "headers" and isinstance(val, dict):
+            headers.update(val)
+        if name == "body_sample" and isinstance(val, str):
+            body = val.lower()
+        if name == "server_banner" and val:
+            headers.setdefault("server", str(val))
+        if name == "x_powered_by" and val:
+            headers.setdefault("x-powered-by", str(val))
+        if name == "technologies" and isinstance(val, list):
+            for t in val:
+                if isinstance(t, dict) and t.get("name") and not any(x.get("name") == t.get("name") for x in tech):
+                    tech.append(dict(t))
+                elif isinstance(t, str):
+                    parts = t.split("/")
+                    t_name = parts[0]
+                    t_ver = parts[1] if len(parts) > 1 else ""
+                    if not any(x.get("name") == t_name for x in tech):
+                        tech.append({"name": t_name, "version": t_ver, "source": "profile", "confidence": 90})
 
     # Server header
     server = str(headers.get("server", ""))
@@ -1065,7 +1180,8 @@ def detect_technologies(observations: list[Observation]) -> list[Observation]:
         entry: dict[str, Any] = {"name": name, "source": "server-header", "confidence": 85}
         if version:
             entry["version"] = version
-        tech.append(entry)
+        if not any(t.get("name", "").lower() == name.lower() for t in tech):
+            tech.append(entry)
 
     # X-Powered-By
     powered = str(headers.get("x-powered-by", ""))
@@ -1075,7 +1191,8 @@ def detect_technologies(observations: list[Observation]) -> list[Observation]:
         m = re.search(r"/(\d[\d.]+)", powered)
         if m:
             entry["version"] = m.group(1)
-        tech.append(entry)
+        if not any(t.get("name", "").lower() == name.lower() for t in tech):
+            tech.append(entry)
 
     # Via header → proxy/CDN
     via = str(headers.get("via", ""))
@@ -1089,11 +1206,11 @@ def detect_technologies(observations: list[Observation]) -> list[Observation]:
 
     # Cookie-based fingerprinting
     cookies_raw = str(headers.get("set-cookie", "")).lower()
-    if "phpsessid" in cookies_raw:
+    if "phpsessid" in cookies_raw and not any(t.get("name") == "PHP" for t in tech):
         tech.append({"name": "PHP", "source": "cookie-name", "confidence": 85})
-    if "jsessionid" in cookies_raw:
+    if "jsessionid" in cookies_raw and not any(t.get("name") == "Java (JVM)" for t in tech):
         tech.append({"name": "Java (JVM)", "source": "cookie-name", "confidence": 80})
-    if "asp.net_sessionid" in cookies_raw or "aspxauth" in cookies_raw:
+    if ("asp.net_sessionid" in cookies_raw or "aspxauth" in cookies_raw) and not any(t.get("name") == "ASP.NET" for t in tech):
         tech.append({"name": "ASP.NET", "source": "cookie-name", "confidence": 85})
     if "nid=" in cookies_raw:
         tech.append({"name": "Google cookie stack", "source": "cookie-name", "confidence": 70})
@@ -1133,10 +1250,10 @@ def detect_technologies(observations: list[Observation]) -> list[Observation]:
         "rails":            "Ruby on Rails",
         "spring":           "Spring Framework",
     }
-    for marker, name in html_signatures.items():
+    for marker, sig_name in html_signatures.items():
         if marker in body:
-            if not any(t["name"] == name for t in tech):
-                tech.append({"name": name, "source": "html", "confidence": 65})
+            if not any(t["name"] == sig_name for t in tech):
+                tech.append({"name": sig_name, "source": "html", "confidence": 65})
 
     return [Observation("technologies", tech, "fingerprint")]
 

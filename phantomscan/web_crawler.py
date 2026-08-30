@@ -134,7 +134,11 @@ class WebCrawler:
         self.max_depth = max_depth
         self._visited: set[str] = set()
 
-    async def crawl(self, base_url: str) -> CrawlResult:
+    async def crawl(
+        self,
+        base_url: str,
+        seed_urls: list[str] | None = None,
+    ) -> CrawlResult:
         """Crawl *base_url* and return discovered links, forms, and APIs."""
         import aiohttp as _aiohttp
 
@@ -145,6 +149,10 @@ class WebCrawler:
 
         # Phase 1: Recursive link + form discovery
         await self._crawl_page(base + "/", base, allowed_netloc, 0, result)
+        if seed_urls:
+            for seed in seed_urls:
+                if seed and allowed_netloc in seed.lower():
+                    await self._crawl_page(seed, base, allowed_netloc, 0, result)
 
         # Phase 2: Probe common API paths
         api_results = await self._discover_api_endpoints(base)
@@ -295,14 +303,13 @@ class WebCrawler:
                     fname = html.unescape(name_match.group(1).strip())
                     ftype = type_match.group(1).lower() if type_match else "text"
                     fvalue = html.unescape(value_match.group(1).strip()) if value_match else ""
-
-                    if ftype in ("submit", "button", "image", "reset", "file"):
+                    if ftype in ("image", "reset", "file"):
                         continue
 
                     fields.append(FormField(
                         name=fname,
                         field_type=ftype,
-                        default_value=fvalue,
+                        default_value=fvalue or ("Submit" if ftype in ("submit", "button") else ""),
                         pattern=pattern_match.group(1) if pattern_match else "",
                         required=required,
                         min_val=min_match.group(1) if min_match else "",

@@ -65,9 +65,19 @@ class RobustHTTPClient:
         "Connection": "keep-alive",
     }
 
-    def __init__(self, scope_policy: Any | None = None) -> None:
+    def __init__(
+        self,
+        scope_policy: Any | None = None,
+        proxy: str | None = None,
+        timeout_seconds: float = 10.0,
+    ) -> None:
         self.session: aiohttp.ClientSession | None = None
-        self._timeout = aiohttp.ClientTimeout(total=8, connect=3, sock_read=5)
+        self.proxy: str | None = proxy
+        self._timeout = aiohttp.ClientTimeout(
+            total=timeout_seconds,
+            connect=min(5.0, timeout_seconds),
+            sock_read=timeout_seconds,
+        )
         self._connector: aiohttp.TCPConnector | None = None
         self.scope_policy = scope_policy
 
@@ -85,6 +95,7 @@ class RobustHTTPClient:
         self.session = aiohttp.ClientSession(
             connector=self._connector,
             headers=self._DEFAULT_HEADERS,
+            trust_env=True,
         )
 
     async def close(self) -> None:
@@ -136,6 +147,7 @@ class RobustHTTPClient:
         self._check_scope(url)
 
         effective_timeout = timeout or self._timeout
+        req_proxy = kwargs.pop("proxy", self.proxy)
         last_exc: Exception = RuntimeError("no attempts were made")
 
         for attempt in range(retries):
@@ -148,6 +160,7 @@ class RobustHTTPClient:
                     allow_redirects=allow_redirects,
                     max_redirects=10,
                     ssl=False,
+                    proxy=req_proxy,
                     **kwargs,
                 ) as response:
                     # Validate redirect hops against scope policy (SEC-S03)
@@ -199,19 +212,33 @@ class RobustHTTPClient:
             **kwargs,
         )
 
-    async def try_both_protocols(self, host: str) -> HTTPResult:
+    async def try_both_protocols(
+        self, host: str, timeout: aiohttp.ClientTimeout | None = None
+    ) -> HTTPResult:
         """Try HTTPS first, then HTTP; raise :class:`ScanError` if both fail."""
-        last_exc: Exception = ScanError(f"Cannot reach {host}")
+        clean_host = host.strip()
+        if "://" in clean_host:
+            from urllib.parse import urlparse
+            parsed = urlparse(clean_host)
+            clean_host = parsed.netloc or parsed.path
+        clean_host = clean_host.rstrip("/")
+
+        last_exc: Exception = ScanError(f"Cannot reach {clean_host}")
+        # Fast 3.0s connect for HTTPS so closed/hanging port 443 falls back quickly to HTTP
         for scheme in ("https", "http"):
+            conn_timeout = 3.0 if scheme == "https" else 10.0
+            total_timeout = 6.0 if scheme == "https" else 20.0
+            cur_timeout = timeout or aiohttp.ClientTimeout(total=total_timeout, connect=conn_timeout, sock_read=15.0)
             try:
                 return await self.get(
-                    f"{scheme}://{host}",
-                    timeout=aiohttp.ClientTimeout(total=4.0, connect=2.0),
+                    f"{scheme}://{clean_host}",
+                    timeout=cur_timeout,
+                    retries=2,
                 )
             except Exception as exc:
-                logger.debug("%s failed for %s: %s", scheme, host, exc)
+                logger.info("Protocol %s://%s failed: %s (trying next protocol)", scheme, clean_host, exc)
                 last_exc = exc
-        raise ScanError(f"Cannot reach {host} over HTTPS or HTTP") from last_exc
+        raise ScanError(f"Cannot reach {clean_host} over HTTPS or HTTP: {last_exc}") from last_exc
 
     async def post(self, url: str, **kwargs: Any) -> HTTPResult:
         """POST *url* with retry."""
@@ -289,9 +316,17 @@ class RobustHTTPClient:
 
 
 @asynccontextmanager
-async def http_client(scope_policy: Any | None = None) -> AsyncIterator[RobustHTTPClient]:
+async def http_client(
+    scope_policy: Any | None = None,
+    proxy: str | None = None,
+    timeout_seconds: float = 10.0,
+) -> AsyncIterator[RobustHTTPClient]:
     """Yield a ready :class:`RobustHTTPClient` and close it on exit."""
-    client = RobustHTTPClient(scope_policy=scope_policy)
+    client = RobustHTTPClient(
+        scope_policy=scope_policy,
+        proxy=proxy,
+        timeout_seconds=timeout_seconds,
+    )
     await client.start()
     try:
         yield client

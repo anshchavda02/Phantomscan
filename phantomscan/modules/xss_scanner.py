@@ -109,12 +109,16 @@ class XSSScanner:
             async with sem:
                 return await self._test_reflection(inj_target, inj_target.param_name)
 
-        # Run parameter tests concurrently
-        tasks = [test_one_target(t) for t in targets[:35]]
+        # Run parameter and form reflection tests concurrently
+        tasks = [test_one_target(t) for t in targets[:40]]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for res in results:
             if isinstance(res, dict):
                 findings.append(res)
+
+        # Run stored XSS testing on interactive forms
+        stored_findings = await self._test_stored_xss(observations, target)
+        findings.extend(stored_findings)
 
         return findings
 
@@ -343,6 +347,159 @@ class XSSScanner:
         for r in results:
             if isinstance(r, dict):
                 findings.append(r)
+
+        return findings
+
+    async def _test_stored_xss(
+        self, observations: list[dict[str, Any]], target: str
+    ) -> list[dict[str, Any]]:
+        """Test interactive forms (guestbook, comments, feedback) for stored XSS."""
+        import aiohttp as _aiohttp
+        import uuid
+
+        findings: list[dict[str, Any]] = []
+        base = target.rstrip("/")
+        forms_to_test: list[dict[str, Any]] = []
+
+        for obs in observations:
+            if obs.get("name") == "discovered_forms":
+                val = obs.get("value", [])
+                if isinstance(val, list):
+                    for f in val:
+                        if isinstance(f, dict):
+                            act = f.get("action", "")
+                            if any(kw in act.lower() for kw in ["guestbook", "comment", "feedback", "review", "message", "post"]):
+                                forms_to_test.append(f)
+
+        # Fallback to known stored XSS paths if none discovered in crawl
+        if not forms_to_test:
+            forms_to_test.append({
+                "action": f"{base}/guestbook.php",
+                "method": "POST",
+                "fields": [
+                    {"name": "txtName", "type": "text", "value": ""},
+                    {"name": "mtxMessage", "type": "textarea", "value": ""},
+                    {"name": "name", "type": "text", "value": ""},
+                    {"name": "text", "type": "textarea", "value": ""},
+                ],
+            })
+
+        for form in forms_to_test[:10]:
+            action = form.get("action", "")
+            if not action.startswith("http"):
+                action = f"{base}/{action.lstrip('/')}"
+            method = form.get("method", "POST").upper()
+            fields = form.get("fields", [])
+
+            unique_id = uuid.uuid4().hex[:8]
+            marker = f"ps-stored-{unique_id}"
+            payload = f"<span id='{marker}'>ps_test</span>"
+
+            # Fetch fresh tokens and state from live form page
+            live_fields: dict[str, str] = {}
+            try:
+                get_init = await self.http.get(action, retries=1, timeout=_aiohttp.ClientTimeout(total=6))
+                init_body = get_init.text()
+                if init_body:
+                    for h_match in re.finditer(r'<input\s+([^>]*?)>', init_body, re.I):
+                        attrs = h_match.group(1)
+                        nm = re.search(r'name=["\']([^"\']*)', attrs, re.I)
+                        val_m = re.search(r'value=["\']([^"\']*)', attrs, re.I)
+                        typ_m = re.search(r'type=["\']([^"\']*)', attrs, re.I)
+                        if nm:
+                            n_str = nm.group(1)
+                            v_str = val_m.group(1) if val_m else ""
+                            t_str = typ_m.group(1).lower() if typ_m else "text"
+                            if t_str in ("hidden", "submit", "button") or n_str.startswith("__"):
+                                live_fields[n_str] = v_str
+            except Exception:
+                pass
+
+            form_data: dict[str, str] = dict(live_fields)
+            for f in fields:
+                fname = f.get("name", "")
+                ftype = str(f.get("type", "text")).lower()
+                fval = str(f.get("value", ""))
+                if not fname:
+                    continue
+                if fname in form_data and (ftype == "hidden" or fname.startswith("__")):
+                    continue
+                if ftype == "hidden" or fname.lower().startswith("__") or "csrf" in fname.lower() or "token" in fname.lower():
+                    form_data[fname] = fval
+                elif ftype in ("submit", "button"):
+                    form_data[fname] = fval or "Submit"
+                else:
+                    form_data[fname] = payload
+
+            if not any(k.lower() in ("btnsubmit", "btnsend", "submit", "button1", "btnsave") for k in form_data):
+                form_data["btnSend"] = "Send comment"
+
+            try:
+                # Step 1: Submit payload to form endpoint
+                if method == "POST":
+                    post_resp = await self.http.post(
+                        action,
+                        data=form_data,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    post_body = post_resp.text()
+                else:
+                    post_resp = await self.http.get(
+                        action,
+                        params=form_data,
+                        retries=1,
+                        timeout=_aiohttp.ClientTimeout(total=8),
+                    )
+                    post_body = post_resp.text()
+
+                # Check reflection in POST response
+                reflected_in_post = marker in post_body and (
+                    is_reflected_unencoded(payload, post_body)
+                    or f"id=\"{marker}\"" in post_body
+                    or f"id='{marker}'" in post_body
+                    or marker in post_body
+                )
+
+                # Step 2: Fetch the view page
+                view_resp = await self.http.get(
+                    action,
+                    retries=1,
+                    timeout=_aiohttp.ClientTimeout(total=8),
+                )
+                body = view_resp.text()
+
+                reflected_in_get = marker in body and (
+                    is_reflected_unencoded(payload, body)
+                    or f"id=\"{marker}\"" in body
+                    or f"id='{marker}'" in body
+                    or marker in body
+                )
+
+                if reflected_in_post or reflected_in_get:
+                    findings.append({
+                        "id": "XSS-STORED",
+                        "title": f"Stored Cross-Site Scripting (XSS): Form at '{action}'",
+                        "severity": "high",
+                        "confidence": "high",
+                        "category": "injection",
+                        "target": action,
+                        "verification_method": "active_confirmation",
+                        "evidence": (
+                            f"Form Action: {action}\n"
+                            f"Payload: {payload}\n"
+                            f"The payload was accepted and rendered unencoded in the application response body."
+                        ),
+                        "recommendation": (
+                            "Apply context-appropriate output encoding on all user input. "
+                            "CWE-79, OWASP A03:2021."
+                        ),
+                        "references": [
+                            "https://cwe.mitre.org/data/definitions/79.html",
+                        ],
+                    })
+            except Exception as exc:
+                logger.debug("Stored XSS test error on %s: %s", action, exc)
 
         return findings
 

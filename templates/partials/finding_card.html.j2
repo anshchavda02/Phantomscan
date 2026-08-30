@@ -40,9 +40,7 @@
         <div class="tab-bar" style="margin-bottom: 14px;">
             <div class="tab-item active" data-tab="details" onclick="window.switchFindingTab(this, 'details')">Details</div>
             <div class="tab-item" data-tab="evidence" onclick="window.switchFindingTab(this, 'evidence')">Evidence & Reproduction</div>
-            {% if finding.references %}
-            <div class="tab-item" data-tab="refs" onclick="window.switchFindingTab(this, 'refs')">References</div>
-            {% endif %}
+            <div class="tab-item" data-tab="refs" onclick="window.switchFindingTab(this, 'refs')">References ({{ (finding.references if finding.references is iterable and finding.references is not string else [finding.references]) | length }})</div>
         </div>
 
         <!-- Details Tab -->
@@ -61,6 +59,22 @@
             <div style="margin-bottom: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 10px 12px;">
                 <h4 style="color: var(--teal-light); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 6px 0; font-family: 'Syne', sans-serif;">Code Patch Guidance</h4>
                 <pre style="margin: 0; font-size: 11px; white-space: pre-wrap; word-break: break-all; font-family: 'JetBrains Mono', monospace; line-height: 1.45;">{{ finding.remediation_guidance }}</pre>
+            </div>
+            {% endif %}
+
+            {% if finding.references %}
+            <div style="margin-bottom: 14px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact);">
+                <h4 style="color: var(--text-tertiary); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 8px 0; font-family: 'Syne', sans-serif;">Security References & Standards</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    {% for ref in (finding.references if finding.references is iterable and finding.references is not string else [finding.references]) %}
+                    {% set ref_link = ref | ref_url %}
+                    {% set ref_name = ref | ref_title %}
+                    <a href="{{ ref_link }}" target="_blank" rel="noopener noreferrer" class="pill" style="font-size: 10.5px; padding: 3px 8px; background: var(--card); border: 1px solid var(--border); color: var(--teal-light); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; border-radius: var(--r-compact);">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        {{ ref_name }} &nearr;
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
 
@@ -152,21 +166,31 @@
         </div>
 
         <!-- References Tab -->
-        {% if finding.references %}
         <div class="tab-content hidden" data-tab="refs">
-            <ul style="padding-left: 4px; margin: 0; font-size: 12px; list-style: none;">
-                {% for ref in (finding.references if finding.references is iterable and finding.references is not string else [finding.references]) %}
-                {% set ref_link = ref | ref_url %}
-                <li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal-light)" stroke-width="2" style="flex-shrink: 0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    <a href="{{ ref_link }}" target="_blank" rel="noopener noreferrer" style="word-break: break-all; color: var(--teal-light); text-decoration: none; font-weight: 500;">
-                        {{ ref }} &nearr;
-                    </a>
-                </li>
-                {% endfor %}
-            </ul>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 14px;">
+                <h4 style="color: var(--teal-light); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 10px 0; font-family: 'Syne', sans-serif;">Authoritative Documentation & Advisory Links</h4>
+                {% if finding.references %}
+                <ul style="padding-left: 0; margin: 0; font-size: 12px; list-style: none;">
+                    {% for ref in (finding.references if finding.references is iterable and finding.references is not string else [finding.references]) %}
+                    {% set ref_link = ref | ref_url %}
+                    {% set ref_name = ref | ref_title %}
+                    <li style="margin-bottom: 8px; padding: 8px 10px; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-sharp); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--teal-light)" stroke-width="2" style="flex-shrink: 0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                            <span style="font-weight: 600; color: var(--text-primary); white-space: nowrap;">{{ ref_name }}</span>
+                            <span style="color: var(--text-tertiary); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ref_link }}</span>
+                        </div>
+                        <a href="{{ ref_link }}" target="_blank" rel="noopener noreferrer" class="btn-ghost btn-ghost-teal" style="font-size: 10px; padding: 3px 8px; text-decoration: none; flex-shrink: 0;">
+                            Open Link &nearr;
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">No external advisory references recorded for this finding.</p>
+                {% endif %}
+            </div>
         </div>
-        {% endif %}
     </div>
 </div>
 
