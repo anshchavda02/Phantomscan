@@ -56,6 +56,10 @@ MODULE_REGISTRY: dict[str, str] = {
     "xss_scanner":          ".xss_scanner.XSSScanner",
     # Path traversal / local file inclusion
     "path_traversal":       ".path_traversal.PathTraversalScanner",
+    # Server-Side Template Injection
+    "ssti_detector":        ".ssti_detector.SSTIDetector",
+    # Anti-CSRF Token Scanner
+    "csrf_detector":        ".csrf_detector.CSRFDetector",
 }
 
 

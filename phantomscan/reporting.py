@@ -60,11 +60,163 @@ def write_csv_report(path: Path, payload: dict[str, Any]) -> None:
             ])
 
 
+def enrich_finding_references(f_dict: dict | Any) -> list[str]:
+    """Ensure every finding has rich, relevant, and authoritative references."""
+    raw_refs = getattr(f_dict, "references", None) or (f_dict.get("references") if isinstance(f_dict, dict) else [])
+    refs: list[str] = []
+    if isinstance(raw_refs, list):
+        refs.extend(str(r) for r in raw_refs if r)
+    elif isinstance(raw_refs, str) and raw_refs:
+        refs.append(raw_refs)
+
+    fid = str(getattr(f_dict, "id", "") or (f_dict.get("id", "") if isinstance(f_dict, dict) else "")).upper()
+    rule_id = str(getattr(f_dict, "rule_id", "") or (f_dict.get("rule_id", "") if isinstance(f_dict, dict) else "")).upper()
+    title = str(getattr(f_dict, "title", "") or (f_dict.get("title", "") if isinstance(f_dict, dict) else "")).lower()
+    cat = str(getattr(f_dict, "category", "") or (f_dict.get("category", "") if isinstance(f_dict, dict) else "")).lower()
+    cwe = str(getattr(f_dict, "cwe", "") or (f_dict.get("cwe", "") if isinstance(f_dict, dict) else "")).strip()
+    owasp = str(getattr(f_dict, "owasp_category", "") or (f_dict.get("owasp_category", "") if isinstance(f_dict, dict) else "")).strip()
+
+    # Add CWE reference if present
+    if cwe:
+        cwe_clean = cwe.upper().replace("CWE-", "").strip()
+        if cwe_clean.isdigit():
+            cwe_url = f"https://cwe.mitre.org/data/definitions/{cwe_clean}.html"
+            if cwe_url not in refs:
+                refs.append(cwe_url)
+
+    # Add OWASP reference if present
+    if owasp:
+        if "A01" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+        elif "A02" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+        elif "A03" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A03_2021-Injection/"
+        elif "A04" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A04_2021-Insecure_Design/"
+        elif "A05" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+        elif "A06" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/"
+        elif "A07" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+        elif "A08" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+        elif "A09" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
+        elif "A10" in owasp.upper():
+            owasp_url = "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_SSRF/"
+        else:
+            owasp_url = "https://owasp.org/www-project-top-ten/"
+        if owasp_url not in refs:
+            refs.append(owasp_url)
+
+    key_text = f"{fid} {rule_id} {title} {cat}".lower()
+
+    if "sqli" in key_text or "sql injection" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/89.html",
+            "https://owasp.org/Top10/A03_2021-Injection/",
+            "https://portswigger.net/web-security/sql-injection",
+            "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+        ])
+    elif "xss" in key_text or "cross-site scripting" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/79.html",
+            "https://owasp.org/Top10/A03_2021-Injection/",
+            "https://portswigger.net/web-security/cross-site-scripting",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+        ])
+    elif "csrf" in key_text or "cross-site request forgery" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/352.html",
+            "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+        ])
+    elif "traversal" in key_text or "lfi" in key_text or "file inclusion" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/22.html",
+            "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
+            "https://portswigger.net/web-security/file-path-traversal",
+        ])
+    elif "ssti" in key_text or "template injection" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/1336.html",
+            "https://owasp.org/Top10/A03_2021-Injection/",
+            "https://portswigger.net/web-security/server-side-template-injection",
+        ])
+    elif "dmarc" in key_text or "spf" in key_text or "email" in key_text:
+        refs.extend([
+            "https://datatracker.ietf.org/doc/html/rfc7489",
+            "https://datatracker.ietf.org/doc/html/rfc7208",
+            "https://dmarc.org/overview/",
+            "https://cwe.mitre.org/data/definitions/290.html",
+        ])
+    elif "header" in key_text or "csp" in key_text or "hsts" in key_text or "frame-options" in key_text or "x-content-type" in key_text:
+        refs.extend([
+            "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html",
+            "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy",
+            "https://cwe.mitre.org/data/definitions/1021.html",
+            "https://cwe.mitre.org/data/definitions/693.html",
+        ])
+    elif "tls" in key_text or "ssl" in key_text or "certificate" in key_text:
+        refs.extend([
+            "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Protection_Cheat_Sheet.html",
+            "https://cwe.mitre.org/data/definitions/319.html",
+            "https://cwe.mitre.org/data/definitions/295.html",
+        ])
+    elif "idor" in key_text or "bola" in key_text or "access control" in key_text or "direct object" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/639.html",
+            "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
+            "https://portswigger.net/web-security/access-control/idor",
+        ])
+    elif "cors" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/942.html",
+            "https://portswigger.net/web-security/cors",
+        ])
+    elif "sensitive" in key_text or "disclosure" in key_text or "exposure" in key_text or "leak" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/200.html",
+            "https://cwe.mitre.org/data/definitions/538.html",
+            "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+        ])
+    elif "compliance" in key_text or "owasp" in key_text or "pcidss" in key_text or "nist" in key_text:
+        refs.extend([
+            "https://owasp.org/Top10/",
+            "https://www.pcisecuritystandards.org/",
+            "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
+        ])
+    elif "http-request-failed" in key_text or "unreachable" in key_text:
+        refs.extend([
+            "https://datatracker.ietf.org/doc/html/rfc9110",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Attack_Surface_Analysis_Cheat_Sheet.html",
+        ])
+
+    seen: set[str] = set()
+    unique_refs: list[str] = []
+    for r in refs:
+        if r and r not in seen:
+            seen.add(r)
+            unique_refs.append(r)
+
+    return unique_refs
+
+
 def dict_to_finding(f_dict: dict) -> Any:
-    """Helper to safely wrap a dict into a mock finding object."""
+    """Helper to safely wrap a dict into a mock finding object with enriched references."""
     from phantomscan.models import Finding
+    # Enrich references
+    enriched_refs = enrich_finding_references(f_dict)
+    if isinstance(f_dict, dict):
+        f_dict["references"] = enriched_refs
+
     try:
-        return Finding.from_dict(f_dict)
+        finding_obj = Finding.from_dict(f_dict)
+        if not getattr(finding_obj, "references", None):
+            object.__setattr__(finding_obj, "references", enriched_refs)
+        return finding_obj
     except Exception:
         return f_dict
 
@@ -135,7 +287,23 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     
     # 6. Tech
     tech_val = obs.get("technologies") or []
-    techs = [Technology(name=t.get("name", "Unknown"), category="Server", confidence=t.get("confidence", 0)) for t in tech_val] if isinstance(tech_val, list) else []
+    techs = []
+    if isinstance(tech_val, list):
+        for t in tech_val:
+            if isinstance(t, dict):
+                techs.append(
+                    Technology(
+                        name=t.get("name", "Unknown"),
+                        category=t.get("category", "Web Server"),
+                        version=str(t.get("version") or ""),
+                        confidence=int(t.get("confidence", 85)),
+                    )
+                )
+            elif isinstance(t, str):
+                parts = t.split("/")
+                name = parts[0]
+                ver = parts[1] if len(parts) > 1 else ""
+                techs.append(Technology(name=name, category="Web Server", version=ver, confidence=85))
     
     # 7. Email Security Parsing and Scoring
     email_domain = str(obs.get("email_domain") or "")
@@ -216,7 +384,27 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     
     # 8. Ports
     ports_val = obs.get("port_scan_results") or []
-    ports = [PortResult(port=p.get("port", 0), service=p.get("service", "unknown"), banner=p.get("banner", ""), risk=p.get("state", "unknown")) for p in ports_val] if isinstance(ports_val, list) else []
+    if not ports_val and obs.get("open_tcp_ports"):
+        open_nums = obs.get("open_tcp_ports")
+        if isinstance(open_nums, list):
+            ports_val = [
+                {
+                    "port": p,
+                    "service": "http" if p in (80, 8080) else ("https" if p in (443, 8443) else "tcp"),
+                    "banner": str(obs.get("server_banner") or ""),
+                    "state": "open",
+                }
+                for p in open_nums
+            ]
+    ports = [
+        PortResult(
+            port=p.get("port", 0),
+            service=p.get("service", "unknown"),
+            banner=p.get("banner", ""),
+            risk=p.get("state", "open"),
+        )
+        for p in ports_val
+    ] if isinstance(ports_val, list) else []
     
     return IntelligenceData(
         whois=whois,
@@ -548,13 +736,18 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
                         })
             modules_list = base_modules
 
+    scan_id_val = payload.get("scan_id")
+    if not scan_id_val or scan_id_val == "local":
+        safe_t = str(payload.get("target", "target")).replace("/", "_").replace(":", "_")
+        scan_id_val = f"scan_{safe_t}_{int(datetime.now(timezone.utc).timestamp())}"
+
     scan_meta = ScanResult(
         target=payload.get("target", "Unknown"),
         timestamp=payload.get("finished_at", datetime.now(timezone.utc).isoformat()),
         duration_seconds=raw_duration,
         profile=payload.get("profile", "default"),
         modules_executed=modules_list,
-        scan_id=payload.get("scan_id", "local")
+        scan_id=scan_id_val,
     )
     
     findings = [dict_to_finding(f) for f in payload.get("findings", [])]
@@ -629,6 +822,69 @@ def resolve_reference_url(ref: Any) -> str:
     return f"https://www.google.com/search?q={ref_str}"
 
 
+def resolve_reference_title(ref: Any) -> str:
+    """Format reference into a clean human-readable title."""
+    if not ref:
+        return "Reference"
+    ref_str = str(ref).strip()
+    if "cwe.mitre.org" in ref_str:
+        import re
+        m = re.search(r"/(\d+)\.html", ref_str)
+        if m:
+            return f"MITRE CWE-{m.group(1)}"
+        return "MITRE CWE Advisory"
+    if "owasp.org/Top10" in ref_str or "owasp.org" in ref_str:
+        if "A01" in ref_str:
+            return "OWASP A01:2021 - Broken Access Control"
+        if "A02" in ref_str:
+            return "OWASP A02:2021 - Cryptographic Failures"
+        if "A03" in ref_str:
+            return "OWASP A03:2021 - Injection"
+        if "A04" in ref_str:
+            return "OWASP A04:2021 - Insecure Design"
+        if "A05" in ref_str:
+            return "OWASP A05:2021 - Security Misconfiguration"
+        if "A06" in ref_str:
+            return "OWASP A06:2021 - Vulnerable Components"
+        if "A07" in ref_str:
+            return "OWASP A07:2021 - Identification & Auth Failures"
+        if "A08" in ref_str:
+            return "OWASP A08:2021 - Software & Data Integrity Failures"
+        if "A09" in ref_str:
+            return "OWASP A09:2021 - Logging & Monitoring Failures"
+        if "A10" in ref_str:
+            return "OWASP A10:2021 - SSRF"
+        if "csrf" in ref_str.lower():
+            return "OWASP CSRF Prevention Cheat Sheet"
+        if "headers" in ref_str.lower():
+            return "OWASP Secure Headers Cheat Sheet"
+        if "sql" in ref_str.lower():
+            return "OWASP SQLi Prevention Cheat Sheet"
+        if "xss" in ref_str.lower():
+            return "OWASP XSS Prevention Cheat Sheet"
+        return "OWASP Security Standard"
+    if "portswigger.net" in ref_str:
+        topic = ref_str.rstrip("/").split("/")[-1].replace("-", " ").title()
+        return f"PortSwigger: {topic}"
+    if "datatracker.ietf.org" in ref_str or "rfc" in ref_str.lower():
+        import re
+        m = re.search(r"rfc(\d+)", ref_str, re.IGNORECASE)
+        if m:
+            return f"IETF RFC {m.group(1)} Standard"
+        return "IETF RFC Specification"
+    if "nvd.nist.gov" in ref_str or "cve.mitre.org" in ref_str:
+        return "National Vulnerability Database (NVD)"
+    if "mozilla.org" in ref_str:
+        return "MDN Web Docs"
+    if "dmarc.org" in ref_str:
+        return "DMARC.org Official Guide"
+    if ref_str.startswith("http://") or ref_str.startswith("https://"):
+        from urllib.parse import urlparse
+        domain = urlparse(ref_str).netloc
+        return f"Advisory ({domain})"
+    return ref_str
+
+
 class ReportGenerator:
     """Jinja2-based HTML report generator."""
     def __init__(self, template_dir: str = "templates"):
@@ -657,6 +913,7 @@ class ReportGenerator:
         self.env.filters['cwe_link'] = lambda cwe: f"https://cwe.mitre.org/data/definitions/{str(cwe).replace('CWE-', '')}.html" if cwe else "#"
         self.env.filters['owasp_link'] = lambda owasp: f"https://owasp.org/www-project-top-ten/2017/{owasp}.html" if owasp else "#"
         self.env.filters['ref_url'] = resolve_reference_url
+        self.env.filters['ref_title'] = resolve_reference_title
 
     def generate_html(self, scan_data: ScanData, output_path: str) -> str:
         # Ensure findings in scan_data have unique uids

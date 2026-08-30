@@ -261,5 +261,50 @@ def test_html_report_rich_data_parsing(tmp_path: Path):
     assert "0.85s" in telemetry_content
 
 
+def test_finding_references_enrichment_and_rendering(tmp_path: Path):
+    """Test that all findings are enriched with authoritative standards references and rendered in HTML."""
+    from phantomscan.reporting import enrich_finding_references, resolve_reference_title, write_html_report
+
+    f_raw = {
+        "id": "sqli-vuln-01",
+        "title": "SQL Injection Detected",
+        "severity": "critical",
+        "confidence": "high",
+        "category": "web",
+        "cwe": "CWE-89",
+        "owasp_category": "A03:2021-Injection",
+        "target": "http://testasp.vulnweb.com/search.asp?q=1",
+        "evidence": "Syntax error in SQL statement",
+        "recommendation": "Use parameterized queries",
+    }
+
+    refs = enrich_finding_references(f_raw)
+    assert any("cwe.mitre.org/data/definitions/89.html" in r for r in refs)
+    assert any("owasp.org/Top10/A03_2021-Injection" in r for r in refs)
+    assert any("portswigger.net/web-security/sql-injection" in r for r in refs)
+
+    assert resolve_reference_title("https://cwe.mitre.org/data/definitions/89.html") == "MITRE CWE-89"
+    assert resolve_reference_title("https://owasp.org/Top10/A03_2021-Injection/") == "OWASP A03:2021 - Injection"
+    assert "PortSwigger" in resolve_reference_title("https://portswigger.net/web-security/sql-injection")
+
+    out_file = tmp_path / "refs_report.html"
+    payload = {
+        "target": "http://testasp.vulnweb.com",
+        "score": 40,
+        "grade": "F",
+        "findings": [f_raw],
+    }
+    write_html_report(out_file, payload)
+    assert out_file.exists()
+    content = out_file.read_text(encoding="utf-8")
+
+    assert "Security References & Standards" in content
+    assert "Authoritative Documentation & Advisory Links" in content
+    assert "MITRE CWE-89" in content
+    assert "OWASP A03:2021 - Injection" in content
+    assert "https://cwe.mitre.org/data/definitions/89.html" in content
+
+
+
 
 

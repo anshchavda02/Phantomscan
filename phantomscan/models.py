@@ -54,6 +54,7 @@ VALID_VERIFICATION_METHODS = {
     "baseline_differential",
     "multi_source_agreement",
     "active_confirmation",
+    "dynamic_confirmed",
     "external_verification",
     "passive_observation",
     "",

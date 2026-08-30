@@ -180,9 +180,22 @@ class SensitivePathScanner:
                 "application/zip",
                 "application/octet-stream",
                 "application/x-zip",
+                "application/x-zip-compressed",
             ],
             "verify_type": "content_type",
             "false_positive_note": "Only flag if content-type is zip/binary. HTML content-type = false positive.",
+        },
+        {
+            "path": "/index.zip",
+            "severity": "Low",
+            "verify_content_type": [
+                "application/zip",
+                "application/octet-stream",
+                "application/x-zip",
+                "application/x-zip-compressed",
+            ],
+            "verify_type": "content_type",
+            "also_check_min_size": 4,
         },
         {
             "path": "/backup.sql",
@@ -190,6 +203,56 @@ class SensitivePathScanner:
             "verify_body": [
                 "CREATE TABLE", "INSERT INTO",
                 "DROP TABLE", "-- MySQL dump",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/.idea/workspace.xml",
+            "severity": "Low",
+            "verify_body": [
+                "<project version=", "<component name=", "<?xml",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/CVS/Root",
+            "severity": "Low",
+            "verify_body": [
+                ":pserver:", ":ext:", "/cvsroot", "/cvs", "anoncvs", "/home/cvs",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/CVS/Entries",
+            "severity": "Low",
+            "verify_body": [
+                "/D/", "D/", "Root/", "/index.php/", "/makefile/",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/secured/phpinfo.php",
+            "severity": "Low",
+            "verify_body": [
+                "PHP Version", "phpinfo()", "PHP Extension", "Configuration File",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/Flash/",
+            "severity": "Low",
+            "verify_body": [
+                "<title>Index of", "Directory listing for", "[To Parent Directory]",
+                "Parent Directory</a>", "Index of /Flash",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/CVS/",
+            "severity": "Low",
+            "verify_body": [
+                "<title>Index of", "Directory listing for", "[To Parent Directory]",
+                "Parent Directory</a>", "Index of /CVS", "Root", "Entries",
             ],
             "verify_type": "contains_any",
         },

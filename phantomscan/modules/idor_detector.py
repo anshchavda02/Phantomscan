@@ -23,15 +23,21 @@ _ID_PATTERNS = [
     (r"[?&]user_id=(\d+)", "param_user_id"),
     (r"[?&]order[_-]?id=(\d+)", "param_order"),
     (r"[?&]account=(\d+)", "param_account"),
+    (r"[?&]artist=(\d+)", "param_artist"),
+    (r"[?&]cat=(\d+)", "param_cat"),
+    (r"[?&]pic=(\d+)", "param_pic"),
+    (r"[?&]aid=(\d+)", "param_aid"),
     (r"[?&]file=(\w+)", "param_file"),
     (r"[?&]doc(?:ument)?=(\d+)", "param_doc"),
     (r"[?&]invoice=(\d+)", "param_invoice"),
+    (r"[?&]([a-zA-Z0-9_-]+)=(\d+)", "param_numeric"),
 ]
 
 _DATA_SIGNALS = frozenset({
     "email", "username", "name", "phone", "address", "account",
     "balance", "password", "ssn", "credit", "order", "invoice",
-    "user_id", "profile", "created_at", "updated_at",
+    "user_id", "profile", "created_at", "updated_at", "artist",
+    "product", "price", "description", "category", "picture", "cart",
 })
 
 
@@ -150,12 +156,13 @@ class IDORDetector:
             for pattern, kind in _ID_PATTERNS:
                 match = re.search(pattern, url)
                 if match:
-                    key = (url, match.group(1))
+                    val = match.group(2) if match.lastindex and match.lastindex >= 2 else match.group(1)
+                    key = (url, val)
                     if key not in seen:
                         seen.add(key)
                         candidates.append({
                             "url": url,
-                            "id": match.group(1),
+                            "id": val,
                             "kind": kind,
                         })
         return candidates

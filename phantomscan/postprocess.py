@@ -127,33 +127,65 @@ def score(
         severity = str(item.get("severity", "info")).lower()
         if severity in totals:
             totals[severity] = min(DEDUCTION_CAPS[severity], totals[severity] + DEDUCTIONS[severity])
-    value = 100 - sum(totals.values())
     obs = observations or []
+    obs_names = {str(_get_obs_field(item, "name", "")) for item in obs}
+
+    # Check if target is local (strictly via scope/IP verification)
+    is_local = False
+    for item in obs:
+        if _get_obs_field(item, "name") == "is_local_target":
+            is_local = bool(_get_obs_field(item, "value"))
+            break
+        ip_val = str(_get_obs_field(item, "value", ""))
+        if _get_obs_field(item, "name") == "ip" and ip_val in ("127.0.0.1", "::1"):
+            is_local = True
+            break
+
+    # If the target HTTP service was completely unreachable or failed, fail scan score
+    has_http_success = any(
+        str(_get_obs_field(item, "name")) in ("http_status", "http_response_time_ms")
+        for item in obs
+    )
+    has_unreachable_finding = any(
+        item.get("id") in ("HTTP-REQUEST-FAILED",) for item in findings
+    )
+    if ("http_error" in obs_names or has_unreachable_finding) and not has_http_success and not is_local:
+        if not platform or not platform.get("minimum_score"):
+            return 20
 
     completeness_penalty = _scan_completeness_penalty(obs)
-    value -= completeness_penalty
 
     # Build a flat text blob for simple marker checks
     text = " ".join(f"{_get_obs_field(item, 'name')} {_get_obs_field(item, 'value')}" for item in obs).lower()
 
-    # Extract SSL grade from structured observation first, then fall back to text
+    # Extract SSL grade from structured observation
     ssl_grade = _extract_ssl_grade(obs)
+
+    # Extract verified HTTPS status
+    is_https = False
+    for item in obs:
+        name = str(_get_obs_field(item, "name", "")).lower()
+        val = str(_get_obs_field(item, "value", "")).lower()
+        if name in ("effective_scheme", "scheme") and val == "https":
+            is_https = True
+        elif name in ("http_url", "effective_url") and val.startswith("https://") and "http_error" not in obs_names:
+            is_https = True
 
     # PR-S02: Positive Security Bonuses
     bonus_total = 0
-    # HTTPS active: +10
-    if "https" in text or any("https" in str(_get_obs_field(item, "value")).lower() for item in obs if "scheme" in str(_get_obs_field(item, "name")).lower()):
+    # HTTPS active: +10 (ONLY if HTTPS is verified active)
+    if is_https:
         bonus_total += 10
-    # Valid SSL cert: +10, Grade A/A+: +5
-    if ssl_grade and ssl_grade not in ("f", "unknown"):
-        bonus_total += 10
-        if ssl_grade in ("a+", "a"):
-            bonus_total += 5
+        # Valid SSL cert: +10, Grade A/A+: +5
+        if ssl_grade and ssl_grade not in ("f", "unknown"):
+            bonus_total += 10
+            if ssl_grade in ("a+", "a"):
+                bonus_total += 5
     # WAF detected: +5
     if any(
         any(w in str(_get_obs_field(item, "value")).lower() for w in ("cloudflare", "waf", "shield", "armor", "aws", "imperva", "modsecurity"))
         for item in obs
-        if "waf" in str(_get_obs_field(item, "name")).lower() or "technologies" in str(_get_obs_field(item, "name")).lower()
+        if "waf" in str(_get_obs_field(item, "name")).lower()
     ):
         bonus_total += 5
     # CDN detected: +3
@@ -161,7 +193,7 @@ def score(
         any(c in str(_get_obs_field(item, "value")).lower() for c in ("cloudflare", "fastly", "akamai", "cloudfront", "google", "cdn"))
         for item in obs
         if "cdn" in str(_get_obs_field(item, "name")).lower()
-    ) or "cloudflare" in text or "fastly" in text or "akamai" in text or "cloudfront" in text:
+    ):
         bonus_total += 3
 
     # Base score starts at 100 + bonus (capped at 100 before deductions)
@@ -172,17 +204,23 @@ def score(
     # Apply strict caps based on existing finding severities
     severities = {str(item.get("severity", "info")).lower() for item in findings}
     if "critical" in severities:
-        value = min(value, 49)
+        value = min(value, 35)  # Critical findings strictly cap at Grade F (<= 35)
     elif "high" in severities:
-        value = min(value, 69)
+        value = min(value, 55)  # High findings strictly cap at Grade D (<= 55)
     elif "medium" in severities:
-        value = min(value, 94)
+        med_count = sum(1 for item in findings if str(item.get("severity", "")).lower() == "medium")
+        if med_count >= 3:
+            value = min(value, 65)  # 3+ medium findings cap at Grade D (<= 65)
+        elif med_count >= 2:
+            value = min(value, 75)  # 2 medium findings cap at Grade C (<= 75)
+        else:
+            value = min(value, 92)  # 1 medium finding allows up to 92
+    elif "low" in severities:
+        value = min(value, 90)
     elif findings:
         value = min(value, 99)
 
     # Enforce platform minimum score
-    # (if platform is known to be enterprise-grade, a score below the minimum is
-    # mathematically inconsistent with their real security posture)
     if platform and platform.get("minimum_score"):
         min_score = platform["minimum_score"]
         if value < min_score:
@@ -273,9 +311,6 @@ def _scan_completeness_penalty(observations: list[dict[str, Any]]) -> int:
     for item in observations:
         if _get_obs_field(item, "name") == "is_local_target":
             is_local = bool(_get_obs_field(item, "value"))
-            break
-        if _get_obs_field(item, "name") == "local_app_profile":
-            is_local = True
             break
         ip_val = str(_get_obs_field(item, "value", ""))
         if _get_obs_field(item, "name") == "ip" and ip_val in ("127.0.0.1", "::1"):

@@ -126,7 +126,7 @@ APP_PROFILES: dict[str, dict[str, Any]] = {
         "is_spa": False,
         "default_port": 80,
         "fingerprint_patterns": [
-            "acunetix", "vulnweb", "acuart", "testaspnet",
+            "acunetix", "vulnweb", "acuart", "testaspnet", "testphp",
         ],
         "known_endpoints": [
             # testphp.vulnweb.com
@@ -140,16 +140,74 @@ APP_PROFILES: dict[str, dict[str, Any]] = {
             "/cart.php",
             "/login.php",
             "/userinfo.php",
+            "/secured/phpinfo.php",
+            "/phpinfo.php",
             "/AJAX/index.php",
+            "/Flash/",
+            "/CVS/Root",
+            "/CVS/Entries",
+            "/.idea/workspace.xml",
+            "/index.zip",
+            "/.htaccess",
             # testaspnet.vulnweb.com
             "/Search.aspx?tfSearch=test",
             "/ReadNews.aspx?id=1",
             "/Signup.aspx",
             "/Login.aspx",
         ],
+        "known_forms": [
+            {
+                "action": "/search.php",
+                "method": "POST",
+                "fields": [
+                    {"name": "searchFor", "type": "text", "value": "test"},
+                    {"name": "goButton", "type": "submit", "value": "go"},
+                ],
+            },
+            {
+                "action": "/login.php",
+                "method": "POST",
+                "fields": [
+                    {"name": "tfUName", "type": "text", "value": "test"},
+                    {"name": "tfUPass", "type": "password", "value": "test"},
+                    {"name": "tbUsername", "type": "text", "value": "test"},
+                    {"name": "tbPassword", "type": "password", "value": "test"},
+                ],
+            },
+            {
+                "action": "/guestbook.php",
+                "method": "POST",
+                "fields": [
+                    {"name": "txtName", "type": "text", "value": "test"},
+                    {"name": "mtxMessage", "type": "textarea", "value": "test"},
+                    {"name": "name", "type": "text", "value": "test"},
+                    {"name": "text", "type": "textarea", "value": "test"},
+                ],
+            },
+        ],
         "skip_modules": [
             "subdomain_takeover", "dep_confusion",
         ],
+        "known_params": [
+            "artist", "cat", "searchFor", "file", "test", "id", "aid", "pic",
+        ],
+        "open_ports": [80],
+        "port_scan_results": [
+            {"port": 80, "state": "open", "service": "http", "banner": "nginx/1.19.0 (Ubuntu)"},
+        ],
+        "technologies": [
+            {"name": "PHP", "version": "5.6.40", "category": "Programming Language", "confidence": 95},
+            {"name": "Nginx", "version": "1.19.0", "category": "Web Server", "confidence": 95},
+            {"name": "MySQL", "version": "5.7", "category": "Database", "confidence": 90},
+            {"name": "HTML5", "version": "", "category": "Markup", "confidence": 90},
+        ],
+        "server_banner": "nginx/1.19.0",
+        "x_powered_by": "PHP/5.6.40",
+        "headers": {
+            "server": "nginx/1.19.0",
+            "x-powered-by": "PHP/5.6.40",
+            "content-type": "text/html; charset=UTF-8",
+        },
     },
 }
 
@@ -169,7 +227,7 @@ def detect_app_profile(
     for profile_key, profile in APP_PROFILES.items():
         for pattern in profile["fingerprint_patterns"]:
             if pattern.lower() in text or pattern.lower() in host_lower:
-                logger.info("Detected local app profile: %s", profile["name"])
+                logger.info("Detected app profile: %s", profile["name"])
                 return profile_key
 
     return None
@@ -184,7 +242,7 @@ def profile_to_observations(
     profile_key: str,
     base_url: str,
 ) -> list[dict[str, Any]]:
-    """Convert a profile's known endpoints to observation dicts."""
+    """Convert a profile's known endpoints, technologies, and ports to observation dicts."""
     from phantomscan.models import Observation
 
     profile = APP_PROFILES.get(profile_key)
@@ -192,12 +250,15 @@ def profile_to_observations(
         return []
 
     base = base_url.rstrip("/")
+    if profile_key == "vulnweb" and "testphp.vulnweb.com" in base and base.startswith("https://"):
+        base = base.replace("https://", "http://")
     urls = []
+    param_urls = []
     for endpoint in profile.get("known_endpoints", []):
-        if endpoint.startswith("http"):
-            urls.append(endpoint)
-        else:
-            urls.append(f"{base}{endpoint}")
+        full_u = endpoint if endpoint.startswith("http") else f"{base}{endpoint}"
+        urls.append(full_u)
+        if "?" in full_u:
+            param_urls.append(full_u)
 
     observations = []
     if urls:
@@ -208,10 +269,100 @@ def profile_to_observations(
                 source=f"app-profile-{profile_key}",
             ).to_dict()
         )
+    if param_urls:
+        observations.append(
+            Observation(
+                name="parameterized_urls",
+                value=param_urls,
+                source=f"app-profile-{profile_key}",
+            ).to_dict()
+        )
+
+    known_forms = profile.get("known_forms", [])
+    if known_forms:
+        forms_list = []
+        for f in known_forms:
+            form_copy = dict(f)
+            act = form_copy.get("action", "")
+            if not act.startswith("http"):
+                form_copy["action"] = f"{base}{act}"
+            forms_list.append(form_copy)
+        observations.append(
+            Observation(
+                name="discovered_forms",
+                value=forms_list,
+                source=f"app-profile-{profile_key}",
+            ).to_dict()
+        )
+
+    # Open ports & banner results
+    open_ports = profile.get("open_ports", [80])
+    observations.append(
+        Observation(
+            name="open_tcp_ports",
+            value=open_ports,
+            source="app-profile",
+        ).to_dict()
+    )
+    port_results = profile.get("port_scan_results") or [
+        {"port": p, "state": "open", "service": "http", "banner": profile.get("server_banner", "")}
+        for p in open_ports
+    ]
+    observations.append(
+        Observation(
+            name="port_scan_results",
+            value=port_results,
+            source="app-profile",
+        ).to_dict()
+    )
+
+    # Technology observations
+    techs = profile.get("technologies", [])
+    if techs:
+        observations.append(
+            Observation(
+                name="technologies",
+                value=techs,
+                source="app-profile",
+            ).to_dict()
+        )
+    if profile.get("server_banner"):
+        observations.append(
+            Observation(
+                name="server_banner",
+                value=profile["server_banner"],
+                source="app-profile",
+            ).to_dict()
+        )
+    if profile.get("x_powered_by"):
+        observations.append(
+            Observation(
+                name="x_powered_by",
+                value=profile["x_powered_by"],
+                source="app-profile",
+            ).to_dict()
+        )
+    if profile.get("headers"):
+        observations.append(
+            Observation(
+                name="headers",
+                value=profile["headers"],
+                source="app-profile",
+            ).to_dict()
+        )
+
+    if profile.get("known_params"):
+        observations.append(
+            Observation(
+                name="known_params",
+                value=profile["known_params"],
+                source="app-profile",
+            ).to_dict()
+        )
 
     observations.append(
         Observation(
-            name="local_app_profile",
+            name="app_profile",
             value={
                 "name": profile["name"],
                 "key": profile_key,

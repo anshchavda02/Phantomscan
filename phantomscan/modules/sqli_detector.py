@@ -119,22 +119,29 @@ class SQLiDetector:
         async def test_one(inj_target: InjectionTarget) -> list[dict[str, Any]]:
             res: list[dict[str, Any]] = []
             async with sem:
-                # Error-based detection
+                # 1. Error-based detection
                 error_finding = await self._test_error_based(
                     inj_target, inj_target.param_name, inj_target.original_value
                 )
                 if error_finding:
                     res.append(error_finding)
-                elif not res:
-                    # If no error finding, test time-based blind detection
-                    time_finding = await self._test_time_based(
+                else:
+                    # 2. Boolean-based blind detection
+                    boolean_finding = await self._test_boolean_blind(
                         inj_target, inj_target.param_name, inj_target.original_value
                     )
-                    if time_finding:
-                        res.append(time_finding)
+                    if boolean_finding:
+                        res.append(boolean_finding)
+                    else:
+                        # 3. Time-based blind detection
+                        time_finding = await self._test_time_based(
+                            inj_target, inj_target.param_name, inj_target.original_value
+                        )
+                        if time_finding:
+                            res.append(time_finding)
             return res
 
-        tasks = [test_one(t) for t in targets[:35]]
+        tasks = [test_one(t) for t in targets[:40]]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, list):
@@ -167,10 +174,10 @@ class SQLiDetector:
             benign_resp["status"], benign_resp["body"], benign_resp["headers"]
         )
 
-        # Step 3: Test each error-based payload (max 3 payloads per parameter)
+        # Step 3: Test each error-based payload (test up to 6 payloads per parameter)
         payloads_tested = 0
         for payload in ERROR_BASED_PAYLOADS:
-            if payloads_tested >= 3:
+            if payloads_tested >= 6:
                 break
             payloads_tested += 1
             response = await self._send_request(target, param, payload)
@@ -273,7 +280,7 @@ class SQLiDetector:
             for attempt in range(2):
                 t0 = time.perf_counter()
                 resp = await self._send_request(
-                    target, param, payload, timeout_seconds=12
+                    target, param, payload, timeout_seconds=6
                 )
                 elapsed = time.perf_counter() - t0
 
@@ -284,7 +291,7 @@ class SQLiDetector:
                     )
                     break
 
-                expected_min = baseline_avg + 4.5 + (baseline_stdev * 2)
+                expected_min = baseline_avg + 4.0 + (baseline_stdev * 2)
 
                 if elapsed >= expected_min:
                     confirmations += 1
@@ -324,6 +331,78 @@ class SQLiDetector:
                     "references": [
                         "https://cwe.mitre.org/data/definitions/89.html",
                     ],
+                }
+
+        return None
+
+    async def _test_boolean_blind(
+        self, target: InjectionTarget | str, param: str, original_value: str
+    ) -> Optional[dict[str, Any]]:
+        """Test for boolean-based blind SQL injection with TRUE vs FALSE differentials."""
+        target_url = target.url if isinstance(target, InjectionTarget) else target
+
+        # Step 1: Capture baseline response
+        baseline_resp = await self._send_request(target, param, original_value, timeout_seconds=6)
+        if baseline_resp is None:
+            return None
+
+        # Build dynamic boolean pairs adapted to parameter data type
+        boolean_pairs: list[tuple[str, str]] = []
+        orig_clean = str(original_value).strip()
+
+        # Numeric / Arithmetic variants
+        if orig_clean.isdigit():
+            boolean_pairs.extend([
+                (f"{orig_clean} OR 1=1", f"{orig_clean} AND 1=2"),
+                (f"{orig_clean}+0", f"{orig_clean}+1"),
+                (f"{orig_clean}-0", f"{orig_clean}-1"),
+                (f"{orig_clean}' OR '1'='1", f"{orig_clean}' AND '1'='2"),
+                (f"{orig_clean}' OR 1=1-- ", f"{orig_clean}' AND 1=2-- "),
+            ])
+        else:
+            boolean_pairs.extend([
+                (f"{orig_clean}' OR '1'='1", f"{orig_clean}' AND '1'='2"),
+                (f"{orig_clean}' OR 1=1-- ", f"{orig_clean}' AND 1=2-- "),
+                (f"{orig_clean}\" OR \"1\"=\"1", f"{orig_clean}\" AND \"1\"=\"2"),
+                ("' OR '1'='1", "' AND '1'='2"),
+                ("1 OR 1=1", "1 AND 1=2"),
+            ])
+
+        # Step 2: Test boolean pairs
+        for true_payload, false_payload in boolean_pairs:
+            true_resp = await self._send_request(target, param, true_payload, timeout_seconds=6)
+            false_resp = await self._send_request(target, param, false_payload, timeout_seconds=6)
+
+            if true_resp is None or false_resp is None:
+                continue
+
+            if is_waf_block_page(true_resp["body"], true_resp["status"]) or is_waf_block_page(false_resp["body"], false_resp["status"]):
+                continue
+
+            length_diff = abs(len(true_resp["body"]) - len(false_resp["body"]))
+            status_diff = true_resp["status"] != false_resp["status"]
+
+            # Differential confirmed if status differs or body length differs significantly (>= 30 bytes)
+            if (length_diff >= 30 or status_diff) and (len(true_resp["body"]) > 0 or len(false_resp["body"]) > 0):
+                return {
+                    "id": "SQLI-BOOLEAN-BLIND",
+                    "title": f"SQL Injection (Boolean-Based): Parameter '{param}'",
+                    "severity": "critical",
+                    "confidence": "high",
+                    "category": "injection",
+                    "target": target_url,
+                    "verification_method": "baseline_differential",
+                    "evidence": (
+                        f"Parameter: {param}\n"
+                        f"TRUE payload: {true_payload} (HTTP {true_resp['status']}, {len(true_resp['body'])} bytes)\n"
+                        f"FALSE payload: {false_payload} (HTTP {false_resp['status']}, {len(false_resp['body'])} bytes)\n"
+                        f"Length differential: {length_diff} bytes between TRUE and FALSE conditions."
+                    ),
+                    "recommendation": (
+                        "Use parameterized queries / prepared statements. "
+                        "Never concatenate user input into SQL. CWE-89, OWASP A03:2021."
+                    ),
+                    "references": ["https://cwe.mitre.org/data/definitions/89.html"],
                 }
 
         return None

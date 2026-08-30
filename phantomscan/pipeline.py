@@ -61,6 +61,18 @@ DEFAULT_MODULE_METADATA: dict[str, ModuleMetadata] = {
         timeout_seconds=40.0,
         description="Path traversal and local file inclusion probing with body verification",
     ),
+    "ssti_detector": ModuleMetadata(
+        name="ssti_detector",
+        phase="active",
+        timeout_seconds=40.0,
+        description="Server-Side Template Injection expression evaluation detection",
+    ),
+    "csrf_detector": ModuleMetadata(
+        name="csrf_detector",
+        phase="active",
+        timeout_seconds=30.0,
+        description="Anti-CSRF token verification on state-changing HTML forms",
+    ),
     "ssrf": ModuleMetadata(
         name="ssrf",
         phase="active",
@@ -428,6 +440,12 @@ class PipelineDAG:
             meta = self.get_metadata(name)
             cls = all_modules[name]
 
+            # Fast-fail active modules if the target host was confirmed unreachable during HTTP recon
+            is_target_unreachable = any(obs.get("name") == "http_error" for obs in new_observations) and not any(
+                obs.get("name") in ("http_status", "status_code") for obs in new_observations
+            )
+            module_timeout = min(meta.timeout_seconds, 4.0) if (is_target_unreachable and not is_post) else meta.timeout_seconds
+
             async with semaphore:
                 t0 = time.perf_counter()
                 try:
@@ -450,7 +468,7 @@ class PipelineDAG:
                             check_slopsquatting=kwargs.get("check_slopsquatting", False),
                         )
 
-                    result = await asyncio.wait_for(coro, timeout=meta.timeout_seconds)
+                    result = await asyncio.wait_for(coro, timeout=module_timeout)
                     elapsed = time.perf_counter() - t0
                     findings_count = len(result) if isinstance(result, list) else 0
                     logger.info("Module %s completed in %.2fs (%d findings)", name, elapsed, findings_count)

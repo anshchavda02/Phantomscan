@@ -41,7 +41,12 @@ from phantomscan.http_client import RobustHTTPClient, http_client
 from phantomscan.js_analyzer import JSRouteExtractor
 from phantomscan.openapi_parser import OpenAPIParser
 from phantomscan.web_crawler import WebCrawler
-from phantomscan.local_app_profiles import detect_app_profile, get_profile, profile_to_observations
+from phantomscan.local_app_profiles import (
+    detect_app_profile,
+    get_profile,
+    profile_to_observations,
+)
+from phantomscan.proxy_detector import auto_resolve_route
 
 # Enterprise modules
 from modules.http_pool import SharedHTTPPool
@@ -126,10 +131,16 @@ def build_parser() -> argparse.ArgumentParser:
     scan_group.add_argument("--source-path", help="Path to local source code for hybrid black-box + white-box analysis (enables ORM, Prisma, Drizzle, and .env git-history checks)")
     scan_group.add_argument("--check-slopsquatting", action="store_true", help="Check project dependencies for AI-hallucinated packages (slopsquatting). Requires --source-path.")
     scan_group.add_argument(
-        "--local-app",
+        "--app-profile", "--local-app",
+        dest="app_profile",
         choices=["juiceshop", "dvwa", "webgoat", "bwapp", "vulnweb", "auto"],
+        default="auto",
         help="Optimize scan for a known vulnerable app (auto-detects if 'auto')",
     )
+    scan_group.add_argument("--upstream-proxy", "--http-proxy", dest="upstream_proxy", help="Route all outbound scanner HTTP/HTTPS requests through an upstream proxy (e.g. http://127.0.0.1:8080)")
+    scan_group.add_argument("--auto-proxy", action="store_true", default=None, help="Automatically detect active local proxies/VPN tunnels (Burp Suite, Clash, V2Ray, Fiddler, Tor) and reroute traffic if direct target connection fails (enabled by default on deep/advanced profiles)")
+    scan_group.add_argument("--no-auto-proxy", dest="auto_proxy", action="store_false", help="Disable automatic local proxy/VPN discovery and rerouting")
+    scan_group.add_argument("--timeout", type=float, default=10.0, help="Per-request HTTP timeout in seconds (default: 10.0)")
     scan_group.add_argument("--crawl-depth", type=int, default=None,
                            help="Web crawler depth (overrides --depth for crawling)")
 
@@ -372,10 +383,28 @@ async def scan_one(
         )
         observations.extend(item.to_dict() for item in subdomain_obs)
 
+    # ── Auto-Proxy / Smart Routing Resolution ─────────────────────────────────
+    active_proxy = getattr(args, "upstream_proxy", None)
+    auto_proxy_enabled = getattr(args, "auto_proxy", None)
+    if auto_proxy_enabled is None:
+        # Default enabled for deep / advanced / full profiles
+        auto_proxy_enabled = args.profile in ("deep", "deepscan", "advanced", "full", "owasp", "bug-bounty")
+
+    if not active_proxy and auto_proxy_enabled:
+        resolved_proxy, route_msg = await auto_resolve_route(
+            target.base_url, configured_proxy=active_proxy, profile=args.profile, force_auto=False
+        )
+        if resolved_proxy:
+            active_proxy = resolved_proxy
+            setattr(args, "upstream_proxy", resolved_proxy)
+            if not args.silent:
+                cprint(f"[*] [SMART-ROUTING] {route_msg}", "green")
+            observations.append(Observation("smart_proxy_routed", resolved_proxy, "routing").to_dict())
+
     # ── HTTP analysis ─────────────────────────────────────────────────────────
     http_obs, http_findings = await timed_step(
         "Analyzing HTTP", logger, observations, args.silent,
-        fetch_headers, target, 10.0, logger,
+        fetch_headers, target, 10.0, logger, active_proxy,
         returns_tuple=True,
     )
     if isinstance(http_obs, (list, tuple)):
@@ -383,17 +412,40 @@ async def scan_one(
     if isinstance(http_findings, (list, tuple)):
         findings.extend(item.to_dict() for item in http_findings)
 
+    # If direct HTTP analysis failed (e.g. timeout / connection drop) and no proxy was active, probe local proxies now!
+    has_http_error = any(obs.get("name") == "http_error" for obs in observations)
+    if has_http_error and not active_proxy and auto_proxy_enabled:
+        if not args.silent:
+            cprint("[!] Direct connection to target timed out. Probing local proxies/VPN tunnels (Burp Suite, Clash, Tor, V2Ray)...", "yellow")
+        resolved_proxy, route_msg = await auto_resolve_route(target.base_url, profile=args.profile, force_auto=True)
+        if resolved_proxy:
+            active_proxy = resolved_proxy
+            setattr(args, "upstream_proxy", resolved_proxy)
+            if not args.silent:
+                cprint(f"[*] [SMART-ROUTING] Rerouting scan through {resolved_proxy} ({route_msg})", "green")
+            observations.append(Observation("smart_proxy_routed", resolved_proxy, "routing").to_dict())
+            # Retry HTTP analysis through the resolved proxy!
+            retry_obs, retry_findings = await fetch_headers(target, 10.0, logger, active_proxy)
+            observations.extend(item.to_dict() for item in retry_obs)
+            findings.extend(item.to_dict() for item in retry_findings)
+
     # Resolve the effective base URL from the HTTP result
     effective_url: str = target.base_url
     for obs in observations:
-        if obs.get("name") == "http_url" and obs.get("value"):
+        if obs.get("name") in ("effective_url", "http_url") and obs.get("value"):
             effective_url = str(obs["value"])
             break
+
+    # If effective_url starts with https:// but target failed over HTTPS without explicit scheme:
+    if effective_url.startswith("https://") and any(obs.get("name") == "http_error" for obs in observations):
+        if not target.has_explicit_scheme:
+            effective_url = f"http://{target.netloc}"
 
     # ── OpenAPI / Swagger Discovery ───────────────────────────────────────────
     if args.profile != "passive":
         async def _run_openapi() -> tuple[list[Any], list[Any]]:
-            async with http_client() as client:
+            timeout_sec = getattr(args, "timeout", 10.0)
+            async with http_client(proxy=active_proxy, timeout_seconds=timeout_sec) as client:
                 parser = OpenAPIParser(client)
                 _, o_obs, o_findings = await parser.discover_and_parse(effective_url, logger)
                 return o_obs, o_findings
@@ -412,7 +464,8 @@ async def scan_one(
     DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep", "deepscan")
     if args.profile in DEEP_PROFILES:
         async def _run_js_analyzer() -> tuple[list[Any], list[Any]]:
-            async with http_client() as client:
+            timeout_sec = getattr(args, "timeout", 10.0)
+            async with http_client(proxy=active_proxy, timeout_seconds=timeout_sec) as client:
                 extractor = JSRouteExtractor(client)
                 html_body = ""
                 try:
@@ -439,10 +492,10 @@ async def scan_one(
             Observation("is_local_target", True, "scope").to_dict()
         )
 
-    # ── Local app profile detection + known endpoints ─────────────────────
-    local_app_key = getattr(args, "local_app", None)
-    if local_app_key == "auto" or (target.is_local and not local_app_key):
-        # Auto-detect by fingerprinting the main page body
+    # ── App profile detection + known endpoints & baseline findings ───────
+    app_profile_key = getattr(args, "app_profile", None) or getattr(args, "local_app", None)
+    if app_profile_key == "auto" or not app_profile_key:
+        # Auto-detect by fingerprinting the main page body and host
         body_sample = ""
         for obs in observations:
             if obs.get("name") == "body_sample":
@@ -450,16 +503,17 @@ async def scan_one(
                 break
         detected = detect_app_profile(body_sample, target_host=target.host)
         if detected:
-            local_app_key = detected
+            app_profile_key = detected
             if not args.silent:
-                cprint(f"[*] Auto-detected local app: {get_profile(detected)['name']}", "green")
+                cprint(f"[*] Auto-detected app profile: {get_profile(detected)['name']}", "green")
 
-    if local_app_key and local_app_key != "auto":
-        profile_obs = profile_to_observations(local_app_key, effective_url)
+    if app_profile_key and app_profile_key != "auto":
+        profile_obs = profile_to_observations(app_profile_key, effective_url)
         observations.extend(profile_obs)
         logger.info(
-            "Local app profile '%s' injected %d known endpoints",
-            local_app_key, len([o for o in profile_obs if o.get("name") == "discovered_urls"]),
+            "App profile '%s' provided %d seed observations for crawler/active modules",
+            app_profile_key,
+            len(profile_obs),
         )
 
     # ── Web crawling (parameter & form discovery) ─────────────────────────
@@ -476,10 +530,17 @@ async def scan_one(
             crawler_pages = 50
             crawler_depth = crawl_depth
 
+        seed_urls: list[str] = []
+        for o in observations:
+            if o.get("name") == "discovered_urls" and isinstance(o.get("value"), list):
+                seed_urls.extend(o["value"])
+
         async def _run_crawler() -> list[Any]:
-            async with http_client() as client:
+            proxy_url = getattr(args, "upstream_proxy", None)
+            timeout_sec = getattr(args, "timeout", 10.0)
+            async with http_client(proxy=proxy_url, timeout_seconds=timeout_sec) as client:
                 crawler = WebCrawler(client, max_pages=crawler_pages, max_depth=crawler_depth)
-                result = await crawler.crawl(effective_url)
+                result = await crawler.crawl(effective_url, seed_urls=seed_urls)
                 return crawler.to_observations(result, effective_url)
 
         crawl_obs = await timed_step(
@@ -495,9 +556,10 @@ async def scan_one(
     # Deep web analysis (sensitive paths, CORS, disclosures, redirect)
     DEEP_PROFILES = ("full", "bug-bounty", "owasp", "advanced", "deep", "deepscan")
     if args.profile in DEEP_PROFILES:
+        timeout_sec = getattr(args, "timeout", 10.0)
         deep_findings = await timed_step(
             "Deep web analysis", logger, observations, args.silent,
-            deep_analyze_web, target, effective_url, logger,
+            deep_analyze_web, target, effective_url, logger, active_proxy, timeout_sec,
             returns_tuple=False
         )
         if isinstance(deep_findings, list):
@@ -520,7 +582,12 @@ async def scan_one(
             )
 
     # Technology fingerprinting
-    tech_obs_list = detect_technologies([*dns_obs, *(item for item in http_obs if hasattr(item, "name"))])
+    tech_obs_input = [
+        item if isinstance(item, Observation)
+        else Observation(str(item.get("name", "")), item.get("value"), str(item.get("source", "")))
+        for item in observations
+    ]
+    tech_obs_list = detect_technologies(tech_obs_input)
     observations.extend(item.to_dict() for item in tech_obs_list)
 
     # Email security (SPF/DMARC/MX)
@@ -604,7 +671,9 @@ async def scan_one(
 
     # ── Advanced modules phase ────────────────────────────────────────────────
     if args.advanced or args.modules or args.profile in ("advanced", "deep", "deepscan", "monitor"):
-        client = RobustHTTPClient()
+        proxy_url = getattr(args, "upstream_proxy", None)
+        timeout_sec = getattr(args, "timeout", 10.0)
+        client = RobustHTTPClient(proxy=proxy_url, timeout_seconds=timeout_sec)
         await client.start()
         try:
             adv_profile = args.modules if args.modules else args.profile
@@ -695,6 +764,7 @@ async def scan_one(
 
     return {
         "schema": "phantomscan.report.v1",
+        "scan_id": str(scan_id),
         "target": target.host,
         "profile": args.profile,
         "started_at": started,
