@@ -166,10 +166,19 @@ async def test_ssti_detector_evaluates_template_expressions():
     mock_http = MagicMock(spec=RobustHTTPClient)
 
     async def mock_get(url, params=None, **kwargs):
+        import re
         from urllib.parse import unquote
         decoded_url = unquote(url)
-        if (params and any("7*7" in str(v) for v in params.values())) or ("7*7" in decoded_url):
-            return make_result(url=url, status=200, headers={}, body="Hello User 49!")
+        m = re.search(r"(\d+)\*(\d+)", decoded_url)
+        if m:
+            prod = int(m.group(1)) * int(m.group(2))
+            return make_result(url=url, status=200, headers={}, body=f"Hello User {prod}!")
+        if params:
+            for v in params.values():
+                m2 = re.search(r"(\d+)\*(\d+)", str(v))
+                if m2:
+                    prod = int(m2.group(1)) * int(m2.group(2))
+                    return make_result(url=url, status=200, headers={}, body=f"Hello User {prod}!")
         return make_result(url=url, status=200, headers={}, body="Hello User guest!")
 
     mock_http.get = AsyncMock(side_effect=mock_get)

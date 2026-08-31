@@ -604,6 +604,12 @@ def parse_compliance_data(findings: list[Any]) -> ComplianceData:
                     "severity": getattr(f, "severity", "info"),
                     "category": getattr(f, "category", ""),
                     "evidence": getattr(f, "evidence", ""),
+                    "cwe": getattr(f, "cwe", ""),
+                    "owasp_category": getattr(f, "owasp_category", ""),
+                    "recommendation": getattr(f, "recommendation", ""),
+                    "suppression_reason": getattr(f, "suppression_reason", None),
+                    "false_positive": getattr(f, "false_positive", False),
+                    "suppressed": getattr(f, "suppressed", False),
                 })
 
         frameworks = []
@@ -619,7 +625,8 @@ def parse_compliance_data(findings: list[Any]) -> ComplianceData:
                 "failing_controls": failing_controls,
             })
         return ComplianceData(frameworks=frameworks)
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to parse compliance data: %s", exc)
         return ComplianceData()
 
 

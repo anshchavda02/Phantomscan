@@ -101,12 +101,25 @@ class AINarrativeReporter:
         }]
 
     def generate_narrative(self, findings: list[dict[str, Any]], target: str) -> str:
-        if not findings:
+        # Filter out meta-reporting findings, compliance status findings, and suppressed findings
+        eval_findings = [
+            f for f in findings
+            if str(f.get("category", "")).lower() not in ("reporting", "compliance")
+            and not str(f.get("id", "")).upper().startswith((
+                "COMPLIANCE-", "AI-NARRATIVE-", "ATTACK-PATH-", "VULN-CHAIN-",
+                "SCAN-STATUS-", "PORT-SCAN-", "SSL-INFO-", "EXCLUDED-"
+            ))
+            and not f.get("suppression_reason")
+            and not f.get("false_positive")
+            and not f.get("suppressed")
+            and str(f.get("severity", "")).lower() in ("critical", "high", "medium", "low")
+        ]
+        if not eval_findings:
             return _NO_FINDINGS_TEMPLATE.format(target=target)
 
-        critical_count = sum(1 for f in findings if f.get("severity") == "critical")
-        high_count = sum(1 for f in findings if f.get("severity") == "high")
-        med_count = sum(1 for f in findings if f.get("severity") == "medium")
+        critical_count = sum(1 for f in eval_findings if f.get("severity") == "critical")
+        high_count = sum(1 for f in eval_findings if f.get("severity") == "high")
+        med_count = sum(1 for f in eval_findings if f.get("severity") == "medium")
 
         if critical_count > 0:
             risk_level = "CRITICAL"
@@ -120,15 +133,15 @@ class AINarrativeReporter:
         # 1. Introduction
         intro = _INTRO_TEMPLATE.format(
             target=target,
-            total=len(findings),
+            total=len(eval_findings),
             risk_level=risk_level,
             critical_count=critical_count,
             high_count=high_count,
         )
 
         # 2. Risk Prioritization
-        categories = {str(f.get("category", "other")): 0 for f in findings}
-        for f in findings:
+        categories = {str(f.get("category", "other")): 0 for f in eval_findings}
+        for f in eval_findings:
             categories[str(f.get("category", "other"))] += 1
 
         top_categories = sorted(categories.items(), key=lambda x: x[1], reverse=True)[:3]

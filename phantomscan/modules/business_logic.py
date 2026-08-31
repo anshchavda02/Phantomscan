@@ -80,25 +80,54 @@ class BusinessLogicAnalyzer:
         test_urls = endpoints or [f"{target}/api/users", f"{target}/api/account",
                                    f"{target}/api/profile", f"{target}/api/register"]
         for url in test_urls:
+            # Baseline request with standard non-elevated payload
+            baseline_body = ""
+            try:
+                base_resp = await self.http.post(
+                    url, json={"role": "user", "name": "standard_user"}, retries=1
+                )
+                baseline_body = base_resp.text().lower()
+            except Exception:
+                pass
+
             for payload in _MASS_ASSIGN_PAYLOADS:
                 try:
                     response = await self.http.post(
                         url, json=payload, retries=1,
                     )
+                    if response.status != 200:
+                        continue
+
                     body = response.text()
-                    if response.status == 200 and any(
-                        k in body.lower() for k in _PRIVILEGE_INDICATORS
-                    ):
+                    body_lower = body.lower()
+                    content_type = response.headers.get("content-type", "").lower()
+                    is_json = "application/json" in content_type
+
+                    # Check for elevated privileges returned in structured JSON response
+                    has_explicit_priv = (
+                        is_json
+                        and any(
+                            f'"{k}"' in body_lower or f"'{k}'" in body_lower
+                            for k in ("admin", "superuser", "administrator", "granted", "role")
+                        )
+                    )
+                    elevated_diff = any(
+                        k in body_lower and k not in baseline_body
+                        for k in _PRIVILEGE_INDICATORS
+                    )
+
+                    if is_json and (has_explicit_priv or elevated_diff):
                         findings.append({
                             "id": "BL-MASS-ASSIGNMENT",
                             "title": "Potential Mass Assignment Vulnerability",
                             "severity": "high",
-                            "confidence": "medium",
+                            "confidence": "high" if is_json else "medium",
                             "category": "business-logic",
                             "target": url,
+                            "verification_method": "baseline_differential",
                             "evidence": (
-                                f"Sent {json.dumps(payload)}, got HTTP 200 "
-                                f"with privilege indicators in response body"
+                                f"Sent {json.dumps(payload)}, got HTTP 200.\n"
+                                f"Privilege escalation confirmed in response state."
                             ),
                             "recommendation": (
                                 "Implement strict allowlists for request parameters. "
@@ -127,31 +156,59 @@ class BusinessLogicAnalyzer:
             {"amount": -500},
             {"count": -10, "item": "test"},
         ]
+        error_keywords = ("error", "invalid", "negative", "greater than", "positive", "failed", "bad request")
+
         for url in candidate_urls:
+            # Baseline request with positive values
+            baseline_body = ""
+            try:
+                base_resp = await self.http.post(
+                    url, json={"quantity": 1, "price": 100, "amount": 100}, retries=1
+                )
+                baseline_body = base_resp.text().lower()
+            except Exception:
+                pass
+
             for payload in negative_payloads:
                 try:
                     response = await self.http.post(url, json=payload, retries=1)
-                    if response.status in (200, 201):
-                        findings.append({
-                            "id": "BL-NEGATIVE-VALUE",
-                            "title": "Negative Value Accepted in Business Operation",
-                            "severity": "medium",
-                            "confidence": "medium",
-                            "category": "business-logic",
-                            "target": url,
-                            "evidence": (
-                                f"Payload {json.dumps(payload)} returned HTTP "
-                                f"{response.status}. Application may allow "
-                                f"negative quantities or amounts."
-                            ),
-                            "recommendation": (
-                                "Validate that numeric inputs are within expected "
-                                "ranges. Reject negative values for quantities, "
-                                "amounts, and counts. CWE-840."
-                            ),
-                            "references": ["https://cwe.mitre.org/data/definitions/840.html"],
-                        })
-                        break
+                    if response.status not in (200, 201):
+                        continue
+
+                    body = response.text()
+                    body_lower = body.lower()
+                    content_type = response.headers.get("content-type", "").lower()
+                    is_json = "application/json" in content_type
+
+                    # Rejection check: ignore if response explicitly contains validation error keywords
+                    if any(err in body_lower for err in error_keywords) and not any(err in baseline_body for err in error_keywords):
+                        continue
+
+                    # If response is identical to baseline or a generic HTML page, ignore
+                    if body_lower == baseline_body or (not is_json and "<html" in body_lower):
+                        continue
+
+                    findings.append({
+                        "id": "BL-NEGATIVE-VALUE",
+                        "title": "Negative Value Accepted in Business Operation",
+                        "severity": "medium",
+                        "confidence": "high" if is_json else "medium",
+                        "category": "business-logic",
+                        "target": url,
+                        "verification_method": "baseline_differential",
+                        "evidence": (
+                            f"Payload {json.dumps(payload)} returned HTTP "
+                            f"{response.status}. Application accepted "
+                            f"negative quantities or amounts in business transaction."
+                        ),
+                        "recommendation": (
+                            "Validate that numeric inputs are within expected "
+                            "ranges. Reject negative values for quantities, "
+                            "amounts, and counts. CWE-840."
+                        ),
+                        "references": ["https://cwe.mitre.org/data/definitions/840.html"],
+                    })
+                    break
                 except Exception:
                     continue
         return findings

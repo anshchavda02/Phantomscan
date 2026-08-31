@@ -735,6 +735,35 @@ async def scan_one(
         include_low=include_low,
         fp_log_path=root / "reports" / f"fp_log_{safe_target}_{ts_str}.json",
     )
+
+    # Refresh compliance and AI narrative findings on clean, post-processed final findings
+    from phantomscan.modules.compliance import ComplianceReporter
+    from phantomscan.modules.ai_narrative import AINarrativeReporter
+
+    final_findings = [
+        f for f in final_findings
+        if not (
+            str(f.get("id", "")).startswith("COMPLIANCE-")
+            or str(f.get("id", "")).startswith("AI-NARRATIVE-")
+        )
+    ]
+    comp_rep = ComplianceReporter()
+    comp_findings = comp_rep.generate_compliance_report(final_findings, effective_url)
+    final_findings.extend(comp_findings)
+
+    narr_rep = AINarrativeReporter()
+    narr_text = narr_rep.generate_narrative(final_findings, effective_url)
+    final_findings.append({
+        "id": "AI-NARRATIVE-SUMMARY",
+        "title": "Executive Summary & Remediation Narrative",
+        "severity": "info",
+        "confidence": "high",
+        "category": "reporting",
+        "target": effective_url,
+        "evidence": narr_text,
+        "recommendation": "Distribute this narrative to technical leadership.",
+    })
+
     platform = load_known_platform(root / "data", root_domain(target.host))
     final_score = score(final_findings, observations, platform=platform)
     final_grade = grade(final_score)
