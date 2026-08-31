@@ -16,98 +16,204 @@ logger = logging.getLogger(__name__)
 # ── Compliance Mappings ──────────────────────────────────────────────────────
 
 OWASP_TOP10_2021 = {
-    "A01:2021": {"name": "Broken Access Control", "keywords": [
-        "idor", "bola", "access control", "privilege", "authorization",
-        "mass assignment", "session", "csrf", "cors", "path traversal",
-        "path-traversal", "lfi", "directory traversal",
-    ]},
-    "A02:2021": {"name": "Cryptographic Failures", "keywords": [
-        "ssl", "tls", "certificate", "cipher", "encryption", "jwt",
-        "weak secret", "crypto", "hash", "md5", "sha1",
-    ]},
-    "A03:2021": {"name": "Injection", "keywords": [
-        "sql injection", "sqli", "xss", "command injection", "ssti",
-        "injection", "prototype pollution", "graphql injection",
-    ]},
-    "A04:2021": {"name": "Insecure Design", "keywords": [
-        "business logic", "race condition", "workflow", "bypass",
-        "design flaw",
-    ]},
-    "A05:2021": {"name": "Security Misconfiguration", "keywords": [
-        "header", "cors", "directory listing", "debug", "default",
-        "introspection", "misconfiguration", "phpinfo", "server-status",
-    ]},
-    "A06:2021": {"name": "Vulnerable Components", "keywords": [
-        "outdated", "library", "supply chain", "cve", "sri",
-        "third-party", "component", "dependency",
-    ]},
-    "A07:2021": {"name": "Auth Failures", "keywords": [
-        "authentication", "login", "session fixation", "brute force",
-        "credential", "password", "mfa", "oauth", "enumeration",
-    ]},
-    "A08:2021": {"name": "Software and Data Integrity", "keywords": [
-        "integrity", "sri", "deserialization", "prototype pollution",
-        "supply chain", "cicd",
-    ]},
-    "A09:2021": {"name": "Logging and Monitoring", "keywords": [
-        "logging", "monitoring", "audit", "alerting",
-    ]},
-    "A10:2021": {"name": "SSRF", "keywords": [
-        "ssrf", "server-side request", "metadata", "cloud",
-        "internal", "request forgery",
-    ]},
+    "A01:2021": {
+        "name": "Broken Access Control",
+        "keywords": [
+            "idor", "bola", "access control", "privilege escalation", "authorization",
+            "mass assignment", "path traversal", "path-traversal", "lfi", "rfi",
+            "directory traversal", "cors misconfiguration", "csrf",
+        ],
+    },
+    "A02:2021": {
+        "name": "Cryptographic Failures",
+        "keywords": [
+            "ssl 2.0", "ssl 3.0", "tls 1.0", "tls 1.1", "weak cipher",
+            "expired certificate", "self-signed certificate", "plaintext credential",
+            "unencrypted transmission", "cleartext http", "weak secret",
+            "broken crypto", "weak hash", "md5", "sha1",
+        ],
+    },
+    "A03:2021": {
+        "name": "Injection",
+        "keywords": [
+            "sql injection", "sqli", "cross-site scripting", "xss", "command injection",
+            "ssti", "prototype pollution", "graphql injection", "nosql injection",
+            "ldap injection", "code injection", "rce",
+        ],
+    },
+    "A04:2021": {
+        "name": "Insecure Design",
+        "keywords": [
+            "business logic", "race condition", "workflow bypass", "rate limit bypass",
+            "design flaw", "anti-automation",
+        ],
+    },
+    "A05:2021": {
+        "name": "Security Misconfiguration",
+        "keywords": [
+            "security header", "header", "directory listing", "debug mode",
+            "default configuration", "introspection", "misconfiguration", "phpinfo",
+            "server-status", "stack trace",
+        ],
+    },
+    "A06:2021": {
+        "name": "Vulnerable Components",
+        "keywords": [
+            "outdated library", "vulnerable component", "supply chain", "cve-",
+            "subresource integrity", "outdated dependency", "known vulnerability",
+        ],
+    },
+    "A07:2021": {
+        "name": "Auth Failures",
+        "keywords": [
+            "authentication failure", "auth failure", "login bypass", "session fixation",
+            "brute force", "credential leak", "hardcoded password", "missing mfa",
+            "broken authentication", "weak jwt",
+        ],
+    },
+    "A08:2021": {
+        "name": "Software and Data Integrity",
+        "keywords": [
+            "insecure deserialization", "prototype pollution", "dependency confusion",
+            "slopsquatting", "data integrity", "cicd vulnerability", "untrusted dependency",
+        ],
+    },
+    "A09:2021": {
+        "name": "Logging and Monitoring",
+        "keywords": [
+            "insufficient logging", "log injection", "missing audit log",
+            "unlogged action", "monitoring failure",
+        ],
+    },
+    "A10:2021": {
+        "name": "SSRF",
+        "keywords": [
+            "ssrf", "server-side request forgery", "cloud metadata exposure",
+            "internal metadata",
+        ],
+    },
 }
 
 PCIDSS_V4 = {
-    "1.3": {"name": "Network Security Controls", "keywords": [
-        "firewall", "network", "port", "exposure", "service",
-    ]},
-    "2.2": {"name": "System Hardening", "keywords": [
-        "default", "misconfiguration", "hardening", "server version",
-        "header", "debug",
-    ]},
-    "3.4": {"name": "Protect Stored Data", "keywords": [
-        "encryption", "ssl", "tls", "data exposure", "sensitive",
-    ]},
-    "4.1": {"name": "Encrypt Transmissions", "keywords": [
-        "ssl", "tls", "https", "certificate", "mixed content", "http",
-    ]},
-    "6.2": {"name": "Secure Development", "keywords": [
-        "injection", "xss", "sqli", "vulnerability", "code",
-    ]},
-    "6.4": {"name": "Public Application Protection", "keywords": [
-        "waf", "attack", "xss", "injection", "csrf",
-    ]},
-    "8.3": {"name": "Strong Authentication", "keywords": [
-        "authentication", "password", "mfa", "session", "credential",
-    ]},
-    "11.3": {"name": "Vulnerability Scanning", "keywords": [
-        "scan", "vulnerability", "assessment", "testing",
-    ]},
+    "1.3": {
+        "name": "Network Security Controls",
+        "keywords": [
+            "firewall bypass", "exposed port", "insecure port", "insecure service",
+            "exposed telnet", "exposed rdp", "exposed smb", "exposed ftp",
+            "network exposure", "unauthorized service",
+        ],
+    },
+    "2.2": {
+        "name": "System Hardening",
+        "keywords": [
+            "default credentials", "default password", "server version leak",
+            "security header", "header", "misconfiguration", "debug mode",
+            "directory listing", "unhardened", "phpinfo", "server-status",
+        ],
+    },
+    "3.4": {
+        "name": "Protect Stored Data",
+        "keywords": [
+            "unencrypted data", "cleartext credential", "plaintext password",
+            "exposed secret", "hardcoded secret", "api key exposed",
+            "private key exposed", "sensitive data exposure", "cardholder data",
+        ],
+    },
+    "4.1": {
+        "name": "Encrypt Transmissions",
+        "keywords": [
+            "cleartext http", "unencrypted transmission", "ssl 2.0", "ssl 3.0",
+            "tls 1.0", "tls 1.1", "weak cipher", "expired certificate",
+            "self-signed certificate", "missing hsts", "mixed content",
+            "plaintext transmission", "insecure transport",
+        ],
+    },
+    "6.2": {
+        "name": "Secure Development",
+        "keywords": [
+            "sql injection", "sqli", "cross-site scripting", "xss", "command injection",
+            "ssti", "cve-", "vulnerable dependency", "outdated library",
+            "known vulnerability",
+        ],
+    },
+    "6.4": {
+        "name": "Public Application Protection",
+        "keywords": [
+            "sql injection", "sqli", "cross-site scripting", "xss", "command injection",
+            "csrf", "path traversal", "ssrf", "waf bypass", "injection vulnerability",
+        ],
+    },
+    "8.3": {
+        "name": "Strong Authentication",
+        "keywords": [
+            "missing mfa", "weak password", "brute force", "credential stuffing",
+            "session fixation", "hardcoded password", "broken authentication",
+            "auth bypass",
+        ],
+    },
+    "11.3": {
+        "name": "Vulnerability Remediation",
+        "keywords": [
+            "critical vulnerability", "high severity vulnerability",
+            "unpatched vulnerability", "unremediated cve",
+        ],
+    },
 }
 
 NIST_80053 = {
-    "AC-3": {"name": "Access Enforcement", "keywords": [
-        "access control", "authorization", "idor", "bola", "privilege",
-    ]},
-    "AU-2": {"name": "Audit Events", "keywords": [
-        "logging", "monitoring", "audit",
-    ]},
-    "IA-5": {"name": "Authenticator Management", "keywords": [
-        "authentication", "password", "credential", "jwt", "token",
-    ]},
-    "SC-8": {"name": "Transmission Confidentiality", "keywords": [
-        "ssl", "tls", "encryption", "https", "certificate",
-    ]},
-    "SC-13": {"name": "Cryptographic Protection", "keywords": [
-        "crypto", "cipher", "hash", "encryption", "jwt", "weak secret",
-    ]},
-    "SI-10": {"name": "Information Input Validation", "keywords": [
-        "injection", "xss", "sqli", "input validation", "sanitize",
-    ]},
-    "SA-11": {"name": "Developer Security Testing", "keywords": [
-        "vulnerability", "testing", "scan", "assessment",
-    ]},
+    "AC-3": {
+        "name": "Access Enforcement",
+        "keywords": [
+            "broken access control", "idor", "bola", "privilege escalation",
+            "unauthorized access", "authorization bypass", "path traversal",
+            "insecure direct object", "mass assignment",
+        ],
+    },
+    "AU-2": {
+        "name": "Audit Events",
+        "keywords": [
+            "insufficient logging", "missing audit log", "log injection",
+            "unlogged access", "audit trail missing",
+        ],
+    },
+    "IA-5": {
+        "name": "Authenticator Management",
+        "keywords": [
+            "weak password", "hardcoded credentials", "hardcoded secret",
+            "default credentials", "weak jwt", "session token leak",
+            "broken authentication",
+        ],
+    },
+    "SC-8": {
+        "name": "Transmission Confidentiality",
+        "keywords": [
+            "cleartext transmission", "unencrypted traffic", "missing hsts",
+            "weak tls", "weak ssl", "tls 1.0", "tls 1.1", "deprecated ssl",
+            "plaintext transmission", "mixed content",
+        ],
+    },
+    "SC-13": {
+        "name": "Cryptographic Protection",
+        "keywords": [
+            "weak cipher", "md5 hash", "sha1 certificate", "weak cryptography",
+            "insecure encryption", "broken crypto", "weak secret",
+        ],
+    },
+    "SI-10": {
+        "name": "Information Input Validation",
+        "keywords": [
+            "sql injection", "sqli", "cross-site scripting", "xss", "command injection",
+            "input validation failure", "prototype pollution", "ssti",
+            "nosql injection",
+        ],
+    },
+    "SA-11": {
+        "name": "Developer Security Testing",
+        "keywords": [
+            "vulnerable component", "outdated package", "known cve", "cve-",
+            "unpatched dependency", "supply chain risk",
+        ],
+    },
 }
 
 
@@ -200,13 +306,28 @@ class ComplianceReporter:
         framework: dict[str, dict[str, Any]],
         framework_name: str,
     ) -> dict[str, dict[str, Any]]:
+        # Filter out meta-reporting findings, compliance status findings, and suppressed/FP items
+        eval_findings = [
+            f for f in findings
+            if str(f.get("category", "")).lower() not in ("reporting", "compliance")
+            and not str(f.get("id", "")).upper().startswith((
+                "COMPLIANCE-", "AI-NARRATIVE-", "ATTACK-PATH-", "VULN-CHAIN-",
+                "SCAN-STATUS-", "PORT-SCAN-", "SSL-INFO-", "EXCLUDED-"
+            ))
+            and not f.get("suppression_reason")
+            and not f.get("false_positive")
+            and not f.get("suppressed")
+            and str(f.get("severity", "")).lower() in ("critical", "high", "medium", "low")
+        ]
+
         results: dict[str, dict[str, Any]] = {}
         for control_id, control in framework.items():
             matching = []
-            for f in findings:
+            for f in eval_findings:
                 text = (
                     f"{f.get('title', '')} {f.get('category', '')} "
-                    f"{f.get('evidence', '')} {f.get('id', '')}"
+                    f"{f.get('id', '')} {f.get('cwe', '')} {f.get('owasp_category', '')} "
+                    f"{f.get('recommendation', '')}"
                 ).lower()
                 if any(kw in text for kw in control["keywords"]):
                     matching.append(f)

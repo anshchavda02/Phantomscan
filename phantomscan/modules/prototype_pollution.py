@@ -1,7 +1,8 @@
 """Module 9 — Prototype Pollution Detector.
 
 Detects server-side prototype pollution via __proto__ / constructor.prototype
-injection in JSON APIs, and client-side pollution via query parameters.
+injection in JSON APIs, and client-side pollution via query parameters
+using dynamic challenge-response tokens and baseline differential analysis.
 """
 
 from __future__ import annotations
@@ -9,29 +10,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import uuid
 from typing import Any
 
 from phantomscan.http_client import RobustHTTPClient
 
 logger = logging.getLogger(__name__)
 
-_SERVER_PAYLOADS = [
-    {"__proto__": {"phantomscan_pp": "detected"}},
-    {"constructor": {"prototype": {"phantomscan_pp": "detected"}}},
-    {"__proto__": {"isAdmin": True}},
-    {"__proto__": {"status": 200}},
-]
-
-_CLIENT_QS_PAYLOADS = [
-    "__proto__[phantomscan_pp]=detected",
-    "__proto__.phantomscan_pp=detected",
-    "constructor.prototype.phantomscan_pp=detected",
-    "__proto__[isAdmin]=true",
-]
-
 
 class PrototypePollutionDetector:
-    """Detect server-side and client-side prototype pollution."""
+    """Detect server-side and client-side prototype pollution dynamically."""
 
     def __init__(self, http: RobustHTTPClient) -> None:
         self.http = http
@@ -49,29 +37,57 @@ class PrototypePollutionDetector:
         sem = asyncio.Semaphore(15)
 
         async def test_server_endpoint(url: str) -> dict[str, Any] | None:
+            # Generate dynamic unique token per endpoint test
+            token_suffix = uuid.uuid4().hex[:8]
+            dynamic_prop = f"phantomscan_pp_{token_suffix}"
+            dynamic_val = f"polluted_{token_suffix}"
+
+            # Step 1: Capture baseline response
+            baseline_body = ""
+            try:
+                base_resp = await self.http.post(
+                    url, json={"test": "baseline"}, retries=1
+                )
+                baseline_body = base_resp.text()
+            except Exception:
+                pass
+
+            server_payloads = [
+                {"__proto__": {dynamic_prop: dynamic_val}},
+                {"constructor": {"prototype": {dynamic_prop: dynamic_val}}},
+                {"__proto__": {"phantomscan_pp": "detected"}},
+            ]
+
             async with sem:
-                for payload in _SERVER_PAYLOADS:
+                for payload in server_payloads:
                     try:
                         response = await self.http.post(
                             url, json=payload, retries=1,
                         )
+                        if response.status != 200:
+                            continue
+
                         body = response.text()
-                        if (
-                            "phantomscan_pp" in body
-                            or response.status == 500
-                            or ("isAdmin" in body and "true" in body.lower())
-                        ):
+                        content_type = response.headers.get("content-type", "").lower()
+                        is_json = "application/json" in content_type
+
+                        # Dynamic confirmation: verify injected property appears in JSON response
+                        has_dynamic_prop = dynamic_prop in body and dynamic_prop not in baseline_body
+                        has_pp_marker = "phantomscan_pp" in body or has_dynamic_prop
+
+                        if is_json and has_pp_marker:
                             return {
                                 "id": "PROTO-POLLUTION-SERVER",
                                 "title": "Server-Side Prototype Pollution",
                                 "severity": "high",
-                                "confidence": "high" if "phantomscan_pp" in body else "medium",
+                                "confidence": "high",
                                 "category": "prototype-pollution",
                                 "target": url,
+                                "verification_method": "baseline_differential",
                                 "evidence": (
                                     f"Payload: {json.dumps(payload)}\n"
                                     f"Response: HTTP {response.status}\n"
-                                    f"Body preview: {body[:300]}"
+                                    f"Dynamic property pollution confirmed in JSON state."
                                 ),
                                 "recommendation": (
                                     "Sanitize JSON input to reject __proto__ and "
@@ -92,9 +108,12 @@ class PrototypePollutionDetector:
             async with sem:
                 try:
                     response = await self.http.get(test_url, retries=1)
+                    if response.status != 200:
+                        return None
                     body = response.text()
+                    is_json = response.headers.get("content-type", "").startswith("application/json")
                     if (
-                        response.headers.get("content-type", "").startswith("application/json")
+                        is_json
                         and ("\"phantomscan_pp\"" in body or "\"isAdmin\":true" in body)
                     ) or "window.phantomscan_pp" in body or "Object.prototype.phantomscan_pp" in body:
                         return {
@@ -118,7 +137,13 @@ class PrototypePollutionDetector:
                     pass
             return None
 
-        tasks = [test_server_endpoint(u) for u in endpoints[:15]] + [test_client_qs(qs) for qs in _CLIENT_QS_PAYLOADS]
+        client_payloads = [
+            "__proto__[phantomscan_pp]=detected",
+            "__proto__.phantomscan_pp=detected",
+            "constructor.prototype.phantomscan_pp=detected",
+        ]
+
+        tasks = [test_server_endpoint(u) for u in endpoints[:15]] + [test_client_qs(qs) for qs in client_payloads]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, dict):

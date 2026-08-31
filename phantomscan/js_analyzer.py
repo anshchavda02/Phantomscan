@@ -41,9 +41,18 @@ _ROUTE_PATTERNS = [
 
 # Sensitive keywords / exposed secrets in JavaScript
 _SECRET_PATTERNS = [
-    (re.compile(r"""(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']([a-zA-Z0-9_\-]{16,})["']""", re.IGNORECASE), "Exposed API / Auth Secret"),
-    (re.compile(r"""["'](eyJ[a-zA-Z0-9_\-]{10,}\.eyJ[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-]*)["']"""), "Hardcoded JWT Token"),
-    (re.compile(r"""["']((?:AKIA|ASIA)[0-9A-Z]{16})["']"""), "Hardcoded AWS Access Key"),
+    # Confidential Server Secrets (High Severity)
+    (re.compile(r"""(?:secret[_-]?key|private[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']([a-zA-Z0-9_\-]{16,})["']""", re.IGNORECASE), "Exposed Auth Secret", "high"),
+    (re.compile(r"""["'](eyJ[a-zA-Z0-9_\-]{10,}\.eyJ[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-]*)["']"""), "Hardcoded JWT Token", "high"),
+    (re.compile(r"""["']((?:AKIA|ASIA)[0-9A-Z]{16})["']"""), "Hardcoded AWS Access Key", "high"),
+    (re.compile(r"""sk_(?:live|test)_[0-9a-zA-Z]{24,}"""), "Stripe Secret Key", "high"),
+    (re.compile(r"""ghp_[a-zA-Z0-9]{36}"""), "GitHub Personal Token", "high"),
+    # Public Client-Side Identifiers (Low/Info Severity - Designed to be in frontend JS)
+    (re.compile(r"""(?:api[_-]?key|apikey)\s*[:=]\s*["'](AIza[0-9A-Za-z\-_]{35})["']""", re.IGNORECASE), "Public Google Client API Key", "low"),
+    (re.compile(r"""AIza[0-9A-Za-z\-_]{35}"""), "Public Google Client API Key", "low"),
+    (re.compile(r"""pk_(?:live|test)_[0-9a-zA-Z]{24,}"""), "Stripe Publishable Key", "low"),
+    # Generic API key pattern fallback (if not matching known public patterns)
+    (re.compile(r"""(?:api[_-]?key|apikey)\s*[:=]\s*["']([a-zA-Z0-9_\-]{16,})["']""", re.IGNORECASE), "Exposed API Key", "medium"),
 ]
 
 
@@ -106,6 +115,7 @@ class JSRouteExtractor:
         # Step 2: Extract routes & endpoints from all JS content
         discovered_paths: set[str] = set()
         secret_findings: list[dict[str, Any]] = []
+        seen_secret_values: set[str] = set()
 
         for source_name, content in js_contents:
             if not content:
@@ -138,21 +148,32 @@ class JSRouteExtractor:
                         discovered_paths.add(raw_path)
 
             # Check for exposed secrets
-            for pattern, sec_name in _SECRET_PATTERNS:
+            for pattern, sec_name, severity in _SECRET_PATTERNS:
                 for sm in pattern.finditer(content):
-                    secret_val = sm.group(1).strip()
+                    secret_val = sm.group(1).strip() if sm.lastindex else sm.group(0).strip()
                     # Skip common test/dummy values
-                    if secret_val.lower() in {"null", "undefined", "true", "false", "test", "your_key_here"}:
+                    if secret_val.lower() in {"null", "undefined", "true", "false", "test", "your_key_here", "example"}:
                         continue
+                    if secret_val in seen_secret_values:
+                        continue
+                    seen_secret_values.add(secret_val)
+
+                    is_public_id = severity == "low"
+                    rec = (
+                        "Verify that this client-side API identifier is locked to authorized "
+                        "HTTP referrers, origins, and IP constraints in its management console."
+                        if is_public_id
+                        else "Remove hardcoded credentials, secret keys, and tokens from client-accessible JavaScript files."
+                    )
                     secret_findings.append({
-                        "id": "JS-EXPOSED-SECRET",
+                        "id": "JS-PUBLIC-IDENTIFIER" if is_public_id else "JS-EXPOSED-SECRET",
                         "title": f"{sec_name} Disclosed in Client-Side JavaScript",
-                        "severity": "high",
+                        "severity": severity,
                         "confidence": "high",
                         "category": "web",
                         "target": source_name if source_name != "inline_html" else base,
                         "evidence": f"Pattern matched: {sec_name}\nLocation: {source_name}\nSnippet: ...{sm.group(0)[:80]}...",
-                        "recommendation": "Remove hardcoded credentials, secret keys, and tokens from client-accessible JavaScript files.",
+                        "recommendation": rec,
                     })
 
         discovered_urls: list[str] = []

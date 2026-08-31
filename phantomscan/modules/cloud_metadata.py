@@ -67,10 +67,14 @@ class CloudMetadataDetector:
         bucket_findings = await self._check_bucket_exposure(target, observations)
         findings.extend(bucket_findings)
 
-        # Test 3: Direct metadata endpoint probe (only useful if the scanner
-        # is running on the same network as the target)
-        meta_findings = await self._probe_metadata_direct()
-        findings.extend(meta_findings)
+        # Test 3: Direct metadata endpoint probe (only when assessing local machine/environment)
+        is_local_target = any(
+            h in target.lower()
+            for h in ("localhost", "127.0.0.1", "169.254.169.254", "0.0.0.0", "::1")
+        )
+        if is_local_target:
+            meta_findings = await self._probe_metadata_direct()
+            findings.extend(meta_findings)
 
         return findings
 

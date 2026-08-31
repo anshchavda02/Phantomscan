@@ -1025,10 +1025,10 @@ def analyze_security_headers(
 # ── Cookie analysis ───────────────────────────────────────────────────────────
 
 _TRACKING_PREFIXES = ("_ga", "_gid", "_fbp", "_hjid", "__utma", "__utmb", "__utmc", "__utmz", "_gcl")
-_TRACKING_NAMES = {"NID", "IDE", "DSID", "1P_JAR", "CONSENT"}
-# Consent/preference cookies that intentionally need JavaScript access
-# (e.g., __Secure-STRP is Google's consent management cookie).
-_CONSENT_COOKIE_NAMES = {"__Secure-STRP", "__Secure-3PSIDTS", "__Secure-ENID"}
+_TRACKING_NAMES = {"NID", "IDE", "DSID", "1P_JAR", "CONSENT", "AEC", "SOCS", "ANID", "OTZ", "DV"}
+# Consent/preference/functional cookies that intentionally need JavaScript access or browser testing
+# (e.g., __Secure-STRP is Google's consent management cookie; SEARCH_SAMESITE is Google's SameSite test cookie).
+_CONSENT_COOKIE_NAMES = {"__Secure-STRP", "__Secure-3PSIDTS", "__Secure-ENID", "SEARCH_SAMESITE"}
 _CONSENT_COOKIE_PREFIXES = ("__Secure-3P",)
 
 
