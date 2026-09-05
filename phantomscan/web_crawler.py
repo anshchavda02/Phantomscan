@@ -472,3 +472,84 @@ class WebCrawler:
         )
 
         return observations
+
+
+class SPACrawler:
+    """Multi-layer SPA crawler combining HTTP, JS route analysis, browser crawling, and API probing."""
+
+    def __init__(
+        self,
+        http: RobustHTTPClient,
+        max_pages: int = 50,
+        max_depth: int = 2,
+        browser_engine: Any = None,
+    ) -> None:
+        self.http = http
+        self.max_pages = max_pages
+        self.max_depth = max_depth
+        self.browser_engine = browser_engine
+        self._crawler = WebCrawler(http=http, max_pages=max_pages, max_depth=max_depth)
+
+    async def crawl(
+        self,
+        base_url: str,
+        seed_urls: list[str] | None = None,
+        html_bodies: list[str] | None = None,
+        **kwargs: Any,
+    ) -> CrawlResult:
+        """Run 4-layer crawl:
+        Layer 1: Recursive HTTP link and form discovery
+        Layer 2: JS route extraction from inline and linked scripts
+        Layer 3: Browser crawl (Playwright / Node engine if available)
+        Layer 4: Common API path probing
+        """
+        # Layer 1 & Layer 4: HTTP crawl + API probing
+        result = await self._crawler.crawl(base_url, seed_urls)
+        base = base_url.rstrip("/")
+
+        # Layer 2: JavaScript Route Extraction
+        try:
+            from phantomscan.js_analyzer import JSRouteExtractor
+            js_extractor = JSRouteExtractor(http=self.http)
+
+            bodies = list(html_bodies or [])
+            if not bodies:
+                try:
+                    resp = await self.http.get(base_url, retries=1)
+                    if resp.status == 200:
+                        bodies.append(resp.text())
+                except Exception:
+                    pass
+
+            for body in bodies:
+                discovered_urls, _, _ = await js_extractor.analyze(base, html_body=body)
+                for u in discovered_urls:
+                    if u not in result.urls:
+                        result.urls.append(u)
+                        parsed = urlparse(u)
+                        if parsed.query and u not in result.parameterized_urls:
+                            result.parameterized_urls.append(u)
+        except Exception as exc:
+            logger.debug("SPACrawler Layer 2 (JS extraction) error: %s", exc)
+
+        # Layer 3: Headless Browser Crawl (if engine available)
+        if self.browser_engine is not None:
+            try:
+                if hasattr(self.browser_engine, "crawl"):
+                    browser_res = await self.browser_engine.crawl(base_url)
+                    if isinstance(browser_res, dict):
+                        b_urls = browser_res.get("urls", [])
+                        for bu in b_urls:
+                            if bu not in result.urls:
+                                result.urls.append(bu)
+                                if "?" in bu and bu not in result.parameterized_urls:
+                                    result.parameterized_urls.append(bu)
+            except Exception as exc:
+                logger.debug("SPACrawler Layer 3 (Browser crawl) error: %s", exc)
+
+        return result
+
+    def to_observations(self, result: CrawlResult, base_url: str) -> list[Observation]:
+        """Convert crawl results into observations for the scan pipeline."""
+        return self._crawler.to_observations(result, base_url)
+

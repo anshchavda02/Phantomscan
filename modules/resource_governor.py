@@ -11,9 +11,18 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any, AsyncIterator
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ResourceConfig:
+    """Configuration for resource governor limits."""
+    max_memory_mb: int = 2048
+    max_concurrent_scans: int = 5
+    max_open_files: int = 1000
 
 
 class ResourceGovernor:
@@ -23,6 +32,7 @@ class ResourceGovernor:
         max_memory_mb: Hard memory ceiling in megabytes.
         max_concurrent_scans: Maximum simultaneous batch scans.
         max_open_files: Soft file-descriptor limit (advisory).
+        config: Optional ResourceConfig instance.
     """
 
     def __init__(
@@ -30,23 +40,23 @@ class ResourceGovernor:
         max_memory_mb: int = 2048,
         max_concurrent_scans: int = 5,
         max_open_files: int = 1000,
+        config: ResourceConfig | None = None,
     ) -> None:
-        self.max_memory_mb = max_memory_mb
-        self.max_concurrent_scans = max_concurrent_scans
-        self.max_open_files = max_open_files
+        if config is not None:
+            self.max_memory_mb = config.max_memory_mb
+            self.max_concurrent_scans = config.max_concurrent_scans
+            self.max_open_files = config.max_open_files
+        else:
+            self.max_memory_mb = max_memory_mb
+            self.max_concurrent_scans = max_concurrent_scans
+            self.max_open_files = max_open_files
         self._active_scans: int = 0
-        self._scan_semaphore = asyncio.Semaphore(max_concurrent_scans)
+        self._scan_semaphore = asyncio.Semaphore(self.max_concurrent_scans)
         self._total_scans_completed: int = 0
 
     @asynccontextmanager
     async def acquire_scan_slot(self) -> AsyncIterator[None]:
-        """Acquire a scan slot, blocking if the pool is full.
-
-        Usage::
-
-            async with governor.acquire_scan_slot():
-                await run_scan(target)
-        """
+        """Acquire a scan slot, blocking if the pool is full."""
         async with self._scan_semaphore:
             self._active_scans += 1
             logger.debug(
@@ -59,6 +69,12 @@ class ResourceGovernor:
             finally:
                 self._active_scans -= 1
                 self._total_scans_completed += 1
+
+    @asynccontextmanager
+    async def scan_slot(self) -> AsyncIterator[None]:
+        """Alias for acquire_scan_slot()."""
+        async with self.acquire_scan_slot():
+            yield
 
     def check_memory(self) -> bool:
         """Check if process memory usage is within limits.

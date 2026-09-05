@@ -250,9 +250,9 @@ class SQLiDetector:
         """Test for time-based blind SQL injection with statistical baseline."""
         target_url = target.url if isinstance(target, InjectionTarget) else target
 
-        # Take 2 baseline timing samples to establish normal variance
+        # Take 3 baseline timing samples to establish normal variance
         baseline_times: list[float] = []
-        for _ in range(2):
+        for _ in range(3):
             t0 = time.perf_counter()
             resp = await self._send_request(target, param, original_value)
             elapsed = time.perf_counter() - t0
@@ -291,7 +291,7 @@ class SQLiDetector:
                     )
                     break
 
-                expected_min = baseline_avg + 4.0 + (baseline_stdev * 2)
+                expected_min = baseline_avg + 4.5 + (baseline_stdev * 2)
 
                 if elapsed >= expected_min:
                     confirmations += 1

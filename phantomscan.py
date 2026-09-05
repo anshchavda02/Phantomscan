@@ -21,6 +21,7 @@ from phantomscan.email_security import analyze_email
 from phantomscan.engines import run_engine
 from phantomscan.health import EngineHealthChecker
 from phantomscan.models import Observation, utc_now
+from phantomscan.pipeline import PipelineState, assert_pipeline_order
 from phantomscan.postprocess import grade, load_known_platform, post_process, score
 from phantomscan.progress import ScanProgressDisplay
 from phantomscan.recon import (
@@ -62,7 +63,7 @@ from modules.structured_logging import (
 )
 
 WARNING = """
-PhantomScan 2.0.0 - Scan Smart. Stay Secure.
+PhantomScan 2.2.0 - Scan Smart. Stay Secure.
 Authorized security assessment only. Run this tool only against systems you own
 or have explicit written authorization to test. Scope is enforced per target.
 """
@@ -132,8 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan_group.add_argument("--check-slopsquatting", action="store_true", help="Check project dependencies for AI-hallucinated packages (slopsquatting). Requires --source-path.")
     scan_group.add_argument(
         "--app-profile", "--local-app",
-        dest="app_profile",
-        choices=["juiceshop", "dvwa", "webgoat", "bwapp", "vulnweb", "auto"],
+        choices=["juiceshop", "juice-shop", "dvwa", "webgoat", "bwapp", "vulnweb", "vulnweb-php", "vulnweb-asp", "auto"],
         default="auto",
         help="Optimize scan for a known vulnerable app (auto-detects if 'auto')",
     )
@@ -255,6 +255,19 @@ def build_parser() -> argparse.ArgumentParser:
     enterprise_group.add_argument(
         "--max-concurrent-scans", type=int, default=5,
         help="Maximum concurrent batch scans (default: 5)"
+    )
+
+    # System Diagnostics & Benchmarking
+    diagnostic_group = parser.add_argument_group("System Diagnostics & Benchmarking")
+    diagnostic_group.add_argument(
+        "--check-engines", "--engine-health",
+        action="store_true",
+        help="Perform pre-scan health check of optional polyglot engines and exit"
+    )
+    diagnostic_group.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Launch the automated benchmark harness against predefined test targets"
     )
 
     return parser
@@ -590,21 +603,25 @@ async def scan_one(
     tech_obs_list = detect_technologies(tech_obs_input)
     observations.extend(item.to_dict() for item in tech_obs_list)
 
-    # Email security (SPF/DMARC/MX)
-    email_obs, email_findings = await timed_step(
-        "Checking email security", logger, observations, args.silent,
-        analyze_email, target, logger,
-        returns_tuple=True,
-    )
-    if isinstance(email_obs, (list, tuple)):
-        observations.extend(item.to_dict() for item in email_obs)
-    if isinstance(email_findings, (list, tuple)):
-        findings.extend(item.to_dict() for item in email_findings)
+    # Email security (SPF/DMARC/MX) — skip for local targets
+    if not target.is_local:
+        email_obs, email_findings = await timed_step(
+            "Checking email security", logger, observations, args.silent,
+            analyze_email, target, logger,
+            returns_tuple=True,
+        )
+        if isinstance(email_obs, (list, tuple)):
+            observations.extend(item.to_dict() for item in email_obs)
+        if isinstance(email_findings, (list, tuple)):
+            findings.extend(item.to_dict() for item in email_findings)
+    else:
+        logger.info("Skipping email security check for local target %s", target.host)
 
-    # Known-platform context
-    platform = load_known_platform(root / "data", root_domain(target.host))
-    if platform:
-        observations.append(Observation("known_platform", platform, "data").to_dict())
+    # Known-platform context — skip for local targets
+    if not target.is_local:
+        platform = load_known_platform(root / "data", root_domain(target.host))
+        if platform:
+            observations.append(Observation("known_platform", platform, "data").to_dict())
 
     # ── Active scan phase ─────────────────────────────────────────────────────
     request: dict[str, Any] = {
@@ -726,6 +743,9 @@ async def scan_one(
     except Exception:
         ts_str = str(int(time.time()))
 
+    pipeline_state = PipelineState()
+    pipeline_state.mark_raw_collected()
+
     final_findings, suppressed_findings, observations = post_process(
         findings=findings,
         observations=observations,
@@ -735,6 +755,8 @@ async def scan_one(
         include_low=include_low,
         fp_log_path=root / "reports" / f"fp_log_{safe_target}_{ts_str}.json",
     )
+    pipeline_state.mark_gated()
+    pipeline_state.mark_fp_processed()
 
     # Refresh compliance and AI narrative findings on clean, post-processed final findings
     from phantomscan.modules.compliance import ComplianceReporter
@@ -763,6 +785,10 @@ async def scan_one(
         "evidence": narr_text,
         "recommendation": "Distribute this narrative to technical leadership.",
     })
+
+    # ENFORCE ORDER: FindingGate -> FP PostProcessor -> Score Engine
+    assert_pipeline_order(pipeline_state)
+    pipeline_state.mark_score_calculated()
 
     platform = load_known_platform(root / "data", root_domain(target.host))
     final_score = score(final_findings, observations, platform=platform)
@@ -832,10 +858,30 @@ async def main_async() -> int:
     args = parser.parse_args()
     if not args.silent:
         cprint(WARNING.strip(), "yellow")
-    if not args.target and not args.batch:
-        parser.error("--target or --batch is required")
 
     root = Path(__file__).resolve().parent
+
+    # Quick diagnostic: check engines and exit
+    if getattr(args, "check_engines", False):
+        checker = EngineHealthChecker(root)
+        health = await checker.check_all()
+        engine_statuses = {k: v.available for k, v in health.engines.items()}
+        print_degradation_table(engine_statuses)
+        return 0
+
+    # Quick diagnostic: benchmark suite
+    if getattr(args, "benchmark", False):
+        benchmark_script = root / "scripts" / "benchmark.py"
+        if benchmark_script.exists():
+            import subprocess
+            proc = subprocess.run([sys.executable, str(benchmark_script), "--suite", "clean"])
+            return proc.returncode
+        else:
+            cprint("[!] Benchmark script not found.", "red")
+            return 1
+
+    if not args.target and not args.batch:
+        parser.error("--target, --batch, --check-engines, or --benchmark is required")
 
     # Configure structured logging
     configure_logging(

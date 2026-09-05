@@ -117,6 +117,16 @@ def gate_finding(
             f"confidence was {confidence}, not high"
         )
 
+    # ── Check: evidence must not be identical to description ──────────────
+    desc = str(candidate.get("description", "")).strip()
+    if desc and evidence.strip() == desc:
+        _reject(candidate, fp_log, "Evidence must not be identical to description")
+        return None
+
+    # ── Check: module field must be populated ─────────────────────────────
+    if not candidate.get("module") or not str(candidate.get("module", "")).strip():
+        candidate["module"] = str(candidate.get("category") or "general")
+
     # ── Check 8: XSS findings require syntax-breaking character evidence ─
     fid = str(candidate.get("id", ""))
     if fid in ("XSS-REFLECTED", "XSS-REFLECTED-FORM"):

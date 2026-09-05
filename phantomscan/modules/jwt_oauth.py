@@ -120,6 +120,8 @@ class JWTOAuthTester:
                         "severity": "critical",
                         "confidence": "high",
                         "category": "jwt",
+                        "verification_method": "active_confirmation",
+                        "module": "jwt_oauth",
                         "target": endpoint,
                         "evidence": (
                             f"Forged JWT with alg:{alg} accepted by "
@@ -163,10 +165,12 @@ class JWTOAuthTester:
             if hmac.compare_digest(computed, target_sig):
                 findings.append({
                     "id": "JWT-WEAK-SECRET",
-                    "title": "JWT Signed with Weak/Common Secret",
+                    "title": f"JWT Signed with Weak Secret ('{secret}')",
                     "severity": "critical",
                     "confidence": "high",
                     "category": "jwt",
+                    "verification_method": "active_confirmation",
+                    "module": "jwt_oauth",
                     "target": "",
                     "evidence": (
                         f"JWT HMAC secret cracked: '{secret}' "
@@ -208,6 +212,8 @@ class JWTOAuthTester:
                     "severity": "high",
                     "confidence": "medium",
                     "category": "jwt",
+                    "verification_method": "active_confirmation",
+                    "module": "jwt_oauth",
                     "target": endpoint,
                     "evidence": (
                         f"Token with exp=2020-01-01 accepted by {endpoint}. "
@@ -249,6 +255,8 @@ class JWTOAuthTester:
                             "severity": "high",
                             "confidence": "high",
                             "category": "oauth",
+                            "verification_method": "passive_observation",
+                            "module": "jwt_oauth",
                             "target": url,
                             "evidence": (
                                 f"OAuth redirect from {url} contains no "
@@ -289,6 +297,8 @@ class JWTOAuthTester:
                         "severity": "critical",
                         "confidence": "high",
                         "category": "oauth",
+                        "verification_method": "active_confirmation",
+                        "module": "jwt_oauth",
                         "target": oauth_url,
                         "evidence": (
                             f"Bypass payload: {bypass}\n"

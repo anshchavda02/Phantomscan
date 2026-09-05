@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 
 from modules.fp_postprocessor import apply_rules
 from modules.score_engine import calculate_score, Score
+from phantomscan.pipeline import PipelineState, assert_pipeline_order
 from phantomscan.postprocess import load_known_platform
 from phantomscan.scope import root_domain
 
@@ -67,6 +68,9 @@ class ScanOrchestrator:
         fp_log_path: Optional[Path] = None,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], Score]:
         """Execute post-processing and scoring in strictly validated order."""
+        state = PipelineState()
+        state.mark_raw_collected()
+
         # 1. Post-process (FP filter)
         clean_findings, suppressed, clean_obs = self.postprocess_findings(
             findings=raw_findings,
@@ -74,8 +78,12 @@ class ScanOrchestrator:
             target_host=target_host,
             fp_log_path=fp_log_path,
         )
+        state.mark_gated()
+        state.mark_fp_processed()
 
         # 2. Score calculation on clean findings
+        assert_pipeline_order(state)
+        state.mark_score_calculated()
         score_obj = self.calculate_scan_score(
             clean_findings=clean_findings,
             observations=clean_obs,

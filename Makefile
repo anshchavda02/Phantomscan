@@ -1,4 +1,4 @@
-.PHONY: install build test check clean
+.PHONY: install build test check clean benchmark health
 
 install:
 	pip install -r requirements.txt
@@ -11,6 +11,12 @@ build:
 
 check:
 	bash scripts/check_deps.sh
+
+health:
+	python phantomscan.py --check-engines
+
+benchmark:
+	python scripts/benchmark.py --suite clean
 
 test:
 	python -m pytest

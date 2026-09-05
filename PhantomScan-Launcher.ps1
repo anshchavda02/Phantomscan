@@ -28,7 +28,7 @@ function Write-Title {
     Clear-Host
     Write-AsciiLogo
     Write-Host "============================================================" -ForegroundColor DarkCyan
-    Write-Host " PhantomScan 2.0.0 - Authorized Security Assessment" -ForegroundColor White
+    Write-Host " PhantomScan 2.2.0 - Authorized Security Assessment" -ForegroundColor White
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host "Use only on systems you own or have written authorization to test." -ForegroundColor Yellow
     Write-Host ""
@@ -97,32 +97,36 @@ function Get-NewestLogFile {
 
 while ($true) {
     Write-Title
-    Write-Host "Scan options:" -ForegroundColor White
-    Write-Host "-------------" -ForegroundColor DarkGray
+    Write-Host "Scan & Assessment Options:" -ForegroundColor White
+    Write-Host "--------------------------" -ForegroundColor DarkGray
     Write-Host "  1. Passive scan        Safe DNS/email checks & Deep Web Analysis"
     Write-Host "  2. Quick scan          Fast HTTP checks + Top 100 Port Scan + Basic TLS"
     Write-Host "  3. Full scan           Deep Web + Concurrent Go Portscan + Rust TLS Inspection"
     Write-Host "  4. API scan            API-focused HTTP analysis without web crawling"
     Write-Host "  5. Network scan        Intensive Go Portscanner focused profile"
-    Write-Host "  6. Advanced scan       Run 35 advanced security modules (Logic, IDOR, AI Security, Takeover, PII, etc.)"
-    Write-Host "  7. Deep scan           Comprehensive All-in-One: Full Recon + Deep Crawling + Ports + TLS + All 35+ Advanced Modules"
+    Write-Host "  6. Advanced scan       Run 38 advanced security modules (Logic, IDOR, AI Security, Takeover, PII, etc.)"
+    Write-Host "  7. Deep scan           Comprehensive All-in-One: Full Recon + Deep Crawling + Ports + TLS + All 38+ Modules"
     Write-Host "  8. AI App Security     Target AI-generated / vibe-coded web app vulns (Keys, RLS, Prompts, CRUD, .env)"
-    Write-Host "  9. Differential scan   Compare Staging vs Production security posture (--diff-env)"
-    Write-Host " 10. Mobile API scan     Extract & test backend APIs from APK or IPA binaries"
-    Write-Host " 11. Dependency check    Check project for Dependency Confusion risks (--check-deps)"
-    Write-Host " 12. Merge scan reports  Deduplicate and merge multiple scan JSON files (--merge)"
-    Write-Host " 13. Verification server Start local one-click remediation verification server (--serve-verify)"
-    Write-Host " 14. Custom profile"
-    Write-Host " 15. Proxy mode          Intercept traffic and feed to YAML Rules Engine"
-    Write-Host " 16. Help"
+    Write-Host "  9. Local/Vulnerable    Tailored audit for local apps & vulnerable testbeds (Juice Shop, DVWA, WebGoat)"
+    Write-Host " 10. Differential scan   Compare Staging vs Production security posture (--diff-env)"
+    Write-Host " 11. Mobile API scan     Extract & test backend APIs from APK or IPA binaries"
+    Write-Host " 12. Dependency check    Check project for Dependency Confusion risks (--check-deps)"
+    Write-Host " 13. Merge scan reports  Deduplicate and merge multiple scan JSON files (--merge)"
+    Write-Host " 14. Verification server Start local one-click remediation verification server (--serve-verify)"
+    Write-Host " 15. Benchmark harness   Run detection benchmark suite against clean/vulnerable targets"
+    Write-Host " 16. Engine health check Check polyglot engines (Go portscan, Rust TLS, Node/Playwright)"
+    Write-Host " 17. Run test suite      Execute automated pytest suite and regression checks"
+    Write-Host " 18. Custom profile      Select custom scan profile (owasp, bug-bounty, monitor, etc.)"
+    Write-Host " 19. Proxy mode          Intercept traffic and feed to YAML Rules Engine"
+    Write-Host " 20. CLI Help            Display full command-line help"
     Write-Host "  0. Exit"
     Write-Host ""
 
-    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16") "1"
+    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20") "1"
     if ($mode -eq "0") {
         break
     }
-    if ($mode -eq "16") {
+    if ($mode -eq "20") {
         & $Python $Cli --help
         Write-Host ""
         Read-Host "Press Enter to return to the menu"
@@ -132,7 +136,12 @@ while ($true) {
     if ($mode -eq "8") {
         $target = Read-Host "Target domain or URL (e.g. https://myvibeapp.lovable.app)"
         if (-not [string]::IsNullOrWhiteSpace($target)) {
-            & $Python $Cli --target $target --modules ai_app_security
+            $sourcePath = Read-Host "Optional local source code path for hybrid scan (press Enter to skip)"
+            $aiArgs = @("--target", $target, "--modules", "ai_app_security")
+            if (-not [string]::IsNullOrWhiteSpace($sourcePath)) {
+                $aiArgs += @("--source-path", $sourcePath, "--check-slopsquatting")
+            }
+            & $Python $Cli @aiArgs
         } else {
             Write-Host "No target entered." -ForegroundColor Yellow
         }
@@ -142,6 +151,60 @@ while ($true) {
     }
 
     if ($mode -eq "9") {
+        $target = Read-Host "Target URL for local/vulnerable app (e.g. http://localhost:3000 or http://testphp.vulnweb.com)"
+        if ([string]::IsNullOrWhiteSpace($target)) {
+            Write-Host "No target entered." -ForegroundColor Yellow
+            Start-Sleep -Seconds 1
+            continue
+        }
+        Write-Host "Select App Profile:" -ForegroundColor White
+        Write-Host "  1. auto        (Auto-detect profile from response body & headers)"
+        Write-Host "  2. juiceshop   (OWASP Juice Shop - Angular SPA / Node / SQLite)"
+        Write-Host "  3. dvwa        (Damn Vulnerable Web App - PHP / MySQL)"
+        Write-Host "  4. webgoat     (OWASP WebGoat - Java / Spring Boot)"
+        Write-Host "  5. bwapp       (bWAPP - PHP / MySQL)"
+        Write-Host "  6. vulnweb-php (Acunetix PHP test target - testphp.vulnweb.com)"
+        Write-Host "  7. vulnweb-asp (Acunetix ASP.NET test target - testaspnet.vulnweb.com)"
+        $appChoice = Read-Choice "Choose profile" @("1", "2", "3", "4", "5", "6", "7") "1"
+        $appProfile = switch ($appChoice) {
+            "1" { "auto" }
+            "2" { "juiceshop" }
+            "3" { "dvwa" }
+            "4" { "webgoat" }
+            "5" { "bwapp" }
+            "6" { "vulnweb-php" }
+            "7" { "vulnweb-asp" }
+        }
+        $scanProfile = Read-Choice "Scan profile" @("quick", "full", "advanced", "deep") "quick"
+        $localArgs = @("--target", $target, "--app-profile", $appProfile, "--profile", $scanProfile)
+        $useAdvanced = Read-YesNo "Enable all advanced vulnerability modules" ($scanProfile -in @("advanced", "deep"))
+        if ($useAdvanced -and ($scanProfile -notin @("advanced", "deep"))) {
+            $localArgs += "--advanced"
+        }
+        $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
+        Write-Host ""
+        Write-Host "Running scan: & `"$Python`" `"$Cli`" $($localArgs -join ' ')" -ForegroundColor Cyan
+        $startedAt = Get-Date
+        try {
+            & $Python $Cli @localArgs
+            $exitCode = $LASTEXITCODE
+        } catch {
+            Write-Host "Scan failed: $($_.Exception.Message)" -ForegroundColor Red
+            $exitCode = 1
+        }
+        if ($exitCode -eq 0 -and $openHtml) {
+            $html = Get-NewestHtmlReport -StartedAt $startedAt
+            if ($null -ne $html) {
+                Write-Host "Opening HTML report: $($html.FullName)" -ForegroundColor Green
+                Start-Process -FilePath $html.FullName
+            }
+        }
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "10") {
         $staging = Read-Host "Staging target URL/domain (e.g. staging.example.com)"
         $production = Read-Host "Production target URL/domain (e.g. example.com)"
         & $Python $Cli --diff-env --staging $staging --production $production
@@ -150,7 +213,7 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "10") {
+    if ($mode -eq "11") {
         $path = Read-Host "Path to app.apk or app.ipa"
         if ($path.EndsWith(".apk")) {
             & $Python $Cli --mobile-apk $path --extract-apis
@@ -162,7 +225,7 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "11") {
+    if ($mode -eq "12") {
         $dir = Read-Host "Path to project directory [.]"
         if ([string]::IsNullOrWhiteSpace($dir)) { $dir = "." }
         & $Python $Cli --check-deps $dir
@@ -171,7 +234,7 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "12") {
+    if ($mode -eq "13") {
         $files = Read-Host "Enter space-separated JSON report file paths"
         & $Python $Cli --merge $files.Split(' ')
         Write-Host ""
@@ -179,11 +242,82 @@ while ($true) {
         continue
     }
 
-    if ($mode -eq "13") {
+    if ($mode -eq "14") {
         $port = Read-Host "Port for verification server [8420]"
         if ([string]::IsNullOrWhiteSpace($port)) { $port = "8420" }
         Write-Host "Starting remediation verification server on http://localhost:$port..." -ForegroundColor Green
         & $Python $Cli --serve-verify --verify-port $port
+        continue
+    }
+
+    if ($mode -eq "15") {
+        Write-Host "Select Benchmark Suite:" -ForegroundColor White
+        Write-Host "  1. Clean targets (example.com, httpbin.org) - Verifies zero false positives"
+        Write-Host "  2. Vulnerable targets (testphp.vulnweb.com, testaspnet.vulnweb.com)"
+        Write-Host "  3. Custom target (e.g. http://localhost:3000)"
+        $bmChoice = Read-Choice "Choose suite" @("1", "2", "3") "1"
+        $bmScript = Join-Path $Root "scripts\benchmark.py"
+        if (-not (Test-Path -LiteralPath $bmScript)) {
+            Write-Host "Benchmark script not found: $bmScript" -ForegroundColor Red
+            Read-Host "Press Enter to return to the menu"
+            continue
+        }
+        $bmArgs = @($bmScript)
+        if ($bmChoice -eq "1") {
+            $bmArgs += @("--suite", "clean")
+        } elseif ($bmChoice -eq "2") {
+            $bmArgs += @("--suite", "vulnerable", "--confirm-authorized")
+        } else {
+            $bmTarget = Read-Host "Enter target URL"
+            if ([string]::IsNullOrWhiteSpace($bmTarget)) {
+                Write-Host "No target entered." -ForegroundColor Yellow
+                continue
+            }
+            $bmArgs += @("--target", $bmTarget)
+        }
+        Write-Host "Running benchmark harness..." -ForegroundColor Green
+        & $Python @bmArgs
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "16") {
+        Write-Host "Checking polyglot engines and dependencies..." -ForegroundColor Green
+        & $Python $Cli --check-engines
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "17") {
+        Write-Host "Select Test Suite:" -ForegroundColor White
+        Write-Host "  1. Full test suite (330+ unit & integration tests)"
+        Write-Host "  2. False positive regression tests (120+ regression checks)"
+        Write-Host "  3. Polyglot engine integration tests (Go, Rust, Node)"
+        Write-Host "  4. Python regression verification script (live network validation)"
+        $tChoice = Read-Choice "Choose test suite" @("1", "2", "3", "4") "1"
+        switch ($tChoice) {
+            "1" {
+                Write-Host "Running pytest across all test suites..." -ForegroundColor Cyan
+                & $Python -m pytest -v
+            }
+            "2" {
+                Write-Host "Running false-positive regression suite..." -ForegroundColor Cyan
+                & $Python -m pytest tests/false_positive_regression/ -v
+            }
+            "3" {
+                Write-Host "Running polyglot engine integration tests..." -ForegroundColor Cyan
+                & $Python -m pytest tests/python/test_engines_polyglot.py -v
+            }
+            "4" {
+                $vScript = Join-Path $Root "scripts\verify_no_regressions.py"
+                Write-Host "Running live regression verification script..." -ForegroundColor Cyan
+                & $Python $vScript
+            }
+        }
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
         continue
     }
 
@@ -195,8 +329,8 @@ while ($true) {
         "5" { "network" }
         "6" { "advanced" }
         "7" { "deep" }
-        "14" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "deepscan", "monitor") "quick" }
-        "15" { "proxy" }
+        "18" { Read-Choice "Profile" @("quick", "full", "passive", "owasp", "bug-bounty", "api", "network", "advanced", "deep", "deepscan", "monitor") "quick" }
+        "19" { "proxy" }
     }
 
     $target = Read-Host "Target domain, IP, CIDR, or URL"
@@ -222,7 +356,7 @@ while ($true) {
     $saveJson = Read-YesNo "Save JSON report" $true
     $requestPdf = Read-YesNo "Request PDF flag (experimental in this build)" $false
     $debugLogging = Read-YesNo "Show debug log output in this window" $false
-    $enterpriseSettings = Read-YesNo "Configure enterprise tuning (--time-budget, --log-format, --resume)" $false
+    $enterpriseSettings = Read-YesNo "Configure enterprise tuning (--time-budget, --depth, --log-format, --resume)" $false
 
     $scanArgs = @("--target", $target)
     
@@ -243,11 +377,11 @@ while ($true) {
         if ($profile -eq "deep" -or $profile -eq "deepscan") {
             $scanArgs += "--advanced"
         } elseif ($profile -eq "advanced" -or $profile -eq "monitor") {
-            $runAllAdvanced = Read-YesNo "Run all 35 advanced modules (y) or select specific ones (n)" $true
+            $runAllAdvanced = Read-YesNo "Run all 38 advanced modules (y) or select specific ones (n)" $true
             if ($runAllAdvanced) {
                 $scanArgs += "--advanced"
             } else {
-                $modules = Read-Host "Enter comma-separated modules (e.g. business_logic,idor,graphql)"
+                $modules = Read-Host "Enter comma-separated modules (e.g. business_logic,idor,graphql,ai_app_security)"
                 if (-not [string]::IsNullOrWhiteSpace($modules)) {
                     $scanArgs += "--modules"
                     $scanArgs += $modules
@@ -290,6 +424,11 @@ while ($true) {
         if (-not [string]::IsNullOrWhiteSpace($timeBudget)) {
             $scanArgs += "--time-budget"
             $scanArgs += $timeBudget
+        }
+        $crawlDepth = Read-Host "Enter crawl depth [1]"
+        if (-not [string]::IsNullOrWhiteSpace($crawlDepth) -and $crawlDepth -ne "1") {
+            $scanArgs += "--crawl-depth"
+            $scanArgs += $crawlDepth
         }
         $logFmt = Read-Choice "Log output format" @("text", "json") "text"
         if ($logFmt -eq "json") {

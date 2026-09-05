@@ -211,6 +211,91 @@ APP_PROFILES: dict[str, dict[str, Any]] = {
     },
 }
 
+# Aliases and variants
+APP_PROFILES["juice-shop"] = APP_PROFILES["juiceshop"]
+APP_PROFILES["vulnweb-php"] = {
+    "name": "Vulnweb PHP (testphp.vulnweb.com)",
+    "is_spa": False,
+    "default_port": 80,
+    "fingerprint_patterns": ["testphp.vulnweb.com", "acuart"],
+    "known_endpoints": [
+        "/search.php?test=query",
+        "/artists.php?artist=1",
+        "/listproducts.php?cat=1",
+        "/product.php?pic=1",
+        "/showimage.php?file=./pictures/1.jpg",
+        "/comment.php?aid=1",
+        "/guestbook.php",
+        "/cart.php",
+        "/login.php",
+        "/userinfo.php",
+        "/secured/phpinfo.php",
+        "/phpinfo.php",
+        "/AJAX/index.php",
+        "/Flash/",
+        "/CVS/Root",
+        "/CVS/Entries",
+        "/.idea/workspace.xml",
+        "/index.zip",
+        "/.htaccess",
+    ],
+    "known_forms": [
+        {
+            "action": "/search.php",
+            "method": "POST",
+            "fields": [
+                {"name": "searchFor", "type": "text", "value": "test"},
+                {"name": "goButton", "type": "submit", "value": "go"},
+            ],
+        },
+        {
+            "action": "/login.php",
+            "method": "POST",
+            "fields": [
+                {"name": "tfUName", "type": "text", "value": "test"},
+                {"name": "tfUPass", "type": "password", "value": "test"},
+            ],
+        },
+        {
+            "action": "/guestbook.php",
+            "method": "POST",
+            "fields": [
+                {"name": "txtName", "type": "text", "value": "test"},
+                {"name": "mtxMessage", "type": "textarea", "value": "test"},
+            ],
+        },
+    ],
+    "skip_modules": ["subdomain_takeover", "dep_confusion"],
+    "known_params": ["artist", "cat", "searchFor", "file", "test", "aid", "pic"],
+    "open_ports": [80],
+    "technologies": [
+        {"name": "PHP", "version": "5.6.40", "category": "Programming Language", "confidence": 95},
+        {"name": "Nginx", "version": "1.19.0", "category": "Web Server", "confidence": 95},
+        {"name": "MySQL", "version": "5.7", "category": "Database", "confidence": 90},
+    ],
+}
+APP_PROFILES["vulnweb-asp"] = {
+    "name": "Vulnweb ASP.NET (testaspnet.vulnweb.com)",
+    "is_spa": False,
+    "default_port": 80,
+    "fingerprint_patterns": ["testaspnet.vulnweb.com", "testaspnet"],
+    "known_endpoints": [
+        "/Search.aspx?tfSearch=test",
+        "/ReadNews.aspx?id=1",
+        "/Signup.aspx",
+        "/Login.aspx",
+        "/Comments.aspx?id=1",
+    ],
+    "skip_modules": ["subdomain_takeover", "dep_confusion"],
+    "known_params": ["tfSearch", "id"],
+    "open_ports": [80],
+    "technologies": [
+        {"name": "ASP.NET", "version": "4.0", "category": "Framework", "confidence": 95},
+        {"name": "IIS", "version": "8.5", "category": "Web Server", "confidence": 95},
+        {"name": "Microsoft SQL Server", "version": "2012", "category": "Database", "confidence": 90},
+    ],
+}
+
 
 def detect_app_profile(
     body: str,
@@ -235,7 +320,18 @@ def detect_app_profile(
 
 def get_profile(name: str) -> dict[str, Any] | None:
     """Return the profile dict for *name*, or ``None`` if unknown."""
-    return APP_PROFILES.get(name.lower())
+    if not name:
+        return None
+    k = name.lower().strip()
+    if k in APP_PROFILES:
+        return APP_PROFILES[k]
+    k_hyphen = k.replace("_", "-")
+    if k_hyphen in APP_PROFILES:
+        return APP_PROFILES[k_hyphen]
+    k_clean = k.replace("-", "").replace("_", "")
+    if k_clean in APP_PROFILES:
+        return APP_PROFILES[k_clean]
+    return None
 
 
 def profile_to_observations(

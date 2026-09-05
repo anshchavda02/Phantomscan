@@ -1,4 +1,4 @@
-# PhantomScan Installation and Usage Guide
+              # PhantomScan Installation and Usage Guide
 
 PhantomScan is for authorized security assessment only. Run it only against systems you own or have explicit written permission to test.
 
@@ -162,16 +162,40 @@ phantomscan --target example.com --auth-token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
 phantomscan --target example.com --advanced --source-path ./my-app --check-slopsquatting
 ```
 
+### Local & Vulnerable Application Testing
+```bash
+# Tailored scan for OWASP Juice Shop
+phantomscan --target http://localhost:3000 --app-profile juiceshop
+
+# Tailored scan for DVWA (Damn Vulnerable Web App)
+phantomscan --target http://localhost:8080 --app-profile dvwa
+
+# Auto-detect vulnerable target profile
+phantomscan --target http://testphp.vulnweb.com --app-profile auto
+```
+
+### Diagnostics & Benchmark Harness
+```bash
+# Verify status of all polyglot engines and dependencies
+phantomscan --check-engines
+
+# Run automated detection and false-positive benchmark harness
+python scripts/benchmark.py --suite clean
+```
+
 ---
 
 ## Testing & Verification
 
-Run the test suite across all modules:
+Run the comprehensive test suite across all modules:
 ```bash
-# Python test suite (216 passing tests)
+# Python test suite (330+ passing tests across unit, integration, and contract tests)
 python -m pytest
 
-# Run all multi-language engine tests
+# Run false-positive regression suite (120+ regression tests)
+python -m pytest tests/false_positive_regression/
+
+# Run multi-language engine tests
 make test
 ```
 
