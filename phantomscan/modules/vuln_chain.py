@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 CHAIN_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "chain_id": "ATO-001",
         "name": "Account Takeover via CSRF + XSS",
         "requires": {"csrf", "xss"},
         "severity": "critical",
@@ -34,6 +35,7 @@ CHAIN_DEFINITIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "chain_id": "EXF-001",
         "name": "Full Data Enumeration via IDOR + No Rate Limit",
         "requires": {"idor", "no_rate_limit"},
         "severity": "critical",
@@ -48,6 +50,7 @@ CHAIN_DEFINITIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "chain_id": "CLD-001",
         "name": "SSRF to Cloud Credential Theft",
         "requires": {"ssrf", "cloud_metadata"},
         "severity": "critical",
@@ -133,6 +136,7 @@ CHAIN_DEFINITIONS: list[dict[str, Any]] = [
     },
     # ── Vibe App / AI-Generated Application Attack Chains ────────────────
     {
+        "chain_id": "BAAS-001",
         "name": "Supabase RLS Bypass → Full Database Compromise",
         "requires": {"supabase_rls_missing", "supabase_service_key"},
         "severity": "critical",
@@ -163,6 +167,7 @@ CHAIN_DEFINITIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "chain_id": "AI-001",
         "name": "AI Proxy Abuse → Unlimited LLM Cost Drain",
         "requires": {"ai_proxy_unauth", "no_rate_limit"},
         "severity": "critical",
@@ -350,12 +355,16 @@ class VulnChainEngine:
                             if t and t not in matched_titles:
                                 matched_titles.append(t)
                                 break
+                chain_id = chain.get("chain_id")
+                f_id = f"CHAIN-{chain_id}" if chain_id else f"CHAIN-{chain['name'].upper().replace(' ', '-')[:40]}"
                 chain_findings.append({
-                    "id": f"CHAIN-{chain['name'].upper().replace(' ', '-')[:40]}",
+                    "id": f_id,
                     "title": f"Attack Chain: {chain['name']}",
                     "severity": chain["severity"],
                     "confidence": "medium",
                     "category": "vuln-chain",
+                    "verification_method": "multi_source_agreement",
+                    "module": "vuln_chain",
                     "target": "",
                     "evidence": (
                         f"Component findings: {', '.join(matched_titles[:5])}\n\n"

@@ -91,5 +91,58 @@ async def test_email_security_local_target_skip():
     assert any("skipped" in o.name for o in obs)
 
 
+@pytest.mark.asyncio
+async def test_subdomain_takeover_netlify():
+    """Detect dangling CNAME pointing to unclaimed Netlify site."""
+    mock_http = MagicMock(spec=RobustHTTPClient)
+    mock_http.request = AsyncMock(
+        return_value=HTTPResult(
+            url="https://landing.mycompany.com",
+            status=404,
+            headers={"content-type": "text/plain"},
+            cookies={},
+            body=b"Not Found - Request ID: 01HZY...",
+            raw_set_cookies=[],
+            redirect_chain=[],
+            response_time_ms=50,
+            content_type="text/plain",
+        )
+    )
+    detector = SubdomainTakeoverDetector(http=mock_http)
+    detector._get_cname = AsyncMock(return_value="my-old-site.netlify.app")
+
+    findings = await detector.detect(["landing.mycompany.com"])
+    assert len(findings) == 1
+    assert findings[0]["id"] == "SUBDOMAIN-TAKEOVER"
+    assert "Netlify" in findings[0]["evidence"]
+
+
+@pytest.mark.asyncio
+async def test_subdomain_takeover_vercel():
+    """Detect dangling CNAME pointing to unclaimed Vercel deployment."""
+    mock_http = MagicMock(spec=RobustHTTPClient)
+    mock_http.request = AsyncMock(
+        return_value=HTTPResult(
+            url="https://preview.mycompany.com",
+            status=404,
+            headers={"content-type": "text/html"},
+            cookies={},
+            body=b"The deployment could not be found on Vercel",
+            raw_set_cookies=[],
+            redirect_chain=[],
+            response_time_ms=50,
+            content_type="text/html",
+        )
+    )
+    detector = SubdomainTakeoverDetector(http=mock_http)
+    detector._get_cname = AsyncMock(return_value="preview-app.vercel.app")
+
+    findings = await detector.detect(["preview.mycompany.com"])
+    assert len(findings) == 1
+    assert findings[0]["id"] == "SUBDOMAIN-TAKEOVER"
+    assert "Vercel" in findings[0]["evidence"]
+
+
 if __name__ == "__main__":
     unittest.main()
+

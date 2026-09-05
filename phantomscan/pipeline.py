@@ -23,6 +23,74 @@ from phantomscan.scope import NormalizedTarget, normalize_target
 logger = logging.getLogger(__name__)
 
 
+# ── Execution Pipeline State & Local Skip Modules ─────────────────────────────
+
+
+LOCAL_SKIP_MODULES: set[str] = {
+    "whois",
+    "subdomain_enum",
+    "ip_intel_external",
+    "email_security",
+    "known_platform_check",
+    "subdomain_takeover",
+}
+
+
+@dataclass
+class PipelineState:
+    """State tracker enforcing the strict execution pipeline order:
+    1. All modules execute -> raw_findings collected
+    2. FindingGate validates every finding (8 checks)
+    3. FP PostProcessor suppresses false positives
+    4. Score Engine calculates on CLEAN findings ONLY
+    5. Chain Engine correlates findings
+    6. Reporter generates output
+    """
+
+    raw_collected: bool = False
+    gated: bool = False
+    fp_processed: bool = False
+    score_calculated: bool = False
+    chains_correlated: bool = False
+    reported: bool = False
+
+    def mark_raw_collected(self) -> None:
+        self.raw_collected = True
+
+    def mark_gated(self) -> None:
+        self.gated = True
+
+    def mark_fp_processed(self) -> None:
+        self.fp_processed = True
+
+    def mark_score_calculated(self) -> None:
+        assert self.fp_processed is True, (
+            "Score engine called before FP postprocessor — "
+            "this produces incorrect scores"
+        )
+        self.score_calculated = True
+
+    def mark_chains_correlated(self) -> None:
+        self.chains_correlated = True
+
+    def mark_reported(self) -> None:
+        self.reported = True
+
+    def verify_scoring_allowed(self) -> None:
+        assert self.fp_processed is True, (
+            "Score engine called before FP postprocessor — "
+            "this produces incorrect scores"
+        )
+
+
+def assert_pipeline_order(state: PipelineState) -> None:
+    """Assert that FP post-processing completed before score calculation."""
+    assert state.fp_processed is True, (
+        "Score engine called before FP postprocessor — "
+        "this produces incorrect scores"
+    )
+
+
 # ── Module Metadata Schema ───────────────────────────────────────────────────
 
 
@@ -333,7 +401,7 @@ class PipelineDAG:
             meta = self.get_metadata(name)
 
             # Rule 1: Localhost skip (PR-L01)
-            if target and target.is_local and meta.is_local_skip:
+            if target and target.is_local and (meta.is_local_skip or name in LOCAL_SKIP_MODULES):
                 logger.info("Skipping module '%s' on local target %s (PR-L01)", name, target.host)
                 continue
 

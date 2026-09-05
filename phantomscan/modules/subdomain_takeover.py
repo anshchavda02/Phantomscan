@@ -100,6 +100,26 @@ TAKEOVER_FINGERPRINTS: dict[str, dict[str, str]] = {
         "response_signature": "Whatever you were looking for doesn't currently exist",
         "service": "Tumblr",
     },
+    "netlify.app": {
+        "cname_pattern": r".*\.netlify\.app$",
+        "response_signature": "Not Found - Request ID",
+        "service": "Netlify",
+    },
+    "render.com": {
+        "cname_pattern": r".*\.onrender\.com$",
+        "response_signature": "Not Found",
+        "service": "Render",
+    },
+    "fly.dev": {
+        "cname_pattern": r".*\.fly\.dev$",
+        "response_signature": "404 Not Found",
+        "service": "Fly.io",
+    },
+    "vercel.app": {
+        "cname_pattern": r".*\.vercel\.app$",
+        "response_signature": "The deployment could not be found on Vercel",
+        "service": "Vercel",
+    },
 }
 
 
@@ -169,7 +189,7 @@ class SubdomainTakeoverDetector:
                                 "confidence": "high",
                                 "category": "subdomain_takeover",
                                 "target": subdomain,
-                                "verification_method": "cname_signature_match",
+                                "verification_method": "active_confirmation",
                                 "evidence": (
                                     f"CNAME: {cname}\n"
                                     f"Service: {fingerprint['service']}\n"

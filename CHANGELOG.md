@@ -10,9 +10,15 @@
   - `CRUDOwnershipChecker`: Auto-generated CRUD endpoint ownership (BOLA/IDOR) validation.
   - `EnvDebugScanner`: Exposed `.env`, `.git`, build artifact, and debug route detection.
   - `DefaultCredChecker`: Default/example admin credential checker.
-- Updated `PhantomScan-Launcher.ps1` with dedicated AI App Security scan option (Option 8).
-- Updated CLI parser and help options across `phantomscan.py`.
-- Added unit test suite in `tests/python/test_ai_app_security.py` (27 test cases).
+- Overhauled Windows interactive launcher (`PhantomScan-Launcher.ps1`) to 20 options:
+  - Added Option 9: Local / Vulnerable App scanning with automated profiles (`juiceshop`, `dvwa`, `webgoat`, `bwapp`, `vulnweb-php`, `vulnweb-asp`).
+  - Added Option 15: Detection Benchmark Harness (`scripts/benchmark.py`) for automated TP/FP accuracy measurement.
+  - Added Option 16: Polyglot Engine Health Diagnostics (`--check-engines`).
+  - Added Option 17: Multi-tier Test Runner (full suite, FP regressions, polyglot integration, live regression script).
+- Updated Windows batch launcher (`install.bat`, `launcher.bat`, `PhantomScan Launcher.bat`, `phantomscan-cli.bat`) with execution policy bypass, automatic virtualenv resolution, and post-install engine health diagnostics.
+- Updated Linux and macOS installer scripts (`scripts/install.sh`, `scripts/install_macos.sh`) with post-install health check and v2.2.0 CLI examples.
+- Updated CLI parser and help options across `phantomscan.py` with `--check-engines`, `--engine-health`, and `--benchmark`.
+- Expanded automated test coverage to 331 tests across unit, contract, and false-positive regression suites.
 
 ## 2.1.0
 

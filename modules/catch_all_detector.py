@@ -15,6 +15,18 @@ class CatchAllResult:
     has_catch_all: bool = False
     baseline_body_length: int = 0
     note: str = ""
+    detected: bool = False
+    baseline_length: int = 0
+
+    def __post_init__(self) -> None:
+        if self.detected and not self.has_catch_all:
+            self.has_catch_all = True
+        elif self.has_catch_all and not self.detected:
+            self.detected = True
+        if self.baseline_length and not self.baseline_body_length:
+            self.baseline_body_length = self.baseline_length
+        elif self.baseline_body_length and not self.baseline_length:
+            self.baseline_length = self.baseline_body_length
 
 
 class CatchAllDetector:

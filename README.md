@@ -11,7 +11,7 @@
 ### **Next-Generation Modular Cybersecurity Platform for Automated Vulnerability Assessment**
 *Enterprise-Grade DAST Engineered for Modern APIs, AI-Generated / Vibe-Coded Web Apps, Cloud Backends, and Supply Chains*
 
-[![Tests](https://img.shields.io/badge/tests-290%20passed-brightgreen.svg?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-331%20passed-brightgreen.svg?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
 [![Go](https://img.shields.io/badge/go-1.21%2B-00ADD8.svg?style=flat-square)](engines/go/)
 [![Rust](https://img.shields.io/badge/rust-2021%20edition-dea584.svg?style=flat-square)](engines/rust/)
@@ -205,7 +205,7 @@ reports/
 PhantomScan enforces rigorous automated test coverage across all subsystems:
 
 ```bash
-# Run full automated test suite (290 Passing Tests)
+# Run full automated test suite (331 Passing Tests across unit, integration & contract suites)
 pytest -v
 
 # Run false-positive regression tests

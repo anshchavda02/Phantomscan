@@ -99,10 +99,18 @@ def post_process(
             if SEVERITY_ORDER.get(str(enriched.get("severity")), 1) > SEVERITY_ORDER["medium"]:
                 enriched["severity"] = "medium"
         title = str(enriched.get("title", ""))
-        reason = _suppression_reason(title, platform, waf_detected, cdn_detected, login_confirmed)
+        reason = _suppression_reason(
+            title, platform, waf_detected, cdn_detected, login_confirmed,
+            finding=enriched, target_host=target_host,
+        )
         if reason:
             suppressed.append({**enriched, "suppression_reason": reason})
             continue
+
+        # Rule 8: Analytics Cookie Downgrade
+        if any(c in title.lower() or c in str(enriched.get("evidence", "")).lower() for c in ("_ga", "_gid", "_fbp", "_hjid", "nid", "ide")):
+            enriched["severity"] = "info"
+
         if floors.get(confidence, 2) < floors[confidence_floor]:
             suppressed.append({**enriched, "suppression_reason": f"Below confidence filter: {confidence}"})
             continue
@@ -278,18 +286,51 @@ def _suppression_reason(
     waf_detected: str,
     cdn_detected: str,
     login_confirmed: bool,
+    finding: dict[str, Any] | None = None,
+    target_host: str = "",
 ) -> str | None:
     normalized = title.lower()
+
+    # Rule 1: Known Platform Suppression
     if platform:
         for suppressed in platform.get("suppress_findings", []):
             if suppressed.lower() in normalized:
                 return f"Known platform context: {platform.get('domain', 'platform')}"
+
+    # Rule 2: Email Root Domain Recheck
+    if any(e in normalized for e in ("spf missing", "dmarc missing", "spf record missing", "dmarc record missing")):
+        if target_host and (target_host.startswith("www.") or target_host.count(".") > 1):
+            return f"Email security must be evaluated on root domain, not subdomain ({target_host})"
+
+    # Rule 3: WAF Implies Rate Limiting Possible
     if "no rate limiting" in normalized and waf_detected:
         return "WAF provides rate-limiting capability at the edge."
+
+    # Rule 4: CDN Implies WAF Possible
     if "no waf" in normalized and any(name in cdn_detected for name in ["cloudflare", "akamai", "google", "aws", "cloudfront"]):
         return "Confirmed CDN edge provides WAF capability."
+
+    # Rule 5: MFA Without Confirmed Login Page
     if "no mfa" in normalized and not login_confirmed:
         return "No confirmed login page in scan scope."
+
+    # Rule 6: CVE Hard Filters
+    if finding and (finding.get("category") == "cve" or "cve" in str(finding.get("id", "")).lower()):
+        cvss = finding.get("cvss")
+        if cvss is not None and float(cvss) == 0.0:
+            return "CVE hard filter: CVSS score is 0.0"
+        if finding.get("affected_versions") == "":
+            return "CVE hard filter: affected versions field empty"
+        evidence_lower = str(finding.get("evidence", "")).lower()
+        if "seagate" in normalized or "seagate" in evidence_lower:
+            return "CVE hard filter: technology vendor mismatch (Seagate CVE matched to software)"
+
+    # Rule 7: Expired Cookie Skip
+    if finding and ("cookie" in normalized or finding.get("category") == "cookie"):
+        evidence_lower = str(finding.get("evidence", "")).lower()
+        if finding.get("is_expired") or "expired" in evidence_lower or "past date" in evidence_lower:
+            return "Expired cookie skipped as harmless"
+
     return None
 
 

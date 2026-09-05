@@ -7,7 +7,7 @@ BIN_DIR="${HOME}/.local/bin"
 LAUNCHER="${BIN_DIR}/phantomscan"
 
 printf '\033[1;36m============================================================\033[0m\n'
-printf '\033[1;36mPhantomScan Linux CLI Installer\033[0m\n'
+printf '\033[1;36mPhantomScan 2.2.0 Linux CLI Installer\033[0m\n'
 printf '\033[1;36mAuthorized security assessment use only.\033[0m\n'
 printf '\033[1;36m============================================================\033[0m\n\n'
 
@@ -69,11 +69,17 @@ exec "$ROOT/.venv/bin/python" "$ROOT/phantomscan.py" "\$@"
 EOF
 chmod +x "$LAUNCHER"
 
+# 7. Engine Health Diagnostic
+printf '\n\033[1;33mRunning engine health check...\033[0m\n'
+"$ROOT/.venv/bin/python" "$ROOT/phantomscan.py" --check-engines
+
 printf '\n\033[1;32m============================================================\033[0m\n'
-printf '\033[1;32mPhantomScan installation complete!\033[0m\n'
+printf '\033[1;32mPhantomScan 2.2.0 installation complete!\033[0m\n'
 printf '\033[1;32m============================================================\033[0m\n'
 printf '\nLauncher installed to: %s\n' "$LAUNCHER"
 printf 'If not already in your PATH, add: \033[1;33mexport PATH="$HOME/.local/bin:$PATH"\033[0m\n\n'
-printf 'Run your first scan:\n'
+printf 'CLI usage examples:\n'
 printf '  \033[1;37mphantomscan --target example.com --profile passive\033[0m\n'
-printf '  \033[1;37mphantomscan --target example.com --profile full --debug\033[0m\n\n'
+printf '  \033[1;37mphantomscan --target example.com --profile full --debug\033[0m\n'
+printf '  \033[1;37mphantomscan --target http://localhost:3000 --app-profile juiceshop\033[0m\n'
+printf '  \033[1;37mphantomscan --check-engines\033[0m\n\n'
