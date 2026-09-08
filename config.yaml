@@ -16,6 +16,8 @@ scan:
 ports:
   quick: top100
   full: top1000
+  deep: top1000
+  deepscan: top1000
   custom: ""
 
 network:
@@ -75,3 +77,21 @@ reliability:
 # ── Daemon Mode Settings ─────────────────────────────────────────────────────
 daemon:
   health_endpoint_port: 9191
+
+# ── Operation-Specific Timeouts (seconds) ──────────────────────────────────
+timeouts:
+  http_request: 15
+  http_connect: 8
+  port_scan_per_port: 5
+  ssl_handshake: 12
+  dns_resolution: 5
+  whois_lookup: 15
+  crtsh_api: 30
+  nvd_api: 15
+  ip_api: 8
+  browser_navigation: 30
+  browser_network_idle: 10
+  subprocess_go: 120
+  subprocess_rust: 30
+  oob_callback_wait: 15
+  full_scan_budget: 600

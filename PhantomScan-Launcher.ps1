@@ -100,12 +100,12 @@ while ($true) {
     Write-Host "Scan & Assessment Options:" -ForegroundColor White
     Write-Host "--------------------------" -ForegroundColor DarkGray
     Write-Host "  1. Passive scan        Safe DNS/email checks & Deep Web Analysis"
-    Write-Host "  2. Quick scan          Fast HTTP checks + Top 100 Port Scan + Basic TLS"
+    Write-Host "  2. Quick scan          Optimized (<20s) Tier-0 Recon + Top 100 Port Scan + Basic TLS"
     Write-Host "  3. Full scan           Deep Web + Concurrent Go Portscan + Rust TLS Inspection"
     Write-Host "  4. API scan            API-focused HTTP analysis without web crawling"
     Write-Host "  5. Network scan        Intensive Go Portscanner focused profile"
-    Write-Host "  6. Advanced scan       Run 38 advanced security modules (Logic, IDOR, AI Security, Takeover, PII, etc.)"
-    Write-Host "  7. Deep scan           Comprehensive All-in-One: Full Recon + Deep Crawling + Ports + TLS + All 38+ Modules"
+    Write-Host "  6. Advanced scan       Run 40+ advanced security modules (Logic, IDOR, AI Security, Takeover, PII, etc.)"
+    Write-Host "  7. Deep scan           Comprehensive All-in-One: Full Recon + Deep Crawling + Top 1000 Ports + All 40+ Security Modules"
     Write-Host "  8. AI App Security     Target AI-generated / vibe-coded web app vulns (Keys, RLS, Prompts, CRUD, .env)"
     Write-Host "  9. Local/Vulnerable    Tailored audit for local apps & vulnerable testbeds (Juice Shop, DVWA, WebGoat)"
     Write-Host " 10. Differential scan   Compare Staging vs Production security posture (--diff-env)"
@@ -118,15 +118,17 @@ while ($true) {
     Write-Host " 17. Run test suite      Execute automated pytest suite and regression checks"
     Write-Host " 18. Custom profile      Select custom scan profile (owasp, bug-bounty, monitor, etc.)"
     Write-Host " 19. Proxy mode          Intercept traffic and feed to YAML Rules Engine"
-    Write-Host " 20. CLI Help            Display full command-line help"
+    Write-Host " 20. Targeted Modules    Run specialized modules (SSL, CORS, Info Disclosure, Cookies, CVEs)"
+    Write-Host " 21. Cache Management    Inspect scan cache, view hit rate, or purge cached targets"
+    Write-Host " 22. CLI Help            Display full command-line help"
     Write-Host "  0. Exit"
     Write-Host ""
 
-    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20") "1"
+    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22") "1"
     if ($mode -eq "0") {
         break
     }
-    if ($mode -eq "20") {
+    if ($mode -eq "22") {
         & $Python $Cli --help
         Write-Host ""
         Read-Host "Press Enter to return to the menu"
@@ -292,15 +294,16 @@ while ($true) {
 
     if ($mode -eq "17") {
         Write-Host "Select Test Suite:" -ForegroundColor White
-        Write-Host "  1. Full test suite (330+ unit & integration tests)"
+        Write-Host "  1. Full test suite (360+ unit & integration tests)"
         Write-Host "  2. False positive regression tests (120+ regression checks)"
         Write-Host "  3. Polyglot engine integration tests (Go, Rust, Node)"
         Write-Host "  4. Python regression verification script (live network validation)"
-        $tChoice = Read-Choice "Choose test suite" @("1", "2", "3", "4") "1"
+        Write-Host "  5. Hardened engine test suite (tests/test_engine_hardening.py - 30 tests)"
+        $tChoice = Read-Choice "Choose test suite" @("1", "2", "3", "4", "5") "1"
         switch ($tChoice) {
             "1" {
                 Write-Host "Running pytest across all test suites..." -ForegroundColor Cyan
-                & $Python -m pytest -v
+                & $Python -m pytest tests/ -v --tb=short
             }
             "2" {
                 Write-Host "Running false-positive regression suite..." -ForegroundColor Cyan
@@ -315,6 +318,88 @@ while ($true) {
                 Write-Host "Running live regression verification script..." -ForegroundColor Cyan
                 & $Python $vScript
             }
+            "5" {
+                Write-Host "Running hardened engine tests..." -ForegroundColor Cyan
+                & $Python -m pytest tests/test_engine_hardening.py -v --tb=short
+            }
+        }
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "20") {
+        Write-Host "Select Specialized Security Analyzer:" -ForegroundColor White
+        Write-Host "  1. SSL/TLS Certificate & Cipher Analyzer   (--modules ssl_analyzer)"
+        Write-Host "  2. CORS Misconfiguration Engine             (--modules cors_analyzer)"
+        Write-Host "  3. Information Disclosure & Traces Hunter   (--modules info_disclosure)"
+        Write-Host "  4. Cookie Security & Flags Analyzer        (--modules cookie_analyzer)"
+        Write-Host "  5. Known Vulnerabilities (CVE) Engine      (--modules cve_engine)"
+        Write-Host "  6. Run ALL 5 Specialized Analyzers         (--modules ssl_analyzer,cors_analyzer,info_disclosure,cookie_analyzer,cve_engine)"
+        $modChoice = Read-Choice "Choose module" @("1", "2", "3", "4", "5", "6") "6"
+        $selectedMods = switch ($modChoice) {
+            "1" { "ssl_analyzer" }
+            "2" { "cors_analyzer" }
+            "3" { "info_disclosure" }
+            "4" { "cookie_analyzer" }
+            "5" { "cve_engine" }
+            "6" { "ssl_analyzer,cors_analyzer,info_disclosure,cookie_analyzer,cve_engine" }
+        }
+        $target = Read-Host "Target domain or URL (e.g. https://example.com)"
+        if (-not [string]::IsNullOrWhiteSpace($target)) {
+            $modArgs = @("--target", $target, "--modules", $selectedMods)
+            Write-Host "Running targeted scan: & `"$Python`" `"$Cli`" $($modArgs -join ' ')" -ForegroundColor Cyan
+            $startedAt = Get-Date
+            & $Python $Cli @modArgs
+            $html = Get-NewestHtmlReport -StartedAt $startedAt
+            if ($null -ne $html) {
+                $openHtml = Read-YesNo "Open HTML report in browser" $true
+                if ($openHtml) {
+                    Start-Process -FilePath $html.FullName
+                }
+            }
+        } else {
+            Write-Host "No target entered." -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Read-Host "Press Enter to return to the menu"
+        continue
+    }
+
+    if ($mode -eq "21") {
+        Write-Host "Scan Cache Management:" -ForegroundColor White
+        $cacheFiles = @(
+            (Join-Path $Root "data\scan_cache.sqlite3"),
+            (Join-Path $Root "phantomscan.sqlite3")
+        )
+        foreach ($cf in $cacheFiles) {
+            if (Test-Path -LiteralPath $cf) {
+                $item = Get-Item -LiteralPath $cf
+                $sizeKb = [math]::Round($item.Length / 1KB, 1)
+                Write-Host "  Cache DB found: $cf ($sizeKb KB, modified $($item.LastWriteTime))" -ForegroundColor Green
+            } else {
+                Write-Host "  Cache DB: $cf (Not created yet)" -ForegroundColor DarkGray
+            }
+        }
+        Write-Host ""
+        Write-Host "  1. View Cache Status & Details"
+        Write-Host "  2. Clear Scan Cache Databases"
+        Write-Host "  3. Return to Main Menu"
+        $cChoice = Read-Choice "Action" @("1", "2", "3") "1"
+        if ($cChoice -eq "2") {
+            $confirm = Read-YesNo "Are you sure you want to delete local scan cache files" $false
+            if ($confirm) {
+                foreach ($cf in $cacheFiles) {
+                    if (Test-Path -LiteralPath $cf) {
+                        Remove-Item -LiteralPath $cf -Force -ErrorAction SilentlyContinue
+                        Write-Host "  Deleted: $cf" -ForegroundColor Yellow
+                    }
+                }
+                Write-Host "Cache purged successfully." -ForegroundColor Green
+            }
+        } elseif ($cChoice -eq "1") {
+            Write-Host "Scan cache provides sub-millisecond retrieval of cached HTTP requests and DNS responses." -ForegroundColor Cyan
+            Write-Host "Use --time-budget to control scan duration while caching optimizes repeated scans." -ForegroundColor Cyan
         }
         Write-Host ""
         Read-Host "Press Enter to return to the menu"
@@ -340,13 +425,14 @@ while ($true) {
         continue
     }
 
-    $ports = "top100"
+    $defaultPortChoice = if ($profile -in @("deep", "deepscan", "full")) { "top1000" } else { "top100" }
+    $ports = $defaultPortChoice
     if ($profile -ne "proxy") {
-        $ports = Read-Choice "Ports" @("top100", "top1000", "custom") "top100"
+        $ports = Read-Choice "Ports" @("top100", "top1000", "custom") $defaultPortChoice
         if ($ports -eq "custom") {
             $ports = Read-Host "Enter ports, for example 80,443,8080 or 1-1000"
             if ([string]::IsNullOrWhiteSpace($ports)) {
-                $ports = "top100"
+                $ports = $defaultPortChoice
             }
         }
     }

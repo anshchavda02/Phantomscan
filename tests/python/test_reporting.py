@@ -305,6 +305,127 @@ def test_finding_references_enrichment_and_rendering(tmp_path: Path):
     assert "https://cwe.mitre.org/data/definitions/89.html" in content
 
 
+def test_reporting_v2_2_enriched_references():
+    """Test newly added references for cookies, cors, info disclosure, and cves."""
+    from phantomscan.reporting import enrich_finding_references
+
+    cookie_finding = {"id": "COOKIE-SENSITIVE-NO-HTTPONLY", "title": "Cookie Without HttpOnly", "category": "web"}
+    refs = enrich_finding_references(cookie_finding)
+    assert any("614.html" in r or "1004.html" in r for r in refs)
+
+    cors_finding = {"id": "CORS-WILDCARD-CREDENTIALS", "title": "CORS Wildcard with Credentials", "category": "web"}
+    refs = enrich_finding_references(cors_finding)
+    assert any("942.html" in r for r in refs)
+
+    disclosure_finding = {"id": "INFO-STACK-TRACE-DISCLOSURE", "title": "Detailed Stack Trace Exposed", "category": "info_disclosure"}
+    refs = enrich_finding_references(disclosure_finding)
+    assert any("200.html" in r or "209.html" in r for r in refs)
+
+    cve_finding = {"id": "CVE-2024-12345", "title": "Vulnerable Component Detected", "category": "cve"}
+    refs = enrich_finding_references(cve_finding)
+    assert any("1395.html" in r for r in refs)
+
+
+def test_html_report_rendering_v2_2_features(tmp_path: Path):
+    """Test that HTML report renders v2.2.0, occurrences counts, CWE pills, and CVE sections."""
+    from phantomscan.reporting import write_html_report
+
+    out_file = tmp_path / "report_v22.html"
+    payload = {
+        "target": "https://secure-target.example.com",
+        "score": 88,
+        "grade": "B",
+        "observations": [
+            {
+                "name": "ssl_inspection",
+                "value": {
+                    "grade": "A",
+                    "days_remaining": 65,
+                    "cert_subject": "secure-target.example.com",
+                    "cert_issuer": "Let's Encrypt",
+                    "protocol": "TLSv1.3",
+                    "protocols": ["TLSv1.2", "TLSv1.3"],
+                    "cert_sans": ["secure-target.example.com", "www.secure-target.example.com"],
+                }
+            }
+        ],
+        "findings": [
+            {
+                "id": "SEC-COOKIE-FLAG",
+                "title": "Session Cookie Missing Secure Attribute",
+                "severity": "medium",
+                "confidence": "high",
+                "category": "web",
+                "module": "cookie_analyzer",
+                "cwe": "CWE-614",
+                "occurrences": 3,
+                "evidence": "Set-Cookie: sessionid=xyz123; HttpOnly; Path=/",
+                "recommendation": "Add Secure flag to cookie.",
+                "verification_method": "passive_observation",
+            },
+            {
+                "id": "CVE-2023-99999",
+                "title": "Known Component Vulnerability in Nginx",
+                "severity": "high",
+                "confidence": "high",
+                "category": "cve",
+                "module": "cve_engine",
+                "cwe": "CWE-1395",
+                "cvss_score": 7.5,
+                "evidence": "Nginx 1.18.0 detected with CVE-2023-99999",
+                "recommendation": "Upgrade to Nginx 1.24+.",
+                "verification_method": "passive_observation",
+            }
+        ],
+    }
+
+    write_html_report(out_file, payload)
+    assert out_file.exists()
+    html = out_file.read_text(encoding="utf-8")
+
+    # Check version 2.2.0
+    assert 'content="2.2.0"' in html
+    assert "v2.2.0" in html
+
+    # Check deduplication occurrences badge
+    assert "3x OCCURRENCES" in html
+
+    # Check module badge
+    assert "MOD: COOKIE_ANALYZER" in html
+
+    # Check direct CWE clickable pill
+    assert "CWE-614" in html
+    assert "https://cwe.mitre.org/data/definitions/614.html" in html
+
+    # Check CVE section
+    assert "CVE-2023-99999" in html
+    assert "CVSS: 7.5" in html
+
+    # Check SSL section
+    assert "secure-target.example.com" in html
+    assert "65d remaining" in html
+    assert "TLS 1.3" in html
+
+
+def test_launcher_powershell_options():
+    """Verify PhantomScan-Launcher.ps1 includes options 1 through 22 and v2.2.0 title."""
+    launcher_path = Path(__file__).parent.parent.parent / "PhantomScan-Launcher.ps1"
+    assert launcher_path.exists()
+    content = launcher_path.read_text(encoding="utf-8")
+
+    assert "PhantomScan 2.2.0" in content
+    assert "20. Targeted Modules" in content
+    assert "21. Cache Management" in content
+    assert "22. CLI Help" in content
+    assert "Hardened engine test suite" in content
+    assert "ssl_analyzer" in content
+    assert "cors_analyzer" in content
+    assert "info_disclosure" in content
+    assert "cookie_analyzer" in content
+    assert "cve_engine" in content
+
+
+
 
 
 

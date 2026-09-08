@@ -154,7 +154,7 @@ async def collect_dns_records(
 
     resolver = _make_resolver()
     records: dict[str, list[str]] = {
-        "A": [], "AAAA": [], "MX": [], "NS": [], "TXT": [], "CNAME": [],
+        "A": [], "AAAA": [], "MX": [], "NS": [], "TXT": [], "CNAME": [], "SOA": [], "CAA": [], "PTR": [],
     }
 
     async def _query(rtype: str) -> list[str]:
@@ -171,18 +171,38 @@ async def collect_dns_records(
                     )
                     out.append(joined)
                 return out
+            if rtype == "SOA":
+                return [f"{str(r.mname).rstrip('.')} {str(r.rname).rstrip('.')} {r.serial}" for r in answers]
+            if rtype == "CAA":
+                out = []
+                for r in answers:
+                    tag = r.tag.decode("utf-8", errors="replace") if isinstance(r.tag, bytes) else str(r.tag)
+                    val = r.value.decode("utf-8", errors="replace") if isinstance(r.value, bytes) else str(r.value)
+                    out.append(f"{r.flags} {tag} \"{val}\"")
+                return out
             return [str(r).rstrip(".") for r in answers]
         except dns.exception.DNSException:
+            return []
+        except Exception:
             return []
 
     results = await asyncio.gather(
         _query("A"), _query("AAAA"), _query("MX"),
         _query("NS"), _query("TXT"), _query("CNAME"),
+        _query("SOA"), _query("CAA"), _query("PTR"),
         return_exceptions=True,
     )
-    for rtype, result in zip(("A", "AAAA", "MX", "NS", "TXT", "CNAME"), results):
+    for rtype, result in zip(("A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA", "CAA", "PTR"), results):
         if isinstance(result, list):
             records[rtype] = result
+
+    # Cache resolved A records in DNSCache
+    if records["A"]:
+        try:
+            from .http_client import DNSCache
+            DNSCache.get_instance().put(target.host, records["A"])
+        except Exception:
+            pass
 
     log.info("DNS records for %s: %s", target.host, {k: len(v) for k, v in records.items()})
     return [Observation("dns_records", records, "resolver")]
@@ -195,13 +215,21 @@ async def lookup_whois(
     target: Target,
     timeout: float = 15.0,
     logger: logging.Logger | None = None,
-) -> list[Observation]:
-    """Fetch lightweight RDAP/WHOIS-style ownership information."""
+    returns_tuple: bool = False,
+) -> list[Observation] | tuple[list[Observation], list[Finding]]:
+    """Fetch lightweight RDAP/WHOIS-style ownership information.
+
+    If returns_tuple is True, returns (observations, findings).
+    Otherwise returns observations list for backwards compatibility.
+    """
     log = logger or logging.getLogger(__name__)
+    findings: list[Finding] = []
     if target.is_local:
-        return [Observation("whois_info", {"status": "skipped", "reason": "Local / private address", "queried": target.host}, "rdap")]
+        obs = [Observation("whois_info", {"status": "skipped", "reason": "Local / private address", "queried": target.host}, "rdap")]
+        return (obs, findings) if returns_tuple else obs
     if target.target_type == "cidr":
-        return [Observation("whois_info", {"status": "skipped", "reason": "CIDR summary not queried"}, "rdap")]
+        obs = [Observation("whois_info", {"status": "skipped", "reason": "CIDR summary not queried"}, "rdap")]
+        return (obs, findings) if returns_tuple else obs
     endpoint = "ip" if target.target_type == "ip" else "domain"
     lookup_name = target.host if target.target_type == "ip" else root_domain(target.host)
     url = f"https://rdap.org/{endpoint}/{lookup_name}"
@@ -246,7 +274,60 @@ async def lookup_whois(
             "original_target": target.host,
             "source": url,
         }
-    return [Observation("whois_info", info, "rdap")]
+
+    # Domain expiry calculation and findings
+    events = info.get("events", {})
+    if isinstance(events, dict):
+        exp_date_str = (
+            events.get("expiration")
+            or events.get("registration expiration")
+            or events.get("expire")
+        )
+        if exp_date_str:
+            try:
+                exp_date = None
+                try:
+                    clean_str = str(exp_date_str).replace("Z", "+00:00")
+                    exp_date = datetime.fromisoformat(clean_str)
+                except Exception:
+                    exp_date = parsedate_to_datetime(str(exp_date_str))
+                if exp_date.tzinfo is None:
+                    exp_date = exp_date.replace(tzinfo=timezone.utc)
+                days_left = (exp_date - datetime.now(timezone.utc)).days
+                info["days_until_expiration"] = days_left
+                if days_left < 30:
+                    findings.append(
+                        Finding(
+                            id="DOMAIN-EXPIRING-SOON-30",
+                            title="Domain Registration Expiring in < 30 Days",
+                            severity="high",
+                            confidence="high",
+                            category="recon",
+                            target=target.host,
+                            evidence=f"Domain {lookup_name} expires on {exp_date_str} ({days_left} days remaining).",
+                            recommendation="Renew domain registration immediately to prevent domain hijacking or service interruption.",
+                            verification_method="external_verification",
+                        )
+                    )
+                elif days_left < 90:
+                    findings.append(
+                        Finding(
+                            id="DOMAIN-EXPIRING-SOON-90",
+                            title="Domain Registration Expiring in < 90 Days",
+                            severity="medium",
+                            confidence="high",
+                            category="recon",
+                            target=target.host,
+                            evidence=f"Domain {lookup_name} expires on {exp_date_str} ({days_left} days remaining).",
+                            recommendation="Plan domain registration renewal in the next quarter.",
+                            verification_method="external_verification",
+                        )
+                    )
+            except Exception as exc:
+                log.debug("Failed to calculate domain expiry for %s: %s", lookup_name, exc)
+
+    observations = [Observation("whois_info", info, "rdap")]
+    return (observations, findings) if returns_tuple else observations
 
 
 def whois_lookup_name(target: Target) -> str:
@@ -1042,68 +1123,8 @@ def analyze_cookies(url: str, raw_set_cookies: list[str]) -> list[Finding]:
     Returns:
         List of :class:`Finding` objects.
     """
-    findings: list[Finding] = []
-    for cookie_str in raw_set_cookies:
-        parsed = _parse_set_cookie(cookie_str)
-        name = parsed.get("name", "")
-        if not name:
-            continue
-
-        # Skip tracking/analytics cookies
-        if (
-            name in _TRACKING_NAMES
-            or any(name.startswith(p) for p in _TRACKING_PREFIXES)
-        ):
-            continue
-
-        # Skip consent/preference cookies that intentionally need JS access
-        is_consent_cookie = (
-            name in _CONSENT_COOKIE_NAMES
-            or any(name.startswith(p) for p in _CONSENT_COOKIE_PREFIXES)
-        )
-        if is_consent_cookie:
-            continue
-
-        # Skip cookies that are already expired
-        if parsed.get("expired"):
-            continue
-
-        # __Secure- prefix implies Secure flag was intended
-        secure_prefix = name.startswith("__Secure-") or name.startswith("__Host-")
-        has_secure = parsed.get("secure", False) or secure_prefix
-        has_httponly = parsed.get("httponly", False)
-
-        is_tracking = False  # already filtered above
-        severity = "low"
-
-        if not has_secure:
-            findings.append(
-                Finding(
-                    id=f"COOKIE-MISSING-SECURE-{name.upper()[:30]}",
-                    title=f"Cookie missing Secure flag: {name}",
-                    severity=severity,  # type: ignore[arg-type]
-                    confidence="high",
-                    category="web",
-                    target=url,
-                    evidence=f"Set-Cookie: {cookie_str[:300]}",
-                    recommendation="Add the Secure attribute so this cookie is only transmitted over HTTPS.",
-                )
-            )
-
-        if not has_httponly:
-            findings.append(
-                Finding(
-                    id=f"COOKIE-MISSING-HTTPONLY-{name.upper()[:30]}",
-                    title=f"Cookie missing HttpOnly flag: {name}",
-                    severity=severity,  # type: ignore[arg-type]
-                    confidence="high",
-                    category="web",
-                    target=url,
-                    evidence=f"Set-Cookie: {cookie_str[:300]}",
-                    recommendation="Add the HttpOnly attribute to prevent JavaScript access to this cookie.",
-                )
-            )
-    return findings
+    from .modules.cookie_analyzer import CookieAnalyzer
+    return CookieAnalyzer().analyze(raw_set_cookies, url=url)
 
 
 def _parse_set_cookie(raw: str) -> dict[str, Any]:
@@ -1146,6 +1167,14 @@ def detect_technologies(observations: list[Any]) -> list[Observation]:
     headers: dict[str, Any] = {}
     body = ""
     tech: list[dict[str, Any]] = []
+
+    # Cap script paths inspection to first 20 scripts
+    scripts: list[str] = []
+    for item in observations:
+        name = getattr(item, "name", None) or (item.get("name") if isinstance(item, dict) else "")
+        val = getattr(item, "value", None) if hasattr(item, "value") else (item.get("value") if isinstance(item, dict) else None)
+        if name in ("scripts", "script_urls", "js_files") and isinstance(val, list):
+            scripts.extend(str(s) for s in val[:20])
 
     for item in observations:
         name = getattr(item, "name", None) or (item.get("name") if isinstance(item, dict) else "")

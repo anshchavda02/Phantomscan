@@ -17,10 +17,10 @@
                         <span class="pill badge-critical" style="font-size: 9px;">EPSS: {{ (cve.epss * 100) | round(1) }}%</span>
                         {% endif %}
                     </div>
-                    <div style="font-size: 11px; color: var(--text-tertiary);">CVSS: {{ cve.cvss }} &middot; Component: {{ cve.component }}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary);">CVSS: {{ cve.cvss or cve.cvss_score or 'N/A' }} &middot; Component: {{ cve.component or cve.target or 'Web Application' }}</div>
                 </div>
                 <div style="text-align: right;">
-                    <span class="pill badge-{{ cve.severity|lower }}" style="font-size: 10px;">{{ cve.severity | upper }}</span>
+                    <span class="pill badge-{{ (cve.severity | string | lower) if cve.severity else 'high' }}" style="font-size: 10px;">{{ (cve.severity | string | upper) if cve.severity else 'HIGH' }}</span>
                     {% if cve.exploitable %}
                     <div style="margin-top: 2px; font-size: 10px; color: var(--sev-critical); font-weight: 600;">Known Exploit</div>
                     {% endif %}

@@ -60,6 +60,11 @@ MODULE_REGISTRY: dict[str, str] = {
     "ssti_detector":        ".ssti_detector.SSTIDetector",
     # Anti-CSRF Token Scanner
     "csrf_detector":        ".csrf_detector.CSRFDetector",
+    "ssl_analyzer":         ".ssl_analyzer.SSLAnalyzer",
+    "cors_analyzer":        ".cors_analyzer.CORSAnalyzer",
+    "info_disclosure":      ".info_disclosure.InfoDisclosureDetector",
+    "cookie_analyzer":      ".cookie_analyzer.CookieAnalyzer",
+    "cve_engine":           ".cve_engine.CVEEngineScanner",
 }
 
 

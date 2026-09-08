@@ -11,6 +11,9 @@ from typing import Any, AsyncIterator
 
 import aiohttp
 
+import dns.asyncresolver
+import dns.exception
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +33,12 @@ class HTTPResult:
     redirect_chain: list[str]
     response_time_ms: int
     content_type: str
+    duration_ms: float = 0.0
+    request_count: int = 0
+
+    def __post_init__(self) -> None:
+        if self.duration_ms == 0.0 and self.response_time_ms:
+            self.duration_ms = float(self.response_time_ms)
 
     def text(self, encoding: str = "utf-8") -> str:
         """Decode body to text."""
@@ -40,12 +49,125 @@ class ScanError(Exception):
     """Raised when a scan operation fails irrecoverably."""
 
 
+class ScanHTTPError(ScanError):
+    """Raised when an HTTP operation fails irrecoverably after retries."""
+
+
 class ScanTimeout(ScanError):
     """Raised when a scan operation times out."""
 
 
 class ScopeViolationError(ScanError):
     """Raised when an HTTP request or redirect violates declared scan scope or SSRF protection (SEC-S01, SEC-S02)."""
+
+
+# ── Timeout configuration ─────────────────────────────────────────────────────
+
+
+class TimeoutConfig:
+    """Per-operation timeout constants (seconds)."""
+
+    HTTP_REQUEST: int = 15
+    HTTP_CONNECT: int = 8
+    PORT_SCAN: int = 5
+    SSL_HANDSHAKE: int = 12
+    DNS_RESOLUTION: int = 5
+    WHOIS: int = 15
+    CRTSH: int = 30
+    NVD_API: int = 15
+    IP_API: int = 8
+    BROWSER_NAV: int = 30
+    SUBPROCESS_GO: int = 120
+    SUBPROCESS_RUST: int = 30
+    OOB_WAIT: int = 15
+    FULL_SCAN: int = 600
+
+
+# ── DNS Cache ─────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class CacheEntry:
+    value: list[str]
+    expires_at: float
+
+    def is_expired(self) -> bool:
+        return time.time() > self.expires_at
+
+
+class DNSCache:
+    """Shared in-memory DNS cache across scan modules to eliminate duplicate lookups."""
+
+    def __init__(self, ttl: int = 300, nameservers: list[str] | None = None) -> None:
+        self._cache: dict[str, CacheEntry] = {}
+        self._ttl = ttl
+        self._resolver = dns.asyncresolver.Resolver()
+        self._resolver.nameservers = nameservers or ["8.8.8.8", "1.1.1.1", "9.9.9.9"]
+
+    async def resolve(
+        self,
+        hostname: str,
+        record_type: str = "A",
+        timeout: float = 5.0,
+    ) -> list[str]:
+        clean_name = hostname.lower().strip().rstrip(".")
+        rtype = record_type.upper().strip()
+        key = f"{clean_name}:{rtype}"
+        entry = self._cache.get(key)
+        if entry and not entry.is_expired():
+            return list(entry.value)
+
+        try:
+            answers = await asyncio.wait_for(
+                self._resolver.resolve(clean_name, rtype),
+                timeout=timeout,
+            )
+            if rtype == "MX":
+                result = [f"{r.preference} {str(r.exchange).rstrip('.')}" for r in answers]
+            elif rtype == "TXT":
+                result = []
+                for rdata in answers:
+                    joined = "".join(
+                        s.decode("utf-8", errors="replace") if isinstance(s, bytes) else str(s)
+                        for s in rdata.strings
+                    )
+                    result.append(joined)
+            else:
+                result = [str(r).rstrip(".") for r in answers]
+        except Exception:
+            result = []
+
+        self._cache[key] = CacheEntry(
+            value=result,
+            expires_at=time.time() + self._ttl,
+        )
+        return list(result)
+
+    _instance: Optional[DNSCache] = None
+
+    @classmethod
+    def get_instance(cls) -> DNSCache:
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def put(self, hostname: str, ips: list[str], ttl_seconds: int = 300, record_type: str = "A") -> None:
+        clean_name = hostname.lower().strip().rstrip(".")
+        rtype = record_type.upper().strip()
+        key = f"{clean_name}:{rtype}"
+        self._cache[key] = CacheEntry(value=list(ips), expires_at=time.time() + ttl_seconds)
+
+    def get(self, hostname: str, record_type: str = "A") -> list[str] | None:
+        clean_name = hostname.lower().strip().rstrip(".")
+        rtype = record_type.upper().strip()
+        key = f"{clean_name}:{rtype}"
+        entry = self._cache.get(key)
+        if entry and not entry.is_expired():
+            return list(entry.value)
+        return None
+
+    def clear(self) -> None:
+        self._cache.clear()
 
 
 # ── Robust HTTP client ────────────────────────────────────────────────────────
@@ -70,7 +192,17 @@ class RobustHTTPClient:
         scope_policy: Any | None = None,
         proxy: str | None = None,
         timeout_seconds: float = 10.0,
+        config: Any | None = None,
+        max_requests_per_second: int = 50,
+        max_response_size_mb: int = 10,
     ) -> None:
+        if config is not None:
+            max_requests_per_second = getattr(config, "max_requests_per_second", max_requests_per_second)
+            max_response_size_mb = getattr(config, "max_response_size_mb", max_response_size_mb)
+            proxy = getattr(config, "proxy", proxy)
+            scope_policy = getattr(config, "scope_policy", scope_policy)
+            timeout_seconds = getattr(config, "timeout_seconds", timeout_seconds)
+
         self.session: aiohttp.ClientSession | None = None
         self.proxy: str | None = proxy
         self._timeout = aiohttp.ClientTimeout(
@@ -80,6 +212,9 @@ class RobustHTTPClient:
         )
         self._connector: aiohttp.TCPConnector | None = None
         self.scope_policy = scope_policy
+        self._rate_limiter = asyncio.Semaphore(max_requests_per_second)
+        self._request_count = 0
+        self._response_size_limit = max_response_size_mb * 1024 * 1024
 
     async def start(self) -> None:
         """Create the underlying aiohttp session and connector."""
@@ -130,6 +265,33 @@ class RobustHTTPClient:
                 logger.warning("Redirect final destination scope violation at %s: %s", final_url, reason)
                 raise ScopeViolationError(f"Redirect final destination scope violation: {reason} ({final_url})")
 
+    async def _read_limited(self, response: aiohttp.ClientResponse) -> bytes:
+        """Read HTTP response body enforcing maximum response size limit."""
+        if hasattr(response, "content") and hasattr(response.content, "iter_chunked"):
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in response.content.iter_chunked(8192):
+                total += len(chunk)
+                if total > self._response_size_limit:
+                    logger.warning(
+                        "response.truncated url=%s limit_mb=%d",
+                        str(response.url),
+                        self._response_size_limit // 1024 // 1024,
+                    )
+                    break
+                chunks.append(chunk)
+            return b"".join(chunks)
+
+        body = await response.read()
+        if len(body) > self._response_size_limit:
+            logger.warning(
+                "response.truncated url=%s limit_mb=%d",
+                str(response.url),
+                self._response_size_limit // 1024 // 1024,
+            )
+            return body[: self._response_size_limit]
+        return body
+
     async def request(
         self,
         method: str,
@@ -145,6 +307,10 @@ class RobustHTTPClient:
 
         # Central scope verification before sending traffic (SEC-S01, SEC-S02)
         self._check_scope(url)
+
+        # Rate limiting and count
+        async with self._rate_limiter:
+            self._request_count += 1
 
         effective_timeout = timeout or self._timeout
         req_proxy = kwargs.pop("proxy", self.proxy)
@@ -166,7 +332,7 @@ class RobustHTTPClient:
                     # Validate redirect hops against scope policy (SEC-S03)
                     self._check_redirect_scope(response)
 
-                    body = await response.read()
+                    body = await self._read_limited(response)
                     elapsed_ms = int((time.perf_counter() - t0) * 1000)
                     raw_set_cookies = response.headers.getall("Set-Cookie", [])
                     return HTTPResult(
@@ -179,6 +345,8 @@ class RobustHTTPClient:
                         redirect_chain=[str(r.url) for r in response.history],
                         response_time_ms=elapsed_ms,
                         content_type=response.content_type or "",
+                        duration_ms=float(elapsed_ms),
+                        request_count=self._request_count,
                     )
             except ScopeViolationError:
                 raise
@@ -416,3 +584,23 @@ class ScanTimeoutManager:
 
 #: Module-level singleton timeout manager.
 timeout_manager = ScanTimeoutManager()
+
+#: Canonical alias for the hardened scanner HTTP client
+PhantomHTTPClient = RobustHTTPClient
+
+__all__ = [
+    "HTTPResult",
+    "ScanError",
+    "ScanHTTPError",
+    "ScanTimeout",
+    "ScopeViolationError",
+    "TimeoutConfig",
+    "CacheEntry",
+    "DNSCache",
+    "RobustHTTPClient",
+    "PhantomHTTPClient",
+    "http_client",
+    "with_retry",
+    "ScanTimeoutManager",
+    "timeout_manager",
+]

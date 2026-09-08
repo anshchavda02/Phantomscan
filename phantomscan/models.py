@@ -207,6 +207,7 @@ class Finding:
     owasp_category: str = ""
     impact: str = ""
     remediation_guidance: str = ""
+    occurrences: int = 1
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -310,6 +311,7 @@ class Finding:
             owasp_category=str(data.get("owasp_category", "")),
             impact=str(data.get("impact", "")),
             remediation_guidance=str(data.get("remediation_guidance", "")),
+            occurrences=int(data.get("occurrences", 1)),
             metadata=meta,
         )
 

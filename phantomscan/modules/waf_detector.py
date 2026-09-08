@@ -88,3 +88,7 @@ def classify_waf_response(
         if keyword in lower:
             return name
     return None
+
+
+is_waf_blocked = is_waf_block_page
+

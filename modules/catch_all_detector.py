@@ -96,3 +96,8 @@ class CatchAllDetector:
                 await client.close()
 
         return CatchAllResult(has_catch_all=False)
+
+    def is_catch_all(self, status: int = 200, body: str = "", content_type: str = "text/html") -> bool:
+        """Helper to test if a response matches catch-all conditions."""
+        return status == 200 and len(body) > 100 and "text/html" in content_type
+

@@ -101,7 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser."""
     parser = argparse.ArgumentParser(
         prog="phantomscan", 
-        description="PhantomScan v2.1 - Advanced Extensible Vulnerability Scanner (35 Modules)",
+        description="PhantomScan v2.2 - Advanced Polyglot Vulnerability Scanner (38+ Modules)",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
@@ -351,21 +351,26 @@ async def scan_one(
     args: argparse.Namespace, target_value: str, root: Path
 ) -> dict[str, Any]:
     """Run one authorised scan and return the full report dict."""
-    if getattr(args, "profile", "") == "deepscan":
+    if getattr(args, "profile", "") in ("deep", "deepscan"):
         args.profile = "deep"
+        if getattr(args, "ports", "top100") == "top100":
+            args.ports = "top1000"
     target = parse_target(target_value)
     logger = setup_logger(root, target.host, args.debug, args.log_file)
     logger.info(
-        "Starting authorised scan target=%s profile=%s", target.host, args.profile
+        "Starting authorised scan target=%s profile=%s ports=%s", target.host, args.profile, getattr(args, "ports", "")
     )
     if not args.silent:
-        cprint("[*] PhantomScan v2.0.0 — Authorised Use Only", "cyan")
+        cprint("[*] PhantomScan v2.2.0 — Authorised Use Only", "cyan")
         cprint(f"[*] Target  : {target.host}", "cyan")
         cprint(f"[*] Profile : {args.profile}", "cyan")
+        if args.profile == "deep":
+            cprint(f"[*] Ports   : {args.ports} (Deep Comprehensive Scan)", "cyan")
 
     started = utc_now()
     db = Database(root / "phantomscan.sqlite3")
     scan_id = db.create_scan(target.host, args.profile, started)
+    scan_cache = ScanCache(root / "data" / "scan_cache.sqlite3")
 
     observations: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
@@ -378,23 +383,33 @@ async def scan_one(
     observations.extend(item.to_dict() for item in dns_obs)
 
     if not target.is_local:
-        detail_obs = await timed_step(
-            "Fetching DNS records", logger, observations, args.silent,
-            collect_dns_records, target, logger,
-        )
-        observations.extend(item.to_dict() for item in detail_obs)
+        async def _run_recon_concurrently():
+            return await asyncio.gather(
+                collect_dns_records(target, logger),
+                lookup_whois(target, 15.0, logger, returns_tuple=True),
+                enumerate_subdomains(target, logger),
+                return_exceptions=True,
+            )
 
-        whois_obs = await timed_step(
-            "Running WHOIS/RDAP lookup", logger, observations, args.silent,
-            lookup_whois, target, 15.0, logger,
+        recon_results = await timed_step(
+            "Executing parallel recon (DNS, WHOIS, Subdomains)",
+            logger, observations, args.silent,
+            _run_recon_concurrently,
         )
-        observations.extend(item.to_dict() for item in whois_obs)
-
-        subdomain_obs = await timed_step(
-            "Enumerating subdomains", logger, observations, args.silent,
-            enumerate_subdomains, target, logger,
-        )
-        observations.extend(item.to_dict() for item in subdomain_obs)
+        if isinstance(recon_results, (list, tuple)) and len(recon_results) == 3:
+            detail_obs, whois_res, subdomain_obs = recon_results
+            if isinstance(detail_obs, list):
+                observations.extend(item.to_dict() for item in detail_obs)
+            if isinstance(whois_res, tuple) and len(whois_res) == 2:
+                w_obs, w_find = whois_res
+                if isinstance(w_obs, list):
+                    observations.extend(item.to_dict() for item in w_obs)
+                if isinstance(w_find, list):
+                    findings.extend(item.to_dict() for item in w_find)
+            elif isinstance(whois_res, list):
+                observations.extend(item.to_dict() for item in whois_res)
+            if isinstance(subdomain_obs, list):
+                observations.extend(item.to_dict() for item in subdomain_obs)
 
     # ── Auto-Proxy / Smart Routing Resolution ─────────────────────────────────
     active_proxy = getattr(args, "upstream_proxy", None)
@@ -539,6 +554,9 @@ async def scan_one(
         elif args.profile in ("owasp", "advanced"):
             crawler_pages = 60
             crawler_depth = max(crawl_depth, 2)
+        elif args.profile == "quick":
+            crawler_pages = 5
+            crawler_depth = 1
         else:
             crawler_pages = 50
             crawler_depth = crawl_depth
@@ -804,6 +822,7 @@ async def scan_one(
         db.save_finding(scan_id, item)
     db.finish_scan(scan_id, finished, final_score)
     db.close()
+    scan_cache.close()
 
     logger.info(
         "Scan complete: %d findings, %d suppressed, score=%d, duration=%.1fs",

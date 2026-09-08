@@ -154,3 +154,12 @@ def find_signature(body: str) -> Optional[ErrorMatch]:
                 matched_text=match.group(0),
             )
     return None
+
+
+def check_db_error(body: str) -> Optional[tuple[str, str]]:
+    """Check body for DB error and return (db_type, pattern) or None."""
+    match = find_signature(body)
+    if match:
+        return (match.db_type, match.signature)
+    return None
+

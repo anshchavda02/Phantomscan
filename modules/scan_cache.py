@@ -20,12 +20,14 @@ logger = logging.getLogger(__name__)
 # ── Default TTLs (seconds) ────────────────────────────────────────────────────
 
 DEFAULT_TTLS: dict[str, int] = {
-    "dns":        300,      # 5 min — DNS records change infrequently
-    "ip_intel":   3600,     # 1 hr — IP geo changes rarely
-    "whois":      86400,    # 24 hr — registration data changes very rarely
-    "crtsh":      3600,     # 1 hr — CT log updates periodically
-    "cve":        86400,    # 24 hr — NVD publishes daily
-    "platform":   0,        # Never expires within a single process
+    "dns":            300,      # 5 min — DNS records change infrequently
+    "ip_intel":       3600,     # 1 hr — IP geo changes rarely
+    "whois":          86400,    # 24 hr — registration data changes very rarely
+    "crtsh":          3600,     # 1 hr — CT log updates periodically
+    "cve":            86400,    # 24 hr — NVD publishes daily
+    "tech_detect":    300,      # 5 min — technology stack
+    "known_platform": 86400,    # 24 hr — platform definitions
+    "platform":       0,        # Never expires within a single process
 }
 
 
@@ -70,26 +72,68 @@ class ScanCache:
         """Return the configured TTL for *category*, defaulting to 300s."""
         return self._ttls.get(category, 300)
 
+    def get(self, category: str, key: str) -> Any:
+        """Retrieve a value by category and key from L1/L2 cache."""
+        cache_key = f"{category}:{key}" if not key.startswith(f"{category}:") else key
+        if cache_key in self._memory:
+            self.hits += 1
+            return self._memory[cache_key]
+
+        row = self._conn.execute(
+            "SELECT value_json, expires_at FROM scan_cache WHERE cache_key = ?",
+            (cache_key,),
+        ).fetchone()
+        if row is not None:
+            value_json, expires_at = row
+            if expires_at == 0 or time.time() < expires_at:
+                value = json.loads(value_json)
+                self._memory[cache_key] = value
+                self.hits += 1
+                return value
+            else:
+                self._conn.execute(
+                    "DELETE FROM scan_cache WHERE cache_key = ?", (cache_key,)
+                )
+                self._conn.commit()
+
+        self.misses += 1
+        return None
+
+    def set(self, category: str, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """Store a value in both L1 and L2 cache."""
+        cache_key = f"{category}:{key}" if not key.startswith(f"{category}:") else key
+        effective_ttl = ttl if ttl is not None else self.ttl_for(category)
+        self.put(cache_key, value, ttl_seconds=effective_ttl)
+
     async def get_or_fetch(
         self,
-        key: str,
-        fetch_fn: Callable[..., Any],
-        ttl_seconds: Optional[int] = None,
-        category: str = "dns",
+        *args: Any,
+        **kwargs: Any,
     ) -> Any:
-        """Return cached value or invoke *fetch_fn* and cache the result.
+        """Return cached value or invoke fetch_fn and cache the result.
 
-        Lookup order:
-          1. L1 — in-memory dict (same scan, zero latency)
-          2. L2 — SQLite (cross-scan, avoids re-querying within TTL)
-          3. Actually call *fetch_fn* and store at both tiers
+        Supports both:
+          get_or_fetch(key, fetch_fn, ttl_seconds=None, category='dns')
+          get_or_fetch(category, key, fetch_fn, ttl=None)
         """
+        if len(args) >= 3 and callable(args[2]):
+            category = args[0]
+            raw_key = args[1]
+            fetch_fn = args[2]
+            ttl = args[3] if len(args) > 3 else kwargs.get("ttl")
+            key = f"{category}:{raw_key}" if not raw_key.startswith(f"{category}:") else raw_key
+            effective_ttl = ttl if ttl is not None else self.ttl_for(category)
+        else:
+            key = args[0]
+            fetch_fn = args[1]
+            ttl_seconds = args[2] if len(args) > 2 else kwargs.get("ttl_seconds")
+            category = args[3] if len(args) > 3 else kwargs.get("category", "dns")
+            effective_ttl = ttl_seconds if ttl_seconds is not None else self.ttl_for(category)
+
         # L1: in-memory
         if key in self._memory:
             self.hits += 1
             return self._memory[key]
-
-        effective_ttl = ttl_seconds if ttl_seconds is not None else self.ttl_for(category)
 
         # L2: SQLite
         row = self._conn.execute(
@@ -104,7 +148,6 @@ class ScanCache:
                 self.hits += 1
                 return value
             else:
-                # Expired — evict
                 self._conn.execute(
                     "DELETE FROM scan_cache WHERE cache_key = ?", (key,)
                 )

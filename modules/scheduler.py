@@ -89,37 +89,65 @@ class ModuleScheduler:
 
     # Default tier definitions — can be overridden via config
     TIERS: dict[int, list[str]] = {
-        # Tier 0: no dependencies, all run in parallel
-        0: ["resolve_target", "whois", "dns_records"],
-        # Tier 1: needs resolved IP(s) from tier 0
-        1: ["port_scan", "ip_intel", "subdomain_enum"],
-        # Tier 2: needs open ports from tier 1
-        2: ["ssl_inspect", "http_probe", "nmap_service"],
-        # Tier 3: needs HTTP response from tier 2
-        3: [
+        # Tier 0: No dependencies — all parallel
+        0: [
+            "resolve_target",
+            "whois",
+            "dns_records",
+        ],
+        # Tier 1: Needs resolved IPs from tier 0
+        1: [
+            "port_scan",
+            "ip_intel",
+            "subdomain_enum",
+            "crtsh_lookup",
+        ],
+        # Tier 2: Needs open ports + HTTP probe
+        2: [
+            "ssl_inspect",
+            "http_probe",
             "tech_detect",
-            "web_analyzer",
-            "crawler",
-            "email_security",
+            "waf_detect",
+        ],
+        # Tier 3: Needs HTTP response + crawl data
+        3: [
+            "web_crawler",
             "api_discovery",
+            "email_security",
+            "header_analysis",
+            "cookie_analysis",
         ],
-        # Tier 4: needs tech stack + crawl data
+        # Tier 4: Needs crawl data — injection tests
         4: [
-            "cve_lookup",
-            "business_logic",
-            "idor_check",
-            "jwt_oauth",
-            "ssrf_check",
-            "ai_secret_scan",
-            "supabase_audit",
-            "firebase_audit",
+            "sqli_scanner",
+            "xss_scanner",
+            "path_traversal",
+            "idor_detector",
+            "ssrf_detector",
+            "cors_analyzer",
         ],
-        # Tier 5: needs all findings collected
+        # Tier 5: Needs tech stack + crawl
         5: [
+            "jwt_tester",
+            "graphql_tester",
+            "websocket_tester",
+            "business_logic",
+            "cve_lookup",
+        ],
+        # Tier 6: Needs all findings collected
+        6: [
+            "finding_gate",
             "fp_postprocessor",
-            "result_correlator",
-            "chain_engine",
+        ],
+        # Tier 7: Needs clean findings
+        7: [
             "score_engine",
+            "chain_engine",
+            "compliance_mapper",
+        ],
+        # Tier 8: Report generation
+        8: [
+            "reporter",
         ],
     }
 

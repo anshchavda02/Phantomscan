@@ -176,3 +176,32 @@ def _reject(
             "gate_rejection_reason": reason,
         })
 
+
+class FindingGate:
+    """Object-oriented FindingGate wrapper."""
+
+    def __init__(self, fp_log: list[dict[str, Any]] | None = None) -> None:
+        self.fp_log = fp_log if fp_log is not None else []
+
+    def validate(self, finding: Any) -> tuple[bool, str]:
+        """Validate a candidate finding. Returns (passed, reason)."""
+        d = finding.to_dict() if hasattr(finding, "to_dict") else dict(finding)
+        local_log: list[dict[str, Any]] = []
+        result = gate_finding(d, fp_log=local_log)
+        if result is None:
+            reason = local_log[0].get("gate_rejection_reason", "Rejected by finding gate") if local_log else "Rejected"
+            return False, reason
+        return True, ""
+
+    def process(self, finding: Any) -> Optional[Any]:
+        """Process and return finding or None."""
+        d = finding.to_dict() if hasattr(finding, "to_dict") else dict(finding)
+        result = gate_finding(d, fp_log=self.fp_log)
+        if result is None:
+            return None
+        if hasattr(finding, "to_dict"):
+            from phantomscan.models import Finding
+            return Finding.from_dict(result)
+        return result
+
+

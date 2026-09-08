@@ -3,7 +3,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Optional
-from phantomscan.postprocess import grade, score
+from phantomscan.postprocess import DEDUCTIONS, DEDUCTION_CAPS, grade, score
+
+BONUSES: dict[str, int] = {
+    "https": 10,
+    "valid_ssl": 10,
+    "ssl_grade_a": 5,
+    "waf": 5,
+    "cdn": 3,
+}
 
 
 @dataclass
@@ -32,4 +40,24 @@ def calculate_score(
     return Score(value=val, grade=grade(val))
 
 
-__all__ = ["grade", "score", "calculate_score", "to_grade", "Score"]
+class ScoreEngine:
+    """Score engine implementing deduction caps, bonuses, and platform floors."""
+
+    def __init__(self, platform: Optional[dict[str, Any]] = None) -> None:
+        self.platform = platform
+
+    def calculate(self, findings: list[Any], observations: list[Any] | None = None) -> Score:
+        return calculate_score(findings, platform=self.platform, observations=observations)
+
+
+__all__ = [
+    "grade",
+    "score",
+    "calculate_score",
+    "to_grade",
+    "Score",
+    "ScoreEngine",
+    "DEDUCTIONS",
+    "DEDUCTION_CAPS",
+    "BONUSES",
+]

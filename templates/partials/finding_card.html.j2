@@ -10,9 +10,17 @@
                 {% if finding.cvss_score %}
                 <span class="pill badge-critical" style="font-size: 9px; font-weight: 700;">CVSS {{ finding.cvss_score }}</span>
                 {% endif %}
+                {% if finding.occurrences and finding.occurrences > 1 %}
+                <span class="pill" style="font-size: 9px; font-weight: 700; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.35);" title="Observed {{ finding.occurrences }} times across scanned endpoints">
+                    {{ finding.occurrences }}x OCCURRENCES
+                </span>
+                {% endif %}
             </h3>
             <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--text-tertiary); align-items: center;">
                 <span class="pill badge-cat badge-cat-{{ cat_slug }}">{{ finding.category | string | upper }}</span>
+                {% if finding.module %}
+                <span class="pill" style="font-size: 9px; background: var(--surface); color: var(--text-secondary); border-color: var(--border);">MOD: {{ finding.module | upper }}</span>
+                {% endif %}
                 {% if finding.verification_method %}
                 <span class="pill" style="font-size: 9px; background: rgba(20, 184, 166, 0.1); color: var(--teal-light); border-color: rgba(20, 184, 166, 0.3);">
                     &#10003; {{ finding.verification_method | replace('_', ' ') | upper }}
@@ -20,6 +28,9 @@
                 {% endif %}
                 {% if finding.confidence %}
                 <span class="pill" style="font-size: 10px;">CONFIDENCE: {{ finding.confidence | string | upper }}</span>
+                {% endif %}
+                {% if finding.cwe %}
+                <a href="{{ finding.cwe | cwe_link }}" target="_blank" rel="noopener noreferrer" class="pill" style="font-size: 9px; color: var(--teal-light); text-decoration: none; border-color: rgba(20, 184, 166, 0.3);" title="Common Weakness Enumeration: {{ finding.cwe }}">{{ finding.cwe }} &nearr;</a>
                 {% endif %}
                 {% if finding.owasp_category %}
                 <span class="pill" style="font-size: 9px; background: rgba(99, 102, 241, 0.1); color: #818cf8; border-color: rgba(99, 102, 241, 0.3);">{{ finding.owasp_category }}</span>

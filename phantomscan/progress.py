@@ -78,7 +78,7 @@ class ScanProgressDisplay:
         self._console.print()
         self._console.print(
             Panel(
-                f"[bold cyan]PhantomScan v2.0.0[/]  [dim]— Authorized Use Only —[/]\n"
+                f"[bold cyan]PhantomScan v2.2.0[/]  [dim]— Authorized Use Only —[/]\n"
                 f"[bold]Target:[/] [green]{self._target}[/]\n"
                 f"[dim]Scanning {len(SCAN_MODULES)} modules…[/]",
                 border_style="cyan",

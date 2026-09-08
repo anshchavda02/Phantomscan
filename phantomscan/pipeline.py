@@ -282,6 +282,36 @@ DEFAULT_MODULE_METADATA: dict[str, ModuleMetadata] = {
         timeout_seconds=40.0,
         description="Multi-step stateful workflow and wizard security verification",
     ),
+    "ssl_analyzer": ModuleMetadata(
+        name="ssl_analyzer",
+        phase="active",
+        timeout_seconds=30.0,
+        description="Native SSL/TLS certificate expiry, self-signed detection, and cipher inspection",
+    ),
+    "cors_analyzer": ModuleMetadata(
+        name="cors_analyzer",
+        phase="active",
+        timeout_seconds=30.0,
+        description="Cross-Origin Resource Sharing wildcard, null origin, and reflection detector",
+    ),
+    "info_disclosure": ModuleMetadata(
+        name="info_disclosure",
+        phase="active",
+        timeout_seconds=30.0,
+        description="Sensitive stack traces, internal IP disclosures, and verbose version banners",
+    ),
+    "cookie_analyzer": ModuleMetadata(
+        name="cookie_analyzer",
+        phase="active",
+        timeout_seconds=25.0,
+        description="Audits HTTP Set-Cookie headers for missing Secure, HttpOnly, and SameSite flags",
+    ),
+    "cve_engine": ModuleMetadata(
+        name="cve_engine",
+        phase="active",
+        timeout_seconds=30.0,
+        description="Correlate detected technologies with NVD CVEs using strict CPE 2.3 matching",
+    ),
     # Post-processing modules (Order & DAG dependent)
     "vuln_chain": ModuleMetadata(
         name="vuln_chain",

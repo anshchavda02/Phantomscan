@@ -164,6 +164,16 @@ def enrich_finding_references(f_dict: dict | Any) -> list[str]:
             "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Protection_Cheat_Sheet.html",
             "https://cwe.mitre.org/data/definitions/319.html",
             "https://cwe.mitre.org/data/definitions/295.html",
+            "https://wiki.mozilla.org/Security/Server_Side_TLS",
+            "https://datatracker.ietf.org/doc/html/rfc8996",
+        ])
+    elif "cookie" in key_text or "httponly" in key_text or "samesite" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/614.html",
+            "https://cwe.mitre.org/data/definitions/1004.html",
+            "https://cwe.mitre.org/data/definitions/1275.html",
+            "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html",
         ])
     elif "idor" in key_text or "bola" in key_text or "access control" in key_text or "direct object" in key_text:
         refs.extend([
@@ -175,12 +185,26 @@ def enrich_finding_references(f_dict: dict | Any) -> list[str]:
         refs.extend([
             "https://cwe.mitre.org/data/definitions/942.html",
             "https://portswigger.net/web-security/cors",
+            "https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#cross-origin-resource-sharing",
         ])
-    elif "sensitive" in key_text or "disclosure" in key_text or "exposure" in key_text or "leak" in key_text:
+    elif "sensitive" in key_text or "disclosure" in key_text or "exposure" in key_text or "leak" in key_text or "stack trace" in key_text:
         refs.extend([
             "https://cwe.mitre.org/data/definitions/200.html",
+            "https://cwe.mitre.org/data/definitions/209.html",
             "https://cwe.mitre.org/data/definitions/538.html",
             "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html",
+        ])
+    elif "cve" in key_text or "vulnerable component" in key_text or "outdated" in key_text:
+        refs.extend([
+            "https://cwe.mitre.org/data/definitions/1395.html",
+            "https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/",
+            "https://nvd.nist.gov/",
+        ])
+    elif "ai" in key_text or "prompt" in key_text or "llm" in key_text or "slopsquatting" in key_text:
+        refs.extend([
+            "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+            "https://cwe.mitre.org/data/definitions/1426.html",
         ])
     elif "compliance" in key_text or "owasp" in key_text or "pcidss" in key_text or "nist" in key_text:
         refs.extend([
@@ -275,14 +299,20 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     ips = [IPIntel(ip=ip) for ip in ip_val] if isinstance(ip_val, list) else []
     
     # 5. SSL
-    ssl_val = obs.get("tls_inspection") or {}
+    ssl_val = obs.get("tls_inspection") or obs.get("ssl_inspection") or obs.get("ssl_cert") or {}
+    ssl_protos: dict[str, bool] = {}
+    if ssl_val.get("protocol"):
+        ssl_protos[ssl_val.get("protocol")] = True
+    for p in ssl_val.get("protocols", []):
+        if isinstance(p, str):
+            ssl_protos[p] = True
     ssl = SSLResult(
         grade=ssl_val.get("grade", obs.get("ssl_grade", "N/A")),
-        expiry_days=ssl_val.get("days_remaining", 0),
-        common_name=ssl_val.get("cert_subject", ""),
-        sans=ssl_val.get("cert_sans", []),
-        issuer=ssl_val.get("cert_issuer", ""),
-        protocols={ssl_val.get("protocol", "Unknown"): True} if ssl_val.get("protocol") else {}
+        expiry_days=ssl_val.get("days_remaining") or ssl_val.get("expiry_days", 0),
+        common_name=ssl_val.get("cert_subject") or ssl_val.get("common_name") or ssl_val.get("subject", ""),
+        sans=ssl_val.get("cert_sans") or ssl_val.get("sans", []),
+        issuer=ssl_val.get("cert_issuer") or ssl_val.get("issuer", ""),
+        protocols=ssl_protos,
     )
     
     # 6. Tech
@@ -790,7 +820,7 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
         intel=intel_data,
         findings=findings,
         chains=chains_data,
-        cves=[f for f in findings if getattr(f, 'id', '').startswith("CVE")],
+        cves=[f for f in findings if str(getattr(f, 'id', '') or (f.get('id', '') if isinstance(f, dict) else '')).upper().startswith("CVE") or str(getattr(f, 'cve', '') or (f.get('cve', '') if isinstance(f, dict) else '')).upper().startswith("CVE") or str(getattr(f, 'module', '') or (f.get('module', '') if isinstance(f, dict) else '')).lower() == "cve_engine"],
         api_data=api_data,
         cloud_findings=[f for f in findings if 'cloud' in str(getattr(f, 'category', '')).lower() or 'secret' in str(getattr(f, 'id', '')).lower()],
         supply_chain=supply_chain_data,
@@ -974,7 +1004,7 @@ class ReportGenerator:
             engagement=scan_data.engagement,
             chart_data=chart_data,
             generated_at=datetime.now(timezone.utc).isoformat(),
-            report_version="2.0.0"
+            report_version="2.2.0"
         )
 
         output = Path(output_path)
