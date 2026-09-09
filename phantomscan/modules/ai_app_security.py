@@ -1216,7 +1216,6 @@ class AlternativeBackendAuditor:
     async def check_mongodb_exposure(self, content: str) -> list[dict[str, Any]]:
         findings: list[dict[str, Any]] = []
         for match in set(re.findall(r'mongodb(?:\+srv)?://[a-zA-Z0-9_:@./-]{15,}', content)):
-            has_creds = "@" in match
             findings.append({
                 "id": "AI-MONGODB-EXPOSED",
                 "title": "MongoDB Connection String Exposed in Client Code",
@@ -1586,7 +1585,6 @@ class SlopsquattingDetector:
                     "matches the slopsquatting registration pattern."
                 )
         elif registry == "pypi":
-            info = data.get("info", {})
             releases = data.get("releases", {})
             if len(releases) <= 1:
                 return True, (
@@ -2323,7 +2321,6 @@ class AIAppSecurityScanner:
         findings.extend(secret_findings)
 
         # Extract Supabase/Firebase URLs from secret findings for audits
-        all_scanned_content = html_body
         for f in secret_findings:
             evidence = f.get("evidence", "")
             for match in re.findall(

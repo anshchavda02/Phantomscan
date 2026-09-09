@@ -188,9 +188,9 @@ class CloudMetadataDetector:
                             f"Response: {body[:500]}"
                         ),
                         "recommendation": (
-                            f"For AWS: enforce IMDSv2 (require token). "
-                            f"For all: restrict metadata access via network "
-                            f"policies and firewall rules."
+                            "For AWS: enforce IMDSv2 (require token). "
+                            "For all: restrict metadata access via network "
+                            "policies and firewall rules."
                         ),
                     }
             except Exception:

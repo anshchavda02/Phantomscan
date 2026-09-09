@@ -110,7 +110,6 @@ class AuthSessionManager:
 
     async def _audit_default_credentials(self, login_url: str) -> dict[str, Any] | None:
         """Safe non-destructive probe for standard default accounts."""
-        import re
         try:
             get_resp = await self.http.get(login_url, retries=1)
             body = get_resp.text() if hasattr(get_resp, "text") and callable(get_resp.text) else getattr(get_resp, "body", "")
@@ -226,8 +225,6 @@ class AuthSessionManager:
 
             # Check if the same session ID would be reused after login
             # (We can only detect the pattern, not fully exploit it)
-            pre_session_ids = set(pre_cookies.values())
-
             # Make another request to check if session rotates
             response2 = await self.http.get(target + "/", retries=1)
             post_cookies = response2.cookies

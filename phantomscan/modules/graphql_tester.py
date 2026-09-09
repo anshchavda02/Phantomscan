@@ -181,8 +181,8 @@ class GraphQLTester:
                             "category": "graphql",
                             "target": endpoint,
                             "evidence": (
-                                f"50 batched queries accepted in single request.\n"
-                                f"Can be used to bypass rate limits or brute-force."
+                                "50 batched queries accepted in single request.\n"
+                                "Can be used to bypass rate limits or brute-force."
                             ),
                             "recommendation": (
                                 "Limit the number of operations per batched request. "
@@ -213,8 +213,8 @@ class GraphQLTester:
                     "category": "graphql",
                     "target": endpoint,
                     "evidence": (
-                        f"Query with misspelled field 'usrs' returned "
-                        f"field suggestions, leaking schema information."
+                        "Query with misspelled field 'usrs' returned "
+                        "field suggestions, leaking schema information."
                     ),
                     "recommendation": (
                         "Disable field suggestions in production to prevent "
@@ -229,6 +229,6 @@ class GraphQLTester:
     def _build_deep_query(depth: int) -> str:
         q = "{ __typename "
         for i in range(depth):
-            q += f"... on Query {{ __typename "
+            q += "... on Query { __typename "
         q += "}" * depth + " }"
         return q

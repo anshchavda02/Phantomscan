@@ -149,6 +149,7 @@ def normalize_target(raw_target: str) -> NormalizedTarget:
             pass
 
     is_cidr = False
+    target_type: str = "domain"
     try:
         raw_clean = raw.split("://")[-1].split("?")[0].rstrip("/")
         if "/" in raw_clean:

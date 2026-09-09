@@ -194,7 +194,6 @@ class JWTOAuthTester:
         expired_payload = dict(payload)
         expired_payload["exp"] = 1577836800  # 2020-01-01
 
-        alg = header.get("alg", "HS256")
         # We can only test expiry enforcement with none-alg or a known secret
         forged = self._forge_jwt(
             {"alg": "none", "typ": "JWT"}, expired_payload, ""

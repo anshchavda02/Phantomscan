@@ -119,7 +119,7 @@ def post_process(
     if fp_log_path:
         fp_log_path.parent.mkdir(parents=True, exist_ok=True)
         fp_log_path.write_text(json.dumps(suppressed, indent=2, sort_keys=True), encoding="utf-8")
-    clean_obs = [item.to_dict() if hasattr(item, "to_dict") else item for item in observations]
+    clean_obs = [getattr(item, "to_dict")() if hasattr(item, "to_dict") else item for item in observations]
     return filtered, suppressed, clean_obs
 
 
@@ -162,9 +162,6 @@ def score(
             return 20
 
     completeness_penalty = _scan_completeness_penalty(obs)
-
-    # Build a flat text blob for simple marker checks
-    text = " ".join(f"{_get_obs_field(item, 'name')} {_get_obs_field(item, 'value')}" for item in obs).lower()
 
     # Extract SSL grade from structured observation
     ssl_grade = _extract_ssl_grade(obs)

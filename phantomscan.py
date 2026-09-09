@@ -933,6 +933,7 @@ async def main_async() -> int:
         health = await checker.check_all()
 
     # Store breaker reference on args for downstream modules
+    args._breakers = breakers
     args._breakers_opened = []
     args._modules_failed = []
     args._cache_hit_rate = 0.0

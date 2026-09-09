@@ -41,7 +41,7 @@ def start_proxy(host: str, port: int, target_scope: str) -> None:
     """Start the mitmproxy passive interception listener."""
     print(f"[*] Starting Passive Proxy Mode on {host}:{port}")
     print(f"[*] Scope Locked to: {target_scope}")
-    print(f"[*] Intercepted traffic will automatically trigger YAML vulnerability rules.")
+    print("[*] Intercepted traffic will automatically trigger YAML vulnerability rules.")
     
     opts = Options(listen_host=host, listen_port=port)
     async def run_proxy():

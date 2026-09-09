@@ -78,7 +78,7 @@ class ContinuousMonitor:
                     "category": "monitoring",
                     "target": target,
                     "evidence": (
-                        f"Resolved since baseline:\n" +
+                        "Resolved since baseline:\n" +
                         "\n".join(
                             f"  ✓ {f.get('title', '')}"
                             for f in resolved_findings[:20]

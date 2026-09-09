@@ -71,7 +71,7 @@ class WebSocketTester:
                 async with session.ws_connect(
                     ws_url,
                     headers={"Origin": "https://evil.com"},
-                    timeout=8,
+                    receive_timeout=8.0,
                     ssl=False,
                 ) as ws:
                     await ws.send_str(json.dumps({"type": "ping"}))
@@ -109,7 +109,7 @@ class WebSocketTester:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect(
-                    ws_url, timeout=8, ssl=False,
+                    ws_url, receive_timeout=8.0, ssl=False,
                 ) as ws:
                     for payload in _XSS_PAYLOADS:
                         await ws.send_str(
@@ -150,7 +150,7 @@ class WebSocketTester:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect(
-                    ws_url, timeout=8, ssl=False,
+                    ws_url, receive_timeout=8.0, ssl=False,
                 ) as ws:
                     # Try to receive any data without sending auth
                     await ws.send_str(json.dumps({"type": "subscribe", "channel": "all"}))

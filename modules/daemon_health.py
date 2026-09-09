@@ -66,14 +66,14 @@ class DaemonHealthServer:
     async def metrics(self, request: web.Request) -> web.Response:
         """Prometheus-compatible text metrics endpoint."""
         lines = [
-            f"# HELP phantomscan_uptime_seconds Time since daemon started",
-            f"# TYPE phantomscan_uptime_seconds gauge",
+            "# HELP phantomscan_uptime_seconds Time since daemon started",
+            "# TYPE phantomscan_uptime_seconds gauge",
             f"phantomscan_uptime_seconds {self._get_uptime()}",
-            f"# HELP phantomscan_scans_completed_total Total scans completed",
-            f"# TYPE phantomscan_scans_completed_total counter",
+            "# HELP phantomscan_scans_completed_total Total scans completed",
+            "# TYPE phantomscan_scans_completed_total counter",
             f"phantomscan_scans_completed_total {self._scan_count}",
-            f"# HELP phantomscan_watched_targets Number of targets being monitored",
-            f"# TYPE phantomscan_watched_targets gauge",
+            "# HELP phantomscan_watched_targets Number of targets being monitored",
+            "# TYPE phantomscan_watched_targets gauge",
             f"phantomscan_watched_targets {len(self._watched_targets)}",
         ]
         for key, value in self._extra_metrics.items():

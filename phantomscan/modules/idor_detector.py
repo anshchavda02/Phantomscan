@@ -192,7 +192,6 @@ class IDORDetector:
         seen: set[str] = set()
         for url in urls:
             parsed = urlparse(url)
-            query_params = parse_qs(parsed.query, keep_blank_values=True)
 
             # Check explicit query parameter patterns
             for pattern, kind in _ID_PATTERNS:

@@ -135,7 +135,7 @@ class SSLAnalyzer:
                     verification_method="passive_observation",
                     category="ssl",
                     target=target,
-                    evidence=f"Weak ciphers detected:\n" + ", ".join(weak_found[:5]),
+                    evidence="Weak ciphers detected:\n" + ", ".join(weak_found[:5]),
                     recommendation="Disable RC4, 3DES, DES, EXPORT, and NULL ciphers in web server TLS settings.",
                 ))
 

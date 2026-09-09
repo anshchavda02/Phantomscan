@@ -649,7 +649,6 @@ async def deep_analyze_web(
 
     base = base_url.rstrip("/")
     findings: list[Finding] = []
-    from urllib.parse import urlparse
     parsed = urlparse(base_url)
     if parsed.scheme and parsed.netloc:
         web_root = f"{parsed.scheme}://{parsed.netloc}"

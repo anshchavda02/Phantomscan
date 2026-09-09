@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,8 @@ from phantomscan.report_models import (
     ThreatIntelReport,
     WhoisData,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def write_json_report(path: Path, payload: dict[str, Any]) -> None:
@@ -276,7 +279,7 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
         updated_date=events.get("last changed", ""),
         name_servers=whois_val.get("nameservers", []),
         status=whois_val.get("status", ""),
-        days_remaining=days_rem
+        days_remaining=days_rem or 0,
     )
     
     # 2. DNS
@@ -301,8 +304,9 @@ def parse_intel(observations: list[dict]) -> IntelligenceData:
     # 5. SSL
     ssl_val = obs.get("tls_inspection") or obs.get("ssl_inspection") or obs.get("ssl_cert") or {}
     ssl_protos: dict[str, bool] = {}
-    if ssl_val.get("protocol"):
-        ssl_protos[ssl_val.get("protocol")] = True
+    proto_key = ssl_val.get("protocol")
+    if proto_key and isinstance(proto_key, str):
+        ssl_protos[proto_key] = True
     for p in ssl_val.get("protocols", []):
         if isinstance(p, str):
             ssl_protos[p] = True
@@ -1055,7 +1059,6 @@ class ReportGenerator:
         }
 
     def _calculate_radar_scores(self, scan_data):
-        base_score = scan_data.score.value if scan_data.score.value else 100
         # Calculate reductions based on findings
         reductions = {'Web': 0, 'Network': 0, 'SSL': 0, 'Email': 0, 'API': 0, 'Auth': 0}
         for f in scan_data.findings:

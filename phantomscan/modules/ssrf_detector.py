@@ -129,10 +129,10 @@ class SSRFDetector:
                             f"Response preview: {body[:500]}"
                         ),
                         "recommendation": (
-                            f"Block SSRF access to cloud metadata services. "
-                            f"For AWS, enforce IMDSv2 (require token). "
-                            f"Validate and allowlist all user-supplied URLs. "
-                            f"CWE-918, OWASP A10:2021."
+                            "Block SSRF access to cloud metadata services. "
+                            "For AWS, enforce IMDSv2 (require token). "
+                            "Validate and allowlist all user-supplied URLs. "
+                            "CWE-918, OWASP A10:2021."
                         ),
                         "references": [
                             "https://cwe.mitre.org/data/definitions/918.html",

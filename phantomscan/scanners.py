@@ -239,12 +239,12 @@ def _inspect_tls_blocking(host: str, port: int, timeout: float) -> dict[str, Any
     context = ssl.create_default_context()
     with socket.create_connection((host, port), timeout=timeout) as sock:
         with context.wrap_socket(sock, server_hostname=host) as tls:
-            cert = tls.getpeercert()
+            cert = tls.getpeercert() or {}
             cipher = tls.cipher()
             protocol = tls.version()
     not_after = cert.get("notAfter", "")
     expired = False
-    if not_after:
+    if not_after and isinstance(not_after, str):
         parsed = ssl.cert_time_to_seconds(not_after)
         expired = parsed < time.time()
     grade = _tls_grade(protocol, cipher[0] if cipher else "", expired)

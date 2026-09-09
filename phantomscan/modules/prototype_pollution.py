@@ -157,7 +157,6 @@ class PrototypePollutionDetector:
         base = target.rstrip("/")
         endpoints: set[str] = set()
         for obs in observations:
-            name = str(obs.get("name", ""))
             val = obs.get("value", "")
             if isinstance(val, str):
                 if any(kw in val.lower() for kw in ("/api", "/rest", "json", "graphql")):
