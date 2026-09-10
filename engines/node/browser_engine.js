@@ -87,13 +87,27 @@ async function main() {
 
       // Use domcontentloaded with hard 10s timeout instead of
       // networkidle which can hang on sites with WebSocket/polling
-      await page.goto(`https://${request.target}`, {
-        timeout: PAGE_TIMEOUT_MS,
-        waitUntil: WAIT_UNTIL,
-      });
+      const rawTarget = String(request.target || "").trim();
+      let targetUrl = rawTarget.startsWith("http://") || rawTarget.startsWith("https://") ? rawTarget : `https://${rawTarget}`;
+      try {
+        await page.goto(targetUrl, {
+          timeout: PAGE_TIMEOUT_MS,
+          waitUntil: WAIT_UNTIL,
+        });
+      } catch (navErr) {
+        if (targetUrl.startsWith("https://") && !rawTarget.startsWith("https://")) {
+          targetUrl = `http://${rawTarget}`;
+          await page.goto(targetUrl, {
+            timeout: PAGE_TIMEOUT_MS,
+            waitUntil: WAIT_UNTIL,
+          });
+        } else {
+          throw navErr;
+        }
+      }
 
       const html = await page.content();
-      const currentUrl = page.url() || `https://${request.target}`;
+      const currentUrl = page.url() || targetUrl;
       const isLoginDetected = detectLoginSignals(html, currentUrl);
 
       observations.push({
@@ -161,13 +175,29 @@ async function main() {
   // Fallback: basic fetch (no JS rendering)
   if (!usedPlaywright) {
     try {
-      const response = await fetch(`https://${request.target}`, {
-        method: "GET",
-        headers: {"User-Agent": "PhantomScan/2.0 authorized-security-assessment"},
-        signal: AbortSignal.timeout((request.timeout_seconds || 5) * 1000)
-      });
+      const rawTarget = String(request.target || "").trim();
+      let fetchUrl = rawTarget.startsWith("http://") || rawTarget.startsWith("https://") ? rawTarget : `https://${rawTarget}`;
+      let response;
+      try {
+        response = await fetch(fetchUrl, {
+          method: "GET",
+          headers: {"User-Agent": "PhantomScan/2.0 authorized-security-assessment"},
+          signal: AbortSignal.timeout((request.timeout_seconds || 5) * 1000)
+        });
+      } catch (fetchErr) {
+        if (fetchUrl.startsWith("https://") && !rawTarget.startsWith("https://")) {
+          fetchUrl = `http://${rawTarget}`;
+          response = await fetch(fetchUrl, {
+            method: "GET",
+            headers: {"User-Agent": "PhantomScan/2.0 authorized-security-assessment"},
+            signal: AbortSignal.timeout((request.timeout_seconds || 5) * 1000)
+          });
+        } else {
+          throw fetchErr;
+        }
+      }
       const html = await response.text();
-      const currentUrl = response.url || `https://${request.target}`;
+      const currentUrl = response.url || fetchUrl;
       const isLoginDetected = detectLoginSignals(html, currentUrl);
 
       observations.push({name: "browser_status", value: response.status, source: "node-browser"});

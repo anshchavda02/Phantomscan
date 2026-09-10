@@ -1,0 +1,36 @@
+id: docker-api-unauthenticated
+info:
+  name: Docker Daemon REST API Unauthenticated Access
+  author: phantomscan
+  severity: critical
+  description: The Docker daemon REST API is exposed without authentication, allowing remote attackers to execute arbitrary containers and achieve root code execution.
+  tags: exposure,docker,api,unauth,rce
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/version"
+      - "{{BaseURL}}/containers/json"
+      - "{{BaseURL}}/info"
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        words:
+          - "ApiVersion"
+          - "DockerVersion"
+          - "ServerVersion"
+          - "DriverStatus"
+        condition: or
+        part: body
+
+      - type: word
+        negative: true
+        words:
+          - "<!DOCTYPE"
+          - "<html"
+        part: body

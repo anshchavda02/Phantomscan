@@ -115,3 +115,41 @@ def test_sqli_tests_url_parameters():
     names = [p["name"] for p in extracted]
     assert "id" in names
     assert "name" in names
+
+
+@pytest.mark.asyncio
+async def test_sqli_boolean_blind_confirms_genuine_injection():
+    """Verify that a genuine SQL injection where TRUE restores baseline and
+    FALSE reliably collapses the page is confirmed."""
+    from phantomscan.injection_target import InjectionTarget
+
+    class GenuineSQLiMockClient:
+        async def get(self, url: str, **kwargs: Any) -> MockHTTPResult:
+            params = kwargs.get("params", {})
+            param_val = str(params.get("id", ""))
+
+            if "1=2" in param_val or "AND" in param_val:
+                # FALSE condition: Query returns 0 items / empty search result
+                body = b"<html><body><h1>No items found</h1></body></html>"
+            else:
+                # Baseline and TRUE condition: Query returns full product catalog
+                body = b"<html><body>" + (b"<div class='item'>Product</div>" * 200) + b"</body></html>"
+
+            return MockHTTPResult(status=200, body=body, headers={"content-type": "text/html"})
+
+    client = GenuineSQLiMockClient()
+    detector = SQLiDetector(http=client)
+    target = InjectionTarget(
+        url="https://vulnerable-shop.local/products",
+        method="GET",
+        param_name="id",
+        original_value="1",
+        all_params={"id": "1"},
+    )
+
+    finding = await detector._test_boolean_blind(target, "id", "1")
+    assert finding is not None, "SQLi detector failed to confirm genuine boolean differential"
+    assert finding["id"] == "SQLI-BOOLEAN-BLIND"
+    assert finding["severity"] == "critical"
+    assert "Differential:" in finding["evidence"]
+

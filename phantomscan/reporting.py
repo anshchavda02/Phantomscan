@@ -10,6 +10,8 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from phantomscan.sarif_exporter import generate_sarif_report, write_sarif_report
+
 from phantomscan.report_models import (
     APISecurityData,
     AttackPathMap,
@@ -47,19 +49,31 @@ def write_json_report(path: Path, payload: dict[str, Any]) -> None:
 
 
 def write_csv_report(path: Path, payload: dict[str, Any]) -> None:
-    """Write a CSV report of findings."""
+    """Write a comprehensive security audit CSV report of findings."""
     path.parent.mkdir(parents=True, exist_ok=True)
     findings = payload.get("findings", [])
+    target = payload.get("target", "")
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["Target", "Title", "Severity", "Confidence", "Category"])
+        writer.writerow([
+            "Target", "Title", "Severity", "Confidence", "Category",
+            "Finding ID", "CWE", "OWASP", "Evidence", "Recommendation", "Fingerprint",
+        ])
         for item in findings:
+            if not isinstance(item, dict):
+                continue
             writer.writerow([
-                payload.get("target", ""),
+                target,
                 item.get("title", ""),
                 item.get("severity", "info"),
                 item.get("confidence", ""),
-                item.get("category", "")
+                item.get("category", ""),
+                item.get("id") or item.get("rule_id", ""),
+                item.get("cwe", ""),
+                item.get("owasp_category", ""),
+                item.get("evidence", ""),
+                item.get("recommendation", ""),
+                item.get("fingerprint", ""),
             ])
 
 
@@ -755,7 +769,7 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
                 {"name": "DNS Resolver", "phase": "recon", "status": "completed", "engine": "python", "duration": 0.3, "findings": 0},
                 {"name": "WHOIS / RDAP", "phase": "recon", "status": "completed", "engine": "python", "duration": 0.5, "findings": 0},
                 {"name": "Subdomain Enumerator", "phase": "recon", "status": "completed", "engine": "python", "duration": 1.2, "findings": 0},
-                {"name": "HTTP / Header Analyzer", "phase": "recon", "status": "completed", "engine": "python", "duration": 0.8, "findings": 2},
+                {"name": "HTTP / Header Analyzer", "phase": "recon", "status": "completed", "engine": "python", "duration": 0.8, "findings": 0},
                 {"name": "TLS Inspector", "phase": "recon", "status": "completed", "engine": "rust", "duration": 0.4, "findings": 0},
                 {"name": "Port Scanner (SYN)", "phase": "recon", "status": "completed", "engine": "go", "duration": 2.1, "findings": 0},
                 {"name": "Technology Fingerprinter", "phase": "discovery", "status": "completed", "engine": "python", "duration": 0.4, "findings": 0},

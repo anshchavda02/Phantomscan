@@ -608,8 +608,21 @@ async def fetch_headers(
         Observation("redirect_chain", result.redirect_chain, "http"),
     ]
     body_text = result.text()
-    findings = analyze_security_headers(result.url, result.headers, body_text)
-    findings.extend(analyze_cookies(result.url, result.raw_set_cookies))
+
+    # Detect if response is a WAF block / bot challenge page
+    from phantomscan.modules.waf_detector import is_waf_block_page, classify_waf_response
+    is_waf = is_waf_block_page(body_text, result.status, result.headers)
+    if is_waf:
+        waf_prod = classify_waf_response(body_text, result.status, result.headers) or "WAF"
+        observations.append(Observation("waf", waf_prod, "http"))
+        observations.append(Observation("waf_challenge_detected", True, "http"))
+        log.info("WAF challenge/block response detected on %s: %s (status %d)", result.url, waf_prod, result.status)
+        # WAF challenge/block responses are edge interception pages, not application server responses.
+        # Do not flag missing application defensive headers (HSTS, CSP, etc.) on edge challenge pages.
+        findings = []
+    else:
+        findings = analyze_security_headers(result.url, result.headers, body_text)
+        findings.extend(analyze_cookies(result.url, result.raw_set_cookies))
     return observations, findings
 
 
@@ -698,7 +711,12 @@ async def deep_analyze_web(
 
             # CORS analysis
             cors_origin = headers.get("access-control-allow-origin", "")
-            if cors_origin == "*":
+            is_waf_cors = (
+                "x-amzn-waf-action" in {k.lower() for k in headers}
+                or headers.get("access-control-expose-headers") == "x-amzn-waf-action"
+                or headers.get("cf-mitigated") == "challenge"
+            )
+            if cors_origin == "*" and not is_waf_cors:
                 cors_creds = headers.get("access-control-allow-credentials", "false").lower()
                 if cors_creds == "true":
                     findings.append(

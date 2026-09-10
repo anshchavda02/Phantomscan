@@ -272,9 +272,9 @@ DEFAULT_MODULE_METADATA: dict[str, ModuleMetadata] = {
     "ai_app_security": ModuleMetadata(
         name="ai_app_security",
         phase="active",
-        requires_tech=["ai", "llm", "openai", "anthropic", "langchain", "ollama", "vllm", "vibe"],
+        requires_tech=[],
         timeout_seconds=45.0,
-        description="Prompt injection, tool calling tampering, and system prompt leakage",
+        description="Prompt injection, tool calling tampering, system prompt leakage, and BaaS security",
     ),
     "stateful_scanner": ModuleMetadata(
         name="stateful_scanner",
@@ -395,6 +395,39 @@ DEFAULT_MODULE_METADATA: dict[str, ModuleMetadata] = {
 }
 
 
+# Pre-defined profile to module mappings for targeted scans
+PROFILE_MODULE_MAP: dict[str, set[str]] = {
+    "owasp": {
+        "sqli_detector", "xss_scanner", "path_traversal", "ssti_detector",
+        "csrf_detector", "ssrf", "business_logic", "idor", "jwt_oauth",
+        "cors_analyzer", "cookie_analyzer", "info_disclosure",
+        "cloud_metadata", "prototype_pollution", "auth_session",
+        "vuln_chain", "attack_path", "compliance", "ai_narrative",
+    },
+    "api": {
+        "graphql", "websocket", "mobile_api", "jwt_oauth", "idor",
+        "cors_analyzer", "cloud_metadata", "business_logic", "auth_session",
+        "info_disclosure", "cve_engine", "vuln_chain", "attack_path",
+        "compliance", "ai_narrative",
+    },
+    "bug-bounty": {
+        "subdomain_takeover", "ssrf", "idor", "oob_detector",
+        "http_smuggling", "race_condition", "cloud_metadata",
+        "dep_confusion", "privacy_scanner", "sqli_detector",
+        "xss_scanner", "path_traversal", "cors_analyzer",
+        "info_disclosure", "vuln_chain", "attack_path", "compliance",
+    },
+    "network": {
+        "ssl_analyzer", "cve_engine", "vuln_chain", "compliance",
+    },
+    "quick": {
+        "info_disclosure", "cookie_analyzer", "cors_analyzer", "ssl_analyzer",
+        "compliance", "ai_narrative",
+    },
+    "passive": set(),
+}
+
+
 # ── Pipeline DAG Engine ───────────────────────────────────────────────────────
 
 
@@ -508,10 +541,12 @@ class PipelineDAG:
             asset_graph = AssetGraph.from_observations(new_observations, base_url=base_url)
 
         # Determine requested module set from profile
-        if profile in ("advanced", "deep", "deepscan"):
+        if profile in ("advanced", "deep", "deepscan", "full"):
             modules_to_run = set(all_modules.keys()) - {"continuous_monitor"}
         elif profile == "monitor":
             modules_to_run = {"continuous_monitor"}
+        elif profile in PROFILE_MODULE_MAP:
+            modules_to_run = set(PROFILE_MODULE_MAP[profile])
         elif "," in profile:
             modules_to_run = {m.strip() for m in profile.split(",") if m.strip() in all_modules}
         else:

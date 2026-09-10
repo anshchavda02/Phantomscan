@@ -19,10 +19,13 @@ use x509_parser::prelude::*;
 #[derive(Deserialize)]
 struct Request {
     target: String,
+    #[serde(default = "default_port")]
+    port: Option<u16>,
     #[serde(default = "default_timeout")]
     timeout_seconds: u64,
 }
 
+fn default_port() -> Option<u16> { None }
 fn default_timeout() -> u64 { 10 }
 
 #[derive(Serialize)]
@@ -98,8 +101,9 @@ fn main() {
         }
     };
 
+    let (clean_host, target_port) = parse_target_and_port(&request.target, request.port);
     let (details, mut findings, warnings) =
-        inspect_tls(&request.target, 443, request.timeout_seconds);
+        inspect_tls(&clean_host, target_port, request.timeout_seconds);
 
     let tls_port_reachable = !details.protocol.is_empty();
 
@@ -206,6 +210,25 @@ fn main() {
 // since they are independent handshakes on separate TCP connections.
 // The current synchronous implementation performs a single handshake
 // and reports the negotiated version.
+
+fn parse_target_and_port(raw: &str, explicit_port: Option<u16>) -> (String, u16) {
+    if let Some(p) = explicit_port {
+        if p > 0 {
+            let stripped = raw.trim_start_matches("https://").trim_start_matches("http://");
+            let clean = stripped.split(':').next().unwrap_or(stripped);
+            return (clean.to_string(), p);
+        }
+    }
+    let stripped = raw.trim_start_matches("https://").trim_start_matches("http://");
+    if let Some(idx) = stripped.rfind(':') {
+        let host_part = &stripped[..idx];
+        let port_part = &stripped[idx + 1..];
+        if let Ok(p) = port_part.parse::<u16>() {
+            return (host_part.to_string(), p);
+        }
+    }
+    (stripped.to_string(), 443)
+}
 
 fn inspect_tls(
     host: &str,

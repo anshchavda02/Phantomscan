@@ -144,3 +144,30 @@ def test_rejected_findings_logged_to_fp_log():
 
     assert len(fp_log) == 1
     assert "gate_rejection_reason" in fp_log[0]
+
+
+def test_rejects_boolean_sqli_jitter():
+    """FindingGate universal validator rejects candidate boolean SQLi
+    with trivial differentials (< 5%) on large HTML pages."""
+    candidate = {
+        "id": "SQLI-BOOLEAN-BLIND",
+        "title": "SQL Injection (Boolean-Based): Parameter 'q'",
+        "severity": "critical",
+        "confidence": "high",
+        "category": "injection",
+        "target": "https://example.local/catalog",
+        "verification_method": "baseline_differential",
+        "evidence": (
+            "Parameter: q\n"
+            "TRUE payload: test' OR '1'='1 (HTTP 200, 899581 bytes)\n"
+            "FALSE payload: test' AND '1'='2 (HTTP 200, 890992 bytes)\n"
+            "Length differential: 8589 bytes between TRUE and FALSE conditions."
+        ),
+    }
+
+    fp_log: list[dict] = []
+    result = gate_finding(candidate, fp_log=fp_log)
+    assert result is None, "FindingGate failed to reject low-differential boolean SQLi jitter"
+    assert len(fp_log) == 1
+    assert "Boolean SQLi differential too small" in fp_log[0]["gate_rejection_reason"]
+

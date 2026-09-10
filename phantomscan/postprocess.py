@@ -291,7 +291,8 @@ def _suppression_reason(
     # Rule 1: Known Platform Suppression
     if platform:
         for suppressed in platform.get("suppress_findings", []):
-            if suppressed.lower() in normalized:
+            sup_low = suppressed.lower()
+            if sup_low in normalized or normalized in sup_low:
                 return f"Known platform context: {platform.get('domain', 'platform')}"
 
     # Rule 2: Email Root Domain Recheck
@@ -302,6 +303,17 @@ def _suppression_reason(
     # Rule 3: WAF Implies Rate Limiting Possible
     if "no rate limiting" in normalized and waf_detected:
         return "WAF provides rate-limiting capability at the edge."
+
+    # Rule 3b: WAF Challenge Edge Header Suppression
+    if "cors" in normalized:
+        evidence_lower = str(finding.get("evidence", "")).lower() if finding else ""
+        if "x-amzn-waf-action" in evidence_lower or "challenge" in evidence_lower:
+            return "CORS header originated from edge WAF challenge script, not application."
+
+    if "security headers" in normalized:
+        evidence_lower = str(finding.get("evidence", "")).lower() if finding else ""
+        if "challenge" in waf_detected or "challenge" in evidence_lower:
+            return "Security headers evaluated on transient WAF challenge response, not application server."
 
     # Rule 4: CDN Implies WAF Possible
     if "no waf" in normalized and any(name in cdn_detected for name in ["cloudflare", "akamai", "google", "aws", "cloudfront"]):

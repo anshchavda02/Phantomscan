@@ -11,7 +11,7 @@
 ### **Next-Generation Modular Cybersecurity Platform for Automated Vulnerability Assessment**
 *Enterprise-Grade DAST Engineered for Modern APIs, AI-Generated / Vibe-Coded Web Apps, Cloud Backends, and Supply Chains*
 
-[![Tests](https://img.shields.io/badge/tests-331%20passed-brightgreen.svg?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-375%20passed-brightgreen.svg?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
 [![Go](https://img.shields.io/badge/go-1.21%2B-00ADD8.svg?style=flat-square)](engines/go/)
 [![Rust](https://img.shields.io/badge/rust-2021%20edition-dea584.svg?style=flat-square)](engines/rust/)
@@ -172,8 +172,10 @@ python phantomscan.py --serve-verify --port 8787
 | `passive` | Non-intrusive reconnaissance | DNS, WHOIS, HTTP Headers, Tech Stack, Secrets |
 | `quick` | Fast perimeter check | HTTP Checks + Top 100 Port Scan + Basic TLS |
 | `full` | Deep infrastructure scan | Full Crawling + Go Port Scanner + Rust TLS Inspector |
-| `api` | API & backend audit | REST, GraphQL, tRPC, OpenAPI, JWT, IDOR |
-| `network` | Port & service enumeration | High-concurrency Go SYN port scanner |
+| `owasp` | OWASP Top 10 web vulnerabilities | SQLi, XSS, Path Traversal, SSTI, CSRF, SSRF, IDOR, Logic |
+| `bug-bounty`| High-impact bounty targets | Takeovers, Smuggling, Race Conditions, Cloud Meta, SSRF |
+| `api` | API & backend audit | REST, GraphQL, tRPC, OpenAPI Ingestion, JWT, IDOR |
+| `network` | Port & service enumeration | High-concurrency Go SYN port scanner + TLS Inspector |
 | `advanced` | Comprehensive application logic | 38 Advanced Detection Modules + FindingGate™ |
 | `deep` | Exhaustive All-in-One | Full Recon + 150-Page Crawl + All 38 Modules (`force_all`) |
 | `ai` | AI / Vibe-Coded web apps | BaaS RLS, tRPC, Secret Entropy, Slopsquatting, Prompt APIs |
@@ -183,19 +185,22 @@ python phantomscan.py --serve-verify --port 8787
 
 ## Enterprise Reporting & Telemetry
 
-PhantomScan produces rich, self-contained **interactive HTML dashboards**, machine-readable **JSON**, and **CSV** reports:
+PhantomScan produces rich, self-contained **interactive HTML dashboards**, OASIS **SARIF v2.1.0** for GitHub Code Scanning, machine-readable **JSON**, and comprehensive 11-column **CSV** audit reports:
 
 - **Executive Posture Dashboard**: CVSS v3.1 score grade (`A` through `F`), category breakdown, and positive defense bonuses.
 - **Executed Modules Telemetry**: Real-time log of every executed module displaying execution phase, runtime engine, duration, status, and finding counts.
+- **OASIS SARIF v2.1.0 Export**: Native `--sarif` exporter mapping findings and rules for direct GitHub Code Scanning integration.
 - **Interactive Finding Cards**: Full remediation playbooks, CVSS vectors, cURL reproduction commands, and raw request/response evidence blocks.
 - **Exploit Chain Diagrams**: Mermaid.js attack graphs visualizing multi-step privilege escalation and data exfiltration paths.
 - **Compliance Matrix**: Automatic pass/fail mapping against **OWASP Top 10 (2021)**, **PCI DSS v4.0**, **NIST 800-53**, and **HIPAA Security Rule**.
 
 ```
 reports/
-├── example.com_20260830_072649.html   # Interactive visual dashboard
-├── example.com_20260830_072649.json   # Machine-readable scan data & telemetry
-└── fp_log_example.com_20260830.json   # FindingGate™ suppression audit trail
+├── example.com_20260909_120000.html         # Interactive visual dashboard (w/ PDF, JSON, CSV, SARIF downloads)
+├── example.com_20260909_120000.json         # Machine-readable scan data & telemetry
+├── example.com_20260909_120000.csv          # 11-column security audit spreadsheet
+├── example.com_20260909_120000.sarif.json   # OASIS SARIF v2.1.0 GitHub Code Scanning report
+└── fp_log_example.com_20260909.json         # FindingGate™ suppression audit trail
 ```
 
 ---

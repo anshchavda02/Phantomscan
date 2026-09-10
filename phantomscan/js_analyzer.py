@@ -8,7 +8,9 @@ Essential for modern Single Page Applications (SPAs) like Angular, React, Vue.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from pathlib import Path
 import re
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -56,6 +58,44 @@ _SECRET_PATTERNS = [
 ]
 
 
+def _mask_secret(val: str) -> str:
+    """Mask secret token according to Rule 6.3 (First 8 chars + '***')."""
+    s = str(val).strip()
+    if not s:
+        return ""
+    if len(s) <= 8:
+        return s[:3] + "***"
+    return s[:8] + "***"
+
+
+def _load_secret_patterns() -> list[tuple[re.Pattern, str, str]]:
+    """Load and compile patterns from data/secret_patterns.json merged with defaults."""
+    patterns: list[tuple[re.Pattern, str, str]] = list(_SECRET_PATTERNS)
+    candidates = [
+        Path(__file__).resolve().parents[1] / "data" / "secret_patterns.json",
+        Path.cwd() / "data" / "secret_patterns.json",
+    ]
+    for c in candidates:
+        if c.exists():
+            try:
+                data = json.loads(c.read_text(encoding="utf-8"))
+                for entry in data:
+                    reg = entry.get("regex")
+                    vendor = entry.get("vendor", "")
+                    stype = entry.get("type", "Secret")
+                    sev = entry.get("severity", "high")
+                    if reg:
+                        try:
+                            compiled = re.compile(reg, re.IGNORECASE)
+                            label = f"{vendor} {stype}".strip()
+                            patterns.append((compiled, label, sev))
+                        except re.error:
+                            pass
+                break
+            except Exception as exc:
+                logger.debug("Failed to load secret_patterns.json in js_analyzer: %s", exc)
+    return patterns
+
 
 class JSRouteExtractor:
     """Extracts hidden endpoints and routes from SPA JavaScript files."""
@@ -63,6 +103,7 @@ class JSRouteExtractor:
     def __init__(self, http: RobustHTTPClient, max_scripts: int = 12) -> None:
         self.http = http
         self.max_scripts = max_scripts
+        self.secret_patterns = _load_secret_patterns()
 
     async def analyze(
         self, base_url: str, html_body: str, logger_inst: logging.Logger | None = None
@@ -148,7 +189,7 @@ class JSRouteExtractor:
                         discovered_paths.add(raw_path)
 
             # Check for exposed secrets
-            for pattern, sec_name, severity in _SECRET_PATTERNS:
+            for pattern, sec_name, severity in self.secret_patterns:
                 for sm in pattern.finditer(content):
                     secret_val = sm.group(1).strip() if sm.lastindex else sm.group(0).strip()
                     # Skip common test/dummy values
@@ -158,13 +199,14 @@ class JSRouteExtractor:
                         continue
                     seen_secret_values.add(secret_val)
 
-                    is_public_id = severity == "low"
+                    is_public_id = severity in ("low", "info")
                     rec = (
                         "Verify that this client-side API identifier is locked to authorized "
                         "HTTP referrers, origins, and IP constraints in its management console."
                         if is_public_id
                         else "Remove hardcoded credentials, secret keys, and tokens from client-accessible JavaScript files."
                     )
+                    masked = _mask_secret(secret_val)
                     secret_findings.append({
                         "id": "JS-PUBLIC-IDENTIFIER" if is_public_id else "JS-EXPOSED-SECRET",
                         "title": f"{sec_name} Disclosed in Client-Side JavaScript",
@@ -172,7 +214,7 @@ class JSRouteExtractor:
                         "confidence": "high",
                         "category": "web",
                         "target": source_name if source_name != "inline_html" else base,
-                        "evidence": f"Pattern matched: {sec_name}\nLocation: {source_name}\nSnippet: ...{sm.group(0)[:80]}...",
+                        "evidence": f"Pattern matched: {sec_name}\nLocation: {source_name}\nSnippet: ...{masked}...",
                         "recommendation": rec,
                     })
 

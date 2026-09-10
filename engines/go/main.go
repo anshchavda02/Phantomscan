@@ -193,8 +193,40 @@ var top1000 = append(top100, []int{
 	49152, 49153, 49154, 49155, 49156, 49157,
 }...)
 
+func isNumeric(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func selectPorts(mode string) []int {
-	switch strings.ToLower(mode) {
+	trimmed := strings.TrimSpace(mode)
+	if strings.Contains(trimmed, ",") || isNumeric(trimmed) {
+		seen := map[int]struct{}{}
+		var out []int
+		for _, part := range strings.Split(trimmed, ",") {
+			pStr := strings.TrimSpace(part)
+			var p int
+			if _, err := fmt.Sscanf(pStr, "%d", &p); err == nil && p > 0 && p <= 65535 {
+				if _, ok := seen[p]; !ok {
+					seen[p] = struct{}{}
+					out = append(out, p)
+				}
+			}
+		}
+		if len(out) > 0 {
+			sort.Ints(out)
+			return out
+		}
+	}
+
+	switch strings.ToLower(trimmed) {
 	case "top1000":
 		seen := map[int]struct{}{}
 		out := make([]int, 0, len(top1000))

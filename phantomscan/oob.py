@@ -8,6 +8,7 @@ When an attack payload forces the target to hit this server, it records the uniq
 from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 import threading
 import time
 import uuid
@@ -38,12 +39,21 @@ class OOBRequestHandler(BaseHTTPRequestHandler):
 
 
 class OOBServer:
-    def __init__(self, host: str = "0.0.0.0", port: int = 9090):
+    def __init__(self, host: str = "0.0.0.0", port: int = 9090, callback_host: str | None = None):
         self.host = host
         self.port = port
+        self._callback_host = callback_host or os.environ.get("PHANTOMSCAN_OOB_HOST")
         self.server = None
         self.thread = None
         self.is_running = False
+
+    @property
+    def callback_host(self) -> str:
+        return self._callback_host or "127.0.0.1"
+
+    @callback_host.setter
+    def callback_host(self, val: str):
+        self._callback_host = val
 
     def start(self) -> str:
         """Start the OOB server in a background thread and return the listener host."""
@@ -51,7 +61,7 @@ class OOBServer:
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.is_running = True
-        return f"http://127.0.0.1:{self.port}/callback"
+        return f"http://{self.callback_host}:{self.port}/callback"
 
     def stop(self):
         """Stop the OOB server."""
@@ -67,7 +77,7 @@ class OOBServer:
     def generate_payload_url(self) -> tuple[str, str]:
         """Returns (unique_id, full_callback_url) for injection."""
         uid = str(uuid.uuid4())
-        return uid, f"http://127.0.0.1:{self.port}/callback/{uid}"
+        return uid, f"http://{self.callback_host}:{self.port}/callback/{uid}"
 
 # Global instance
 oob_listener = OOBServer()

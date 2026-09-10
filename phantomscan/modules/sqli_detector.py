@@ -185,8 +185,8 @@ class SQLiDetector:
                 continue
 
             # Check for WAF block page FIRST
-            if is_waf_block_page(response["body"], response["status"]):
-                waf_name = classify_waf_response(response["body"])
+            if is_waf_block_page(response["body"], response["status"], response.get("headers")):
+                waf_name = classify_waf_response(response["body"], response["status"], response.get("headers"))
                 logger.debug(
                     "Response is a WAF block page (%s), not a database error — "
                     "payload was BLOCKED. Param=%s, Payload=%s",
@@ -338,13 +338,29 @@ class SQLiDetector:
     async def _test_boolean_blind(
         self, target: InjectionTarget | str, param: str, original_value: str
     ) -> Optional[dict[str, Any]]:
-        """Test for boolean-based blind SQL injection with TRUE vs FALSE differentials."""
+        """Test for boolean-based blind SQL injection with baseline differential verification."""
         target_url = target.url if isinstance(target, InjectionTarget) else target
 
-        # Step 1: Capture baseline response
-        baseline_resp = await self._send_request(target, param, original_value, timeout_seconds=6)
-        if baseline_resp is None:
+        # Step 1: Capture two baseline responses to evaluate natural page variance
+        b1 = await self._send_request(target, param, original_value, timeout_seconds=6)
+        if b1 is None:
             return None
+        if is_waf_block_page(b1["body"], b1["status"], b1.get("headers")):
+            logger.debug("Baseline response is a WAF block/challenge on %s param=%s", target_url, param)
+            return None
+
+        b2 = await self._send_request(target, param, original_value, timeout_seconds=6)
+        if b2 is None:
+            return None
+        if is_waf_block_page(b2["body"], b2["status"], b2.get("headers")):
+            return None
+
+        baseline_variance = abs(len(b1["body"]) - len(b2["body"]))
+        base_len = max(len(b1["body"]), len(b2["body"]))
+
+        # If page naturally fluctuates by > 30% of its body length or > 50KB,
+        # raw byte differentials are unusable without status changes
+        is_high_jitter = (base_len > 1000 and (baseline_variance / base_len) > 0.30) or baseline_variance > 50000
 
         # Build dynamic boolean pairs adapted to parameter data type
         boolean_pairs: list[tuple[str, str]] = []
@@ -354,8 +370,6 @@ class SQLiDetector:
         if orig_clean.isdigit():
             boolean_pairs.extend([
                 (f"{orig_clean} OR 1=1", f"{orig_clean} AND 1=2"),
-                (f"{orig_clean}+0", f"{orig_clean}+1"),
-                (f"{orig_clean}-0", f"{orig_clean}-1"),
                 (f"{orig_clean}' OR '1'='1", f"{orig_clean}' AND '1'='2"),
                 (f"{orig_clean}' OR 1=1-- ", f"{orig_clean}' AND 1=2-- "),
             ])
@@ -376,70 +390,103 @@ class SQLiDetector:
             if true_resp is None or false_resp is None:
                 continue
 
-            if is_waf_block_page(true_resp["body"], true_resp["status"]) or is_waf_block_page(false_resp["body"], false_resp["status"]):
+            if (
+                is_waf_block_page(true_resp["body"], true_resp["status"], true_resp.get("headers"))
+                or is_waf_block_page(false_resp["body"], false_resp["status"], false_resp.get("headers"))
+            ):
                 continue
 
-            length_diff = abs(len(true_resp["body"]) - len(false_resp["body"]))
-            status_diff = true_resp["status"] != false_resp["status"]
+            # ── Condition A: TRUE Condition MUST Agree with Baseline ──
+            # In boolean SQLi, TRUE payload restores normal data flow
+            if true_resp["status"] != b1["status"]:
+                continue
 
-            # Differential confirmed if status differs or body length differs significantly (>= 30 bytes)
-            if (length_diff >= 30 or status_diff) and (len(true_resp["body"]) > 0 or len(false_resp["body"]) > 0):
-                return {
-                    "id": "SQLI-BOOLEAN-BLIND",
-                    "title": f"SQL Injection (Boolean-Based): Parameter '{param}'",
-                    "severity": "critical",
-                    "confidence": "high",
-                    "category": "injection",
-                    "target": target_url,
-                    "verification_method": "baseline_differential",
-                    "evidence": (
-                        f"Parameter: {param}\n"
-                        f"TRUE payload: {true_payload} (HTTP {true_resp['status']}, {len(true_resp['body'])} bytes)\n"
-                        f"FALSE payload: {false_payload} (HTTP {false_resp['status']}, {len(false_resp['body'])} bytes)\n"
-                        f"Length differential: {length_diff} bytes between TRUE and FALSE conditions."
-                    ),
-                    "recommendation": (
-                        "Use parameterized queries / prepared statements. "
-                        "Never concatenate user input into SQL. CWE-89, OWASP A03:2021."
-                    ),
-                    "references": ["https://cwe.mitre.org/data/definitions/89.html"],
-                }
+            true_baseline_diff = abs(len(true_resp["body"]) - len(b1["body"]))
+            max_allowed_true_drift = max(200, baseline_variance * 2)
+            if base_len > 1000:
+                max_allowed_true_drift = max(max_allowed_true_drift, int(base_len * 0.05))
+
+            if true_baseline_diff > max_allowed_true_drift:
+                # TRUE response drifted too far from baseline — dynamic page jitter, not boolean SQLi
+                continue
+
+            # ── Condition B: FALSE Condition MUST Diverge from TRUE & Baseline ──
+            status_diff = true_resp["status"] != false_resp["status"]
+            length_diff = abs(len(true_resp["body"]) - len(false_resp["body"]))
+            max_pair_len = max(len(true_resp["body"]), len(false_resp["body"]), 1)
+            rel_diff = length_diff / max_pair_len
+
+            # Required differential thresholds
+            if status_diff:
+                has_differential = True
+            elif is_high_jitter:
+                has_differential = False
+            elif base_len < 500:
+                # Small API payloads: require at least 15 bytes and 20% relative diff
+                has_differential = length_diff >= 15 and rel_diff >= 0.20 and length_diff > (baseline_variance * 2)
+            else:
+                # Full web pages: length diff must exceed natural variance * 3 AND be at least 10% of page
+                min_length_diff = max(200, baseline_variance * 3 + 50)
+                has_differential = length_diff >= min_length_diff and rel_diff >= 0.10
+
+            if not has_differential:
+                continue
+
+            # ── Condition C: Mandatory Reproduction Round ──
+            repro_true = await self._send_request(target, param, true_payload, timeout_seconds=6)
+            repro_false = await self._send_request(target, param, false_payload, timeout_seconds=6)
+            if repro_true is None or repro_false is None:
+                continue
+            if (
+                is_waf_block_page(repro_true["body"], repro_true["status"], repro_true.get("headers"))
+                or is_waf_block_page(repro_false["body"], repro_false["status"], repro_false.get("headers"))
+            ):
+                continue
+
+            repro_status_diff = repro_true["status"] != repro_false["status"]
+            repro_len_diff = abs(len(repro_true["body"]) - len(repro_false["body"]))
+            repro_rel_diff = repro_len_diff / max(len(repro_true["body"]), len(repro_false["body"]), 1)
+
+            repro_confirmed = False
+            if status_diff and repro_status_diff:
+                repro_confirmed = True
+            elif not status_diff:
+                if base_len < 500:
+                    repro_confirmed = repro_len_diff >= 15 and repro_rel_diff >= 0.15
+                else:
+                    repro_confirmed = repro_len_diff >= max(150, baseline_variance * 2) and repro_rel_diff >= 0.08
+
+            if not repro_confirmed:
+                logger.debug(
+                    "Boolean SQLi candidate on %s param=%s failed reproduction (len_diff=%d, repro=%d)",
+                    target_url, param, length_diff, repro_len_diff
+                )
+                continue
+
+            return {
+                "id": "SQLI-BOOLEAN-BLIND",
+                "title": f"SQL Injection (Boolean-Based): Parameter '{param}'",
+                "severity": "critical",
+                "confidence": "high",
+                "category": "injection",
+                "target": target_url,
+                "verification_method": "baseline_differential",
+                "evidence": (
+                    f"Parameter: {param}\n"
+                    f"Baseline body length: {len(b1['body'])} bytes (natural variance: {baseline_variance} bytes)\n"
+                    f"TRUE payload: {true_payload} (HTTP {true_resp['status']}, {len(true_resp['body'])} bytes)\n"
+                    f"FALSE payload: {false_payload} (HTTP {false_resp['status']}, {len(false_resp['body'])} bytes)\n"
+                    f"Differential: {length_diff} bytes ({rel_diff * 100:.1f}%), confirmed reproducible "
+                    f"(reproduction differential: {repro_len_diff} bytes)."
+                ),
+                "recommendation": (
+                    "Use parameterized queries / prepared statements. "
+                    "Never concatenate user input into SQL. CWE-89, OWASP A03:2021."
+                ),
+                "references": ["https://cwe.mitre.org/data/definitions/89.html"],
+            }
 
         return None
-
-    # ── Boolean Differential Verification ─────────────────────────────────────
-
-    async def _verify_boolean_differential(
-        self, target: InjectionTarget | str, param: str
-    ) -> bool:
-        """Final verification: TRUE and FALSE conditions must produce different responses."""
-        target_url = target.url if isinstance(target, InjectionTarget) else target
-        for true_payload, false_payload in zip(
-            BOOLEAN_TRUE_PAYLOADS, BOOLEAN_FALSE_PAYLOADS
-        ):
-            true_resp = await self._send_request(target, param, true_payload)
-            false_resp = await self._send_request(target, param, false_payload)
-
-            if true_resp is None or false_resp is None:
-                continue
-
-            length_diff = abs(len(true_resp["body"]) - len(false_resp["body"]))
-            status_differs = true_resp["status"] != false_resp["status"]
-
-            if length_diff >= 20 or status_differs:
-                logger.debug(
-                    "Boolean differential confirmed for %s param=%s: "
-                    "length_diff=%d, status_differs=%s",
-                    target_url, param, length_diff, status_differs,
-                )
-                return True
-
-        logger.info(
-            "SQLi candidate for '%s' failed boolean differential verification — "
-            "TRUE/FALSE responses are nearly identical. Suppressing.",
-            param,
-        )
-        return False
 
     # ── HTTP helpers ──────────────────────────────────────────────────────────
 

@@ -84,6 +84,17 @@ function Get-NewestHtmlReport {
         Select-Object -First 1
 }
 
+function Get-NewestSarifReport {
+    param([datetime]$StartedAt)
+    if (-not (Test-Path -LiteralPath $Reports)) {
+        return $null
+    }
+    return Get-ChildItem -LiteralPath $Reports -Filter "*.sarif.json" |
+        Where-Object { $_.LastWriteTime -ge $StartedAt } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+}
+
 function Get-NewestLogFile {
     param([datetime]$StartedAt)
     if (-not (Test-Path -LiteralPath $Logs)) {
@@ -440,6 +451,7 @@ while ($true) {
     $showJsonInWindow = Read-YesNo "Print JSON in this window" $false
     $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
     $saveJson = Read-YesNo "Save JSON report" $true
+    $requestSarif = Read-YesNo "Generate OASIS SARIF v2.1.0 report (GitHub Code Scanning / CI/CD)" $false
     $requestPdf = Read-YesNo "Request PDF flag (experimental in this build)" $false
     $debugLogging = Read-YesNo "Show debug log output in this window" $false
     $enterpriseSettings = Read-YesNo "Configure enterprise tuning (--time-budget, --depth, --log-format, --resume)" $false
@@ -531,6 +543,9 @@ while ($true) {
     if ($showJsonInWindow) {
         $scanArgs += "--json"
     }
+    if ($requestSarif) {
+        $scanArgs += "--sarif"
+    }
     if ($requestPdf) {
         $scanArgs += "--pdf"
     }
@@ -577,6 +592,11 @@ while ($true) {
         } else {
             Write-Host "No new HTML report was found." -ForegroundColor Yellow
         }
+    }
+
+    $sarif = Get-NewestSarifReport -StartedAt $startedAt
+    if ($null -ne $sarif) {
+        Write-Host "SARIF report:   $($sarif.FullName)" -ForegroundColor Green
     }
 
     $logFile = Get-NewestLogFile -StartedAt $startedAt

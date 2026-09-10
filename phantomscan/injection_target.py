@@ -178,7 +178,89 @@ def extract_injection_targets(
                         )
                     )
 
-        # 4. Discovered API Routes
+        # 4. Discovered OpenAPI / Swagger Endpoints and Parameters
+        if name == "openapi_endpoints" and isinstance(val, list):
+            for ep in val:
+                if not isinstance(ep, dict):
+                    continue
+                ep_url = str(ep.get("url") or "")
+                if not ep_url:
+                    rel_path = str(ep.get("path") or "").lstrip("/")
+                    ep_url = urljoin(clean_base + "/", rel_path)
+                ep_method = str(ep.get("method", "GET")).upper()
+                params = ep.get("parameters", [])
+
+                query_params: dict[str, str] = {}
+                body_params: dict[str, str] = {}
+                path_params: list[str] = []
+
+                for p in params:
+                    if not isinstance(p, dict):
+                        continue
+                    p_name = str(p.get("name", "")).strip()
+                    p_in = str(p.get("in", "query")).lower()
+                    if not p_name:
+                        continue
+                    if p_in in ("query", ""):
+                        query_params[p_name] = "test"
+                    elif p_in in ("body", "formdata", "form"):
+                        body_params[p_name] = "test"
+                    elif p_in == "path":
+                        path_params.append(p_name)
+
+                # Also inspect requestBody schema properties for JSON APIs
+                request_body = ep.get("requestBody") or {}
+                if isinstance(request_body, dict):
+                    content = request_body.get("content", {})
+                    if isinstance(content, dict):
+                        json_schema = content.get("application/json", {}).get("schema", {})
+                        if isinstance(json_schema, dict):
+                            props = json_schema.get("properties", {})
+                            if isinstance(props, dict):
+                                for prop_name in props:
+                                    body_params[str(prop_name)] = "test"
+
+                resolved_url = ep_url
+                for p_name in path_params:
+                    placeholder = f"{{{p_name}}}"
+                    if placeholder in resolved_url:
+                        add_target(
+                            InjectionTarget(
+                                url=resolved_url.replace(placeholder, "1"),
+                                method=ep_method,
+                                param_name=p_name,
+                                original_value="1",
+                                all_params={p_name: "1"},
+                                target_type="openapi_path",
+                            )
+                        )
+                        resolved_url = resolved_url.replace(placeholder, "1")
+
+                for p_name, p_val in query_params.items():
+                    add_target(
+                        InjectionTarget(
+                            url=resolved_url,
+                            method=ep_method if ep_method in ("GET", "POST") else "GET",
+                            param_name=p_name,
+                            original_value=p_val,
+                            all_params=dict(query_params),
+                            target_type="openapi_query",
+                        )
+                    )
+
+                for p_name, p_val in body_params.items():
+                    add_target(
+                        InjectionTarget(
+                            url=resolved_url,
+                            method="POST",
+                            param_name=p_name,
+                            original_value=p_val,
+                            all_params=dict(body_params),
+                            target_type="openapi_body",
+                        )
+                    )
+
+        # 5. Discovered API Routes
         if "discovered_api_routes" in name and isinstance(val, list):
             for route in val:
                 if isinstance(route, str) and not route.startswith("#"):

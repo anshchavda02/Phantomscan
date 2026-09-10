@@ -28,6 +28,12 @@ BLOCK_PAGE_SIGNATURES: list[str] = [
     "has been blocked in accordance",
     "Your request has been blocked",
     "AWS WAF",
+    "awswaf",
+    "token.awswaf.com",
+    "awswafcookiedomainlist",
+    "awswafintegration",
+    "verify that you're not a robot",
+    "we need to verify that you're not a robot",
     "blocked by security policy",
     "Web Application Firewall",
     "This request was blocked by the security rules",
@@ -48,28 +54,49 @@ BLOCK_PAGE_SIGNATURES: list[str] = [
 _LOWER_SIGNATURES: list[str] = [s.lower() for s in BLOCK_PAGE_SIGNATURES]
 
 
-def is_waf_block_page(body: str, status_code: int = 200) -> bool:
-    """Return ``True`` if *body* looks like a WAF/CDN block page.
+def is_waf_block_page(
+    body: str,
+    status_code: int = 200,
+    headers: dict[str, str] | None = None,
+) -> bool:
+    """Return ``True`` if *body* or *headers* look like a WAF/CDN block or challenge page.
 
-    Also considers the HTTP status code — WAF blocks typically use
-    403, 406, or 429 alongside signature text.
+    Considers HTTP status codes (403, 405, 406, 429, and 202 for bot challenges)
+    as well as vendor-specific response headers.
     """
+    if headers:
+        lowered_headers = {str(k).lower(): str(v).lower() for k, v in headers.items()}
+        if "x-amzn-waf-action" in lowered_headers:
+            return True
+        if lowered_headers.get("cf-mitigated") == "challenge":
+            return True
+
     lower_body = body.lower()
     for sig in _LOWER_SIGNATURES:
         if sig in lower_body:
             return True
-    # A 403 with very short body and no useful content is suspicious
-    if status_code in (403, 406, 429) and len(body) < 2000:
-        # Check for generic block indicators
-        if any(kw in lower_body for kw in ("blocked", "denied", "forbidden", "rejected")):
+
+    # 202 Accepted (AWS WAF challenge) or 403/405/406/429 with generic indicators
+    if status_code in (202, 403, 405, 406, 429) and len(body) < 10000:
+        if any(kw in lower_body for kw in ("blocked", "denied", "forbidden", "rejected", "challenge", "robot", "captcha")):
             return True
+
     return False
 
 
 def classify_waf_response(
-    body: str, status_code: int = 200
+    body: str,
+    status_code: int = 200,
+    headers: dict[str, str] | None = None,
 ) -> Optional[str]:
     """Return the WAF product name if detected, else ``None``."""
+    if headers:
+        lowered_headers = {str(k).lower(): str(v).lower() for k, v in headers.items()}
+        if "x-amzn-waf-action" in lowered_headers:
+            return "AWS WAF"
+        if lowered_headers.get("cf-mitigated") == "challenge":
+            return "Cloudflare"
+
     lower = body.lower()
     mapping = {
         "cloudflare": "Cloudflare",
@@ -77,6 +104,7 @@ def classify_waf_response(
         "sucuri": "Sucuri",
         "modsecurity": "ModSecurity",
         "aws waf": "AWS WAF",
+        "awswaf": "AWS WAF",
         "barracuda": "Barracuda",
         "f5 big-ip": "F5 BIG-IP",
         "fortinet": "Fortinet",

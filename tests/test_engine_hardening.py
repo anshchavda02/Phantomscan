@@ -425,3 +425,94 @@ def test_score_engine_deduction_caps():
     # 100 - 24 = 76 (with high finding cap <= 55)
     high_deduction = DEDUCTION_CAPS["high"]
     assert high_deduction == 24
+
+
+# 31. test_waf_detector_identifies_bot_challenge
+def test_waf_detector_identifies_bot_challenge():
+    from phantomscan.modules.waf_detector import classify_waf_response, is_waf_block_page
+
+    body_sample = """<!DOCTYPE html>
+<html lang="en"><head>
+<script type="text/javascript">
+window.awsWafCookieDomainList = [];
+</script>
+<script src="https://token.awswaf.com/challenge.js"></script>
+</head>
+<body>
+<div id="challenge-container"></div>
+<noscript>In order to continue, we need to verify that you're not a robot.</noscript>
+</body></html>"""
+
+    headers = {
+        "server": "CloudFront",
+        "x-amzn-waf-action": "challenge",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "x-amzn-waf-action",
+    }
+
+    # Test detection via body alone
+    assert is_waf_block_page(body_sample, status_code=202) is True
+    assert classify_waf_response(body_sample, status_code=202) == "AWS WAF"
+
+    # Test detection via headers alone
+    assert is_waf_block_page("", status_code=200, headers=headers) is True
+    assert classify_waf_response("", status_code=200, headers=headers) == "AWS WAF"
+
+
+# 32. test_cors_analyzer_ignores_waf_challenge_headers
+def test_cors_analyzer_ignores_waf_challenge_headers():
+    analyzer = CORSAnalyzer()
+    waf_headers = {
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "x-amzn-waf-action",
+        "x-amzn-waf-action": "challenge",
+    }
+    findings = analyzer.analyze_headers(waf_headers, url="https://example.com/")
+    assert len(findings) == 0
+
+    normal_wildcard = {"access-control-allow-origin": "*"}
+    findings2 = analyzer.analyze_headers(normal_wildcard, url="https://api.example.com/")
+    assert len(findings2) == 1
+    assert findings2[0].id == "CORS-WILDCARD-ORIGIN"
+
+
+# 33. test_recon_skips_security_headers_on_waf_challenge
+@pytest.mark.asyncio
+async def test_recon_skips_security_headers_on_waf_challenge():
+    from unittest.mock import patch
+    from phantomscan.recon import fetch_headers
+    from phantomscan.scope import Target
+    from tests.false_positive_regression.conftest import MockHTTPClient, MockHTTPResult
+
+    waf_body = b"""<!DOCTYPE html><html><head>
+<script src="https://token.awswaf.com/challenge.js"></script>
+</head><body><noscript>verify that you're not a robot</noscript></body></html>"""
+
+    waf_resp = MockHTTPResult(
+        status=202,
+        body=waf_body,
+        headers={
+            "server": "CloudFront",
+            "x-amzn-waf-action": "challenge",
+            "access-control-allow-origin": "*",
+        },
+        url="https://example.com/",
+    )
+
+    client = MockHTTPClient(default_response=waf_resp)
+    client.try_both_protocols = AsyncMock(return_value=waf_resp)
+    target = Target(original="https://example.com", host="example.com", scheme="https", port=443, target_type="domain", has_explicit_scheme=True)
+
+    with patch("phantomscan.recon.http_client") as mock_hc:
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=client)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_hc.return_value = mock_cm
+
+        observations, findings = await fetch_headers(target, timeout=10.0)
+
+    header_findings = [f for f in findings if "security header" in f.title.lower()]
+    assert len(header_findings) == 0
+    waf_obs = [o for o in observations if o.name == "waf"]
+    assert len(waf_obs) > 0
+

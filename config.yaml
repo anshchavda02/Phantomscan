@@ -1,7 +1,7 @@
 # PhantomScan 2.0.0 configuration
 app:
   name: PhantomScan
-  version: 2.0.0
+  version: 2.2.0
   tagline: Scan Smart. Stay Secure.
   authorization_warning: true
 
@@ -18,6 +18,10 @@ ports:
   full: top1000
   deep: top1000
   deepscan: top1000
+  owasp: top100
+  api: top100
+  bug-bounty: top1000
+  network: top1000
   custom: ""
 
 network:
@@ -39,8 +43,15 @@ report:
   output_dir: reports
   html: true
   json: true
+  csv: true
+  sarif: false
   pdf: false
   dark_theme: true
+
+oob:
+  enabled: true
+  port: 9090
+  callback_host: null  # Defaults to 127.0.0.1 or PHANTOMSCAN_OOB_HOST env var
 
 engines:
   go:

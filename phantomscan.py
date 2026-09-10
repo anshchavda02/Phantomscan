@@ -34,7 +34,12 @@ from phantomscan.recon import (
     resolve_target,
 )
 from phantomscan.rules_engine import run_yaml_rules
-from phantomscan.reporting import write_html_report, write_json_report, write_csv_report
+from phantomscan.reporting import (
+    write_html_report,
+    write_json_report,
+    write_csv_report,
+    write_sarif_report,
+)
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target, root_domain
 from phantomscan.advanced_scan import run_advanced_modules
@@ -210,6 +215,9 @@ def build_parser() -> argparse.ArgumentParser:
     report_group = parser.add_argument_group("Output & Reporting")
     report_group.add_argument("--json", action="store_true", help="Print JSON findings to stdout at the end of the scan")
     report_group.add_argument("--json-out", help="Path to save the JSON report")
+    report_group.add_argument("--csv-out", help="Path to save the CSV report")
+    report_group.add_argument("--sarif", action="store_true", help="Generate an OASIS SARIF v2.1.0 report")
+    report_group.add_argument("--sarif-out", help="Path to save the SARIF report")
     report_group.add_argument("--pdf", action="store_true", help="Generate a PDF report (experimental)")
     report_group.add_argument("--pdf-out", help="Path to save the PDF report")
     report_group.add_argument("--log-file", help="Custom path for the debug log file")
@@ -655,64 +663,87 @@ async def scan_one(
         },
     }
     _exe = ".exe" if sys.platform == "win32" else ""
-    engine_specs = [
-        ("go-portscan",  [str(root / "engines" / "go" / "bin" / f"phantomscan-go{_exe}")]),
-        ("rust-tls",     [str(root / "engines" / "rust" / "target" / "release" / f"phantomscan-rust{_exe}")]),
-        ("node-browser", ["node", str(root / "engines" / "node" / "browser_engine.js")]),
-    ]
+    go_bin = root / "engines" / "go" / "bin" / f"phantomscan-go{_exe}"
+    rust_bin = root / "engines" / "rust" / "target" / "release" / f"phantomscan-rust{_exe}"
+    node_script = root / "engines" / "node" / "browser_engine.js"
 
     if args.profile != "passive":
-        port_obs, port_findings = await timed_step(
-            "Scanning TCP ports", logger, observations, args.silent,
-            scan_ports, target, args.ports, logger,
-            returns_tuple=True,
-        )
-        observations.extend(item.to_dict() for item in port_obs)
-        findings.extend(port_findings)
+        # ── Port Scanning (Native Go with Python fallback) ──
+        used_go = False
+        if go_bin.exists():
+            go_res = await timed_step(
+                "Scanning TCP ports (Go engine)", logger, observations, args.silent,
+                run_engine, [str(go_bin)], request, "go-portscan", target,
+            )
+            if go_res and getattr(go_res, "status", "") == "ok":
+                payload = go_res.to_dict()
+                db.save_engine_run(scan_id, "go-portscan", go_res.status, payload)
+                observations.append(Observation("engine_go-portscan", go_res.status, "engine").to_dict())
+                observations.extend(payload.get("observations", []))
+                findings.extend(payload.get("findings", []))
+                used_go = True
 
-        tls_obs, tls_findings = await timed_step(
-            "Inspecting TLS", logger, observations, args.silent,
-            inspect_tls, target, logger,
-            returns_tuple=True,
-        )
-        observations.extend(item.to_dict() for item in tls_obs)
-        findings.extend(tls_findings)
+        if not used_go:
+            port_obs, port_findings = await timed_step(
+                "Scanning TCP ports", logger, observations, args.silent,
+                scan_ports, target, args.ports, logger,
+                returns_tuple=True,
+            )
+            observations.extend(item.to_dict() for item in port_obs)
+            findings.extend(port_findings)
 
-        async def _run_single_engine(name: str, command: list[str]) -> tuple[str, Any]:
-            res = await run_engine(command, request, name, target)
-            return name, res
+        # ── TLS Inspection (Native Rust with Python fallback) ──
+        used_rust = False
+        if rust_bin.exists():
+            rust_res = await timed_step(
+                "Inspecting TLS (Rust engine)", logger, observations, args.silent,
+                run_engine, [str(rust_bin)], request, "rust-tls", target,
+            )
+            if rust_res and getattr(rust_res, "status", "") in ("ok", "partial"):
+                payload = rust_res.to_dict()
+                db.save_engine_run(scan_id, "rust-tls", rust_res.status, payload)
+                observations.append(Observation("engine_rust-tls", rust_res.status, "engine").to_dict())
+                observations.extend(payload.get("observations", []))
+                findings.extend(payload.get("findings", []))
+                used_rust = True
 
-        engine_results = await asyncio.gather(
-            *(_run_single_engine(name, cmd) for name, cmd in engine_specs),
-            return_exceptions=True,
-        )
-        for r in engine_results:
-            if isinstance(r, tuple):
-                name, result = r
-                payload = result.to_dict()
-                db.save_engine_run(scan_id, name, result.status, payload)
-                observations.append(
-                    Observation(f"engine_{name}", result.status, "engine").to_dict()
-                )
+        if not used_rust:
+            tls_obs, tls_findings = await timed_step(
+                "Inspecting TLS", logger, observations, args.silent,
+                inspect_tls, target, logger,
+                returns_tuple=True,
+            )
+            observations.extend(item.to_dict() for item in tls_obs)
+            findings.extend(tls_findings)
+
+        # ── Headless Browser (Node.js/Playwright) ──
+        if node_script.exists():
+            node_res = await timed_step(
+                "DOM analysis (Node browser)", logger, observations, args.silent,
+                run_engine, ["node", str(node_script)], request, "node-browser", target,
+            )
+            if node_res:
+                payload = node_res.to_dict()
+                db.save_engine_run(scan_id, "node-browser", node_res.status, payload)
+                observations.append(Observation("engine_node-browser", node_res.status, "engine").to_dict())
                 observations.extend(payload.get("observations", []))
                 findings.extend(payload.get("findings", []))
                 for warning in payload.get("warnings", []):
-                    observations.append(
-                        Observation(f"{name}_warning", warning, "engine").to_dict()
-                    )
-                    logger.warning("%s warning: %s", name, warning)
+                    observations.append(Observation("node-browser_warning", warning, "engine").to_dict())
+                    logger.warning("node-browser warning: %s", warning)
                     if not args.silent:
-                        cprint(f"[!] {name}: {warning}", "yellow")
+                        cprint(f"[!] node-browser: {warning}", "yellow")
 
     # ── Advanced modules phase ────────────────────────────────────────────────
-    if args.advanced or args.modules or args.profile in ("advanced", "deep", "deepscan", "monitor"):
+    ACTIVE_PROFILES = ("advanced", "deep", "deepscan", "monitor", "owasp", "api", "bug-bounty", "full")
+    if args.advanced or args.modules or args.profile in ACTIVE_PROFILES:
         proxy_url = getattr(args, "upstream_proxy", None)
         timeout_sec = getattr(args, "timeout", 10.0)
         client = RobustHTTPClient(proxy=proxy_url, timeout_seconds=timeout_sec)
         await client.start()
         try:
             adv_profile = args.modules if args.modules else args.profile
-            if args.advanced and adv_profile not in ("advanced", "deep", "deepscan", "monitor") and not args.modules:
+            if args.advanced and adv_profile not in ACTIVE_PROFILES and not args.modules:
                 adv_profile = "advanced"
 
             is_deep = adv_profile in ("deep", "deepscan")
@@ -1005,17 +1036,32 @@ async def main_async() -> int:
         else:
             json_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.json")
 
+        if getattr(args, "csv_out", None) and len(reports) == 1:
+            csv_path = Path(args.csv_out)
+        else:
+            csv_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.csv")
+
         html_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.html")
-        csv_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.csv")
         write_json_report(json_path, report)
         write_csv_report(csv_path, report)
         write_html_report(html_path, report)
+
+        sarif_path = None
+        if getattr(args, "sarif", False) or getattr(args, "sarif_out", None):
+            if getattr(args, "sarif_out", None) and len(reports) == 1:
+                sarif_path = Path(args.sarif_out)
+            else:
+                sarif_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.sarif.json")
+            write_sarif_report(sarif_path, report)
+
         if args.json:
             print(json.dumps(report, indent=2, sort_keys=True))
         elif not args.silent:
             cprint(f"Report written : {html_path}", "green")
             cprint(f"JSON written   : {json_path}", "green")
             cprint(f"CSV written    : {csv_path}", "green")
+            if sarif_path:
+                cprint(f"SARIF written  : {sarif_path}", "green")
 
     return 0
 

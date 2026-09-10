@@ -112,3 +112,75 @@ async def test_sqli_cloudflare_block_not_flagged():
     assert result is None, (
         "SQLi detector incorrectly flagged a Cloudflare block page"
     )
+
+
+@pytest.mark.asyncio
+async def test_sqli_boolean_blind_rejects_dynamic_html_jitter():
+    """Verify that natural variance on dynamic HTML pages
+    is NOT flagged as boolean SQL injection."""
+    from typing import Any
+    from phantomscan.injection_target import InjectionTarget
+
+    class DynamicHtmlMockClient:
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        async def get(self, url: str, **kwargs: Any) -> MockHTTPResult:
+            self.call_count += 1
+            params = kwargs.get("params", {})
+            param_val = str(params.get("q", ""))
+
+            # Base page length is ~890,000 bytes with slight random-like jitter per call (< 1% delta)
+            if "OR '1'='1" in param_val:
+                length = 899581
+            elif "AND '1'='2" in param_val:
+                length = 890992
+            elif self.call_count % 2 == 0:
+                length = 895000
+            else:
+                length = 891000
+
+            body = b"A" * length
+            return MockHTTPResult(status=200, body=body, headers={"content-type": "text/html"})
+
+    client = DynamicHtmlMockClient()
+    detector = SQLiDetector(http=client)
+    target = InjectionTarget(
+        url="https://app.example.com/search",
+        method="GET",
+        param_name="q",
+        original_value="test",
+        all_params={"q": "test"},
+    )
+
+    finding = await detector._test_boolean_blind(target, "q", "test")
+    assert finding is None, (
+        "SQLi detector falsely flagged dynamic page jitter as boolean SQLi"
+    )
+
+
+@pytest.mark.asyncio
+async def test_sqli_waf_bot_challenge_not_flagged():
+    """WAF bot challenge response (HTTP 202 with challenge tokens) must not produce SQLi findings."""
+    waf_body = (
+        b"<!DOCTYPE html><html><head>"
+        b"<script src=\"https://token.waf-provider.com/challenge.js\"></script>"
+        b"</head><body><noscript>verify that you're not a robot</noscript></body></html>"
+    )
+    waf_response = MockHTTPResult(
+        status=202,
+        body=waf_body,
+        headers={
+            "server": "EdgeWAF",
+            "x-amzn-waf-action": "challenge",
+            "access-control-allow-origin": "*",
+        },
+    )
+    client = MockHTTPClient(default_response=waf_response)
+    detector = SQLiDetector(http=client)
+
+    result = await detector._test_error_based(
+        "http://test.local/search", "q", "shoes"
+    )
+    assert result is None, "SQLi detector incorrectly flagged a WAF bot challenge response"
+

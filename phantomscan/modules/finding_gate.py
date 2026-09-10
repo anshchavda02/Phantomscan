@@ -137,6 +137,22 @@ def gate_finding(
             _reject(candidate, fp_log, "XSS finding based solely on plain javascript URI probe without HTML context escape")
             return None
 
+    # ── Check 9: Boolean SQLi requires substantive differential ───────────
+    if fid == "SQLI-BOOLEAN-BLIND" or "boolean-based" in title.lower():
+        m_true = re.search(r"TRUE.*HTTP (\d+),\s*(\d+)\s*bytes", evidence)
+        m_false = re.search(r"FALSE.*HTTP (\d+),\s*(\d+)\s*bytes", evidence)
+        if m_true and m_false:
+            t_status, t_len = int(m_true.group(1)), int(m_true.group(2))
+            f_status, f_len = int(m_false.group(1)), int(m_false.group(2))
+            max_len = max(t_len, f_len)
+            diff = abs(t_len - f_len)
+            if t_status == f_status and max_len > 2000 and (diff / max_len) < 0.05:
+                _reject(
+                    candidate, fp_log,
+                    f"Boolean SQLi differential too small ({diff} bytes / {diff / max_len * 100:.1f}%) on large page without status change (dynamic jitter)"
+                )
+                return None
+
     # ── Enrich: ID, UID, rule_id, fingerprint ─────────────────────────────
     if not candidate.get("id") and title:
         candidate["id"] = "FINDING-" + re.sub(r"[^A-Z0-9]+", "-", title.upper()).strip("-")[:30]

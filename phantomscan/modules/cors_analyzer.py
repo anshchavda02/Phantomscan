@@ -32,6 +32,16 @@ class CORSAnalyzer:
         if not cors_origin:
             return findings
 
+        # Exclude WAF / Bot protection challenge endpoints from CORS findings
+        # AWS WAF sets 'access-control-allow-origin: *' and 'x-amzn-waf-action: challenge'
+        if (
+            "x-amzn-waf-action" in lowered
+            or lowered.get("access-control-expose-headers") == "x-amzn-waf-action"
+            or lowered.get("cf-mitigated") == "challenge"
+        ):
+            logger.debug("Skipping CORS analysis for WAF challenge response on %s", url)
+            return findings
+
         if cors_origin == "*":
             if cors_creds == "true":
                 findings.append(Finding(
@@ -85,6 +95,9 @@ class CORSAnalyzer:
 
             headers = getattr(res, "headers", {})
             lowered = {k.lower(): str(v) for k, v in headers.items()}
+            if "x-amzn-waf-action" in lowered or lowered.get("cf-mitigated") == "challenge":
+                return findings
+
             acao = lowered.get("access-control-allow-origin", "").strip()
             acac = lowered.get("access-control-allow-credentials", "false").strip().lower()
 
