@@ -154,8 +154,8 @@ class EnvDebugScanner:
             return {
                 "id": "AI-DEBUG-ENDPOINT",
                 "title": f"Debug Endpoint Accessible: {path}",
-                "severity": "high",
-                "confidence": "medium",
+                "severity": "medium",
+                "confidence": "high",
                 "category": MODULE_GROUP,
                 "target": url,
                 "evidence": (

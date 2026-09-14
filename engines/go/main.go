@@ -267,10 +267,6 @@ func dynamicPoolSize(portCount int) int {
 	return size
 }
 
-// sharedDialer is reused across all goroutines to avoid per-goroutine
-// allocation overhead at 500+ concurrent scans.
-var sharedDialer = &net.Dialer{}
-
 func scanAllPorts(host string, ports []int, connTimeout time.Duration) []PortResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
@@ -315,10 +311,10 @@ func scanAllPorts(host string, ports []int, connTimeout time.Duration) []PortRes
 func scanPort(ctx context.Context, host string, port int, timeout time.Duration) PortResult {
 	address := fmt.Sprintf("%s:%d", host, port)
 
-	// Use the shared dialer with the per-scan timeout
-	sharedDialer.Timeout = timeout
+	// Use a local dialer with per-scan timeout to guarantee thread safety
+	dialer := &net.Dialer{Timeout: timeout}
 	connStart := time.Now()
-	conn, err := sharedDialer.DialContext(ctx, "tcp", address)
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return PortResult{Port: port, State: "closed"}
 	}

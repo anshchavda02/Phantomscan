@@ -8,6 +8,8 @@ api.example.com reuse the same root-domain WHOIS/DNS results).
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import logging
 import sqlite3
@@ -155,7 +157,11 @@ class ScanCache:
 
         # L3: actually fetch
         self.misses += 1
-        value = await fetch_fn()
+        res = fetch_fn()
+        if asyncio.iscoroutine(res) or inspect.isawaitable(res):
+            value = await res
+        else:
+            value = res
 
         # Store in both tiers
         self._memory[key] = value

@@ -4,12 +4,24 @@
 {% set new_count = new_items|length if new_items else (diff.new_findings if (diff.new_findings is number) else 0) %}
 {% set res_count = res_items|length if res_items else (diff.resolved_findings if (diff.resolved_findings is number) else 0) %}
 
-{% if diff and (new_count > 0 or res_count > 0 or new_items or res_items) %}
+{% set has_delta = diff and (diff.score_delta is defined and diff.score_delta != 0) %}
+{% set has_history = score_history is defined and score_history %}
+
+{% if (diff and (new_count > 0 or res_count > 0 or new_items or res_items or has_delta)) or has_history %}
 <section id="diff" class="section">
     <div class="section-label">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-light)" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         <span style="color: var(--brand-light);">POSTURE DELTA &amp; DIFF SUMMARY</span>
     </div>
+
+    {% if has_delta %}
+    <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact);">
+        <span style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; font-family: 'Syne', sans-serif;">Net Score Delta:</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: {% if diff.score_delta > 0 %}var(--sev-low){% else %}var(--sev-critical){% endif %};">
+            {{ '+' if diff.score_delta > 0 else '' }}{{ diff.score_delta }} pts
+        </span>
+    </div>
+    {% endif %}
 
     <div class="grid-2">
         {% if new_count > 0 or new_items %}
@@ -53,5 +65,23 @@
         </div>
         {% endif %}
     </div>
+
+    {% if has_history %}
+    <div class="card" style="margin-top: 14px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--brand-light); font-family: 'Syne', sans-serif;">HISTORICAL POSTURE &amp; SCORE HISTORY</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            {% for record in score_history %}
+            <div style="padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); display: flex; flex-direction: column; gap: 3px; min-width: 90px;">
+                <span style="font-size: 10px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace;">{{ record.date }}</span>
+                <span style="font-size: 15px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: {% if record.value >= 80 %}var(--sev-low){% elif record.value >= 60 %}var(--sev-medium){% else %}var(--sev-critical){% endif %};">{{ record.value }}/100</span>
+            </div>
+            {% endfor %}
+            <div style="padding: 8px 12px; background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--r-compact); display: flex; flex-direction: column; gap: 3px; min-width: 90px; border-left: 2px solid var(--brand);">
+                <span style="font-size: 10px; color: var(--brand-light); font-weight: 600; font-family: 'JetBrains Mono', monospace;">Current</span>
+                <span style="font-size: 15px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: {% if score.value >= 80 %}var(--sev-low){% elif score.value >= 60 %}var(--sev-medium){% else %}var(--sev-critical){% endif %};">{{ score.value }}/100</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </section>
 {% endif %}

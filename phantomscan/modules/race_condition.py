@@ -71,7 +71,7 @@ class RaceConditionDetector:
             return {
                 "id": "RACE-CONDITION",
                 "title": f"Possible Race Condition: {url.split('/')[-1]}",
-                "severity": "high",
+                "severity": "medium",
                 "confidence": "medium",
                 "category": "race-condition",
                 "target": url,

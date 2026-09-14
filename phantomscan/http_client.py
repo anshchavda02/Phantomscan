@@ -44,6 +44,17 @@ class HTTPResult:
         """Decode body to text."""
         return self.body.decode(encoding, errors="ignore")
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Dictionary-compatible getter to prevent crashes in callers expecting dict."""
+        return getattr(self, key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        """Dictionary-compatible subscription."""
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
+
 
 class ScanError(Exception):
     """Raised when a scan operation fails irrecoverably."""
@@ -302,8 +313,8 @@ class RobustHTTPClient:
         **kwargs: Any,
     ) -> HTTPResult:
         """Send an HTTP request with method, retry, backoff, and scope enforcement."""
-        if self.session is None:
-            raise RuntimeError("RobustHTTPClient must be started with start() first")
+        if self.session is None or self.session.closed:
+            await self.start()
 
         # Central scope verification before sending traffic (SEC-S01, SEC-S02)
         self._check_scope(url)
@@ -312,7 +323,19 @@ class RobustHTTPClient:
         async with self._rate_limiter:
             self._request_count += 1
 
-        effective_timeout = timeout or self._timeout
+        if isinstance(timeout, (int, float)):
+            effective_timeout = aiohttp.ClientTimeout(total=float(timeout))
+        else:
+            effective_timeout = timeout or self._timeout
+
+        # Normalize extra_headers if passed by callers
+        if "extra_headers" in kwargs:
+            extra = kwargs.pop("extra_headers")
+            if isinstance(extra, dict):
+                headers = dict(kwargs.get("headers") or {})
+                headers.update(extra)
+                kwargs["headers"] = headers
+
         req_proxy = kwargs.pop("proxy", self.proxy)
         last_exc: Exception = RuntimeError("no attempts were made")
 

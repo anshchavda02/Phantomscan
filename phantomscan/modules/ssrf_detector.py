@@ -168,7 +168,7 @@ class SSRFDetector:
                         "id": "SSRF-BYPASS-INTERNAL",
                         "title": "SSRF Bypass — Internal Service Accessible",
                         "severity": "high",
-                        "confidence": "medium",
+                        "confidence": "high",
                         "category": "ssrf",
                         "target": url,
                         "evidence": (

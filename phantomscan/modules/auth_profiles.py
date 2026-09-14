@@ -246,15 +246,13 @@ class AuthenticatedScanner:
                 resp = await self.http.request(
                     "GET", url,
                     cookies=session.cookies,
-                    extra_headers=session.headers,
+                    headers=session.headers,
                     timeout=10,
                 )
-                if resp.get("status") in (200, 301, 302):
+                if resp.status in (200, 301, 302):
                     accessible.append(url)
                     # Extract links from response body
-                    body = resp.get("body", "")
-                    if isinstance(body, bytes):
-                        body = body.decode("utf-8", errors="ignore")
+                    body = resp.text()
                     links = re.findall(r'href=["\']([^"\']+)["\']', body)
                     for link in links:
                         if link.startswith("/"):
@@ -295,10 +293,10 @@ class AuthenticatedScanner:
                     resp = await self.http.request(
                         "GET", admin_url,
                         cookies=guest_session.cookies,
-                        extra_headers=guest_session.headers,
+                        headers=guest_session.headers,
                         timeout=10,
                     )
-                    if resp.get("status") == 200:
+                    if resp.status == 200:
                         findings.append({
                             "title": "Broken Function Level Authorization",
                             "severity": "critical",

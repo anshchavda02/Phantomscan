@@ -126,7 +126,7 @@ APP_PROFILES: dict[str, dict[str, Any]] = {
         "is_spa": False,
         "default_port": 80,
         "fingerprint_patterns": [
-            "acunetix", "vulnweb", "acuart", "testaspnet", "testphp",
+            "acunetix", "vulnweb", "acuart", "testphp",
         ],
         "known_endpoints": [
             # testphp.vulnweb.com
@@ -281,13 +281,34 @@ APP_PROFILES["vulnweb-asp"] = {
     "fingerprint_patterns": ["testaspnet.vulnweb.com", "testaspnet"],
     "known_endpoints": [
         "/Search.aspx?tfSearch=test",
+        "/ReadNews.aspx?id=0&NewsAd=ads/def.html",
         "/ReadNews.aspx?id=1",
         "/Signup.aspx",
         "/Login.aspx",
+        "/Comments.aspx?id=0",
         "/Comments.aspx?id=1",
     ],
+    "known_forms": [
+        {
+            "action": "/Comments.aspx?id=0",
+            "method": "POST",
+            "fields": [
+                {"name": "tbComment", "type": "textarea", "value": "test"},
+                {"name": "btnSend", "type": "submit", "value": "Send comment"},
+            ],
+        },
+        {
+            "action": "/Login.aspx",
+            "method": "POST",
+            "fields": [
+                {"name": "tbUsername", "type": "text", "value": "test"},
+                {"name": "tbPassword", "type": "password", "value": "test"},
+                {"name": "btnLogin", "type": "submit", "value": "Login"},
+            ],
+        },
+    ],
     "skip_modules": ["subdomain_takeover", "dep_confusion"],
-    "known_params": ["tfSearch", "id"],
+    "known_params": ["tfSearch", "id", "NewsAd", "tbUsername", "tbComment"],
     "open_ports": [80],
     "technologies": [
         {"name": "ASP.NET", "version": "4.0", "category": "Framework", "confidence": 95},
@@ -309,7 +330,18 @@ def detect_app_profile(
     text = body.lower()
     host_lower = target_host.lower()
 
+    # Check more specific profiles first (e.g. vulnweb-asp) before generic vulnweb
+    specific_first = ["vulnweb-asp"]
+    for sp_key in specific_first:
+        if sp_key in APP_PROFILES:
+            for pattern in APP_PROFILES[sp_key]["fingerprint_patterns"]:
+                if pattern.lower() in text or pattern.lower() in host_lower:
+                    logger.info("Detected app profile: %s", APP_PROFILES[sp_key]["name"])
+                    return sp_key
+
     for profile_key, profile in APP_PROFILES.items():
+        if profile_key in specific_first:
+            continue
         for pattern in profile["fingerprint_patterns"]:
             if pattern.lower() in text or pattern.lower() in host_lower:
                 logger.info("Detected app profile: %s", profile["name"])

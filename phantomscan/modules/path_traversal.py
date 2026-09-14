@@ -22,26 +22,29 @@ logger = logging.getLogger(__name__)
 # ── Payloads ──────────────────────────────────────────────────────────────────
 
 TRAVERSAL_PAYLOADS: list[str] = [
+    # High-yield deep traversals first (Windows, Linux, and Web configs)
+    "../../../../windows/win.ini",
+    "..\\..\\..\\..\\windows\\win.ini",
+    "../../../../etc/passwd",
+    "web.config",
+    "../web.config",
+    "../../../../web.config",
+    "/windows/win.ini",
     "/etc/passwd",
+    "....//....//....//....//etc/passwd",
+    "../../../../win.ini",
+    # Progressive relative depth
     "../etc/passwd",
     "../../etc/passwd",
     "../../../etc/passwd",
-    "../../../../etc/passwd",
     "../../../../../etc/passwd",
-    "../../../../../../etc/passwd",
-    "..%2Fetc%2Fpasswd",
-    "..%252Fetc%252Fpasswd",
-    "..%2f..%2f..%2f..%2f..%2fetc%2fpasswd",
-    "....//....//etc/passwd",
-    "....//....//....//....//etc/passwd",
-    # Windows
-    "windows\\win.ini",
-    "/windows/win.ini",
     "..\\windows\\win.ini",
     "..\\..\\windows\\win.ini",
-    "..\\..\\..\\..\\windows\\win.ini",
-    "..\\..\\..\\..\\..\\..\\windows\\win.ini",
+    # Encoded variants
+    "..%2f..%2f..%2f..%2fetc%2fpasswd",
     "..%5Cwindows%5Cwin.ini",
+    "..%2Fetc%2Fpasswd",
+    "..\\..\\web.config",
 ]
 
 # Parameter names that suggest file path handling
@@ -57,6 +60,7 @@ _FILE_PARAM_KEYWORDS = frozenset({
 # OS-specific indicators that confirm successful file read
 LINUX_INDICATORS = ["root:x:0:0", "/bin/bash", "/bin/sh", "daemon:", "nobody:"]
 WINDOWS_INDICATORS = ["[fonts]", "[extensions]", "for 16-bit app support"]
+CONFIG_INDICATORS = ["<configuration>", "<system.web>", "<connectionstrings>", "<?xml"]
 
 from phantomscan.injection_target import InjectionTarget, extract_injection_targets
 
@@ -78,11 +82,11 @@ class PathTraversalScanner:
         target = base_url.rstrip("/")
         tested: set[str] = set()
 
-        all_targets = extract_injection_targets(observations, target, max_targets=50)
+        all_targets = extract_injection_targets(observations, target, max_targets=40)
         candidates = [t for t in all_targets if self._is_file_like(t)]
         if not candidates:
-            # If no obvious file candidates, test first 15 targets
-            candidates = all_targets[:15]
+            # If no obvious file candidates, test first 8 targets
+            candidates = all_targets[:8]
 
         sem = asyncio.Semaphore(15)
 
@@ -94,7 +98,7 @@ class PathTraversalScanner:
             async with sem:
                 return await self._test_traversal(candidate, candidate.param_name)
 
-        tasks = [test_one(c) for c in candidates[:25]]
+        tasks = [test_one(c) for c in candidates[:12]]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, dict):
@@ -106,12 +110,16 @@ class PathTraversalScanner:
     def _is_file_like(target: InjectionTarget) -> bool:
         """Check if target parameter name or default value suggests a file path."""
         pname = target.param_name.lower()
-        if any(kw in pname for kw in _FILE_PARAM_KEYWORDS):
-            return True
+        # Exclude clear non-file parameters (credentials, search terms, tokens)
+        if any(kw in pname for kw in ("user", "pass", "pwd", "auth", "token", "csrf", "search", "mail", "phone", "captcha")):
+            return False
+
         val = str(target.original_value).lower()
         if "/" in val or "\\" in val:
             return True
-        if any(val.endswith(ext) for ext in (".html", ".htm", ".txt", ".php", ".asp", ".aspx", ".jsp", ".ini", ".conf", ".xml", ".json", ".inc")):
+        if any(val.endswith(ext) for ext in (".html", ".htm", ".txt", ".php", ".asp", ".aspx", ".jsp", ".ini", ".conf", ".xml", ".json", ".inc", ".jpg", ".png", ".gif")):
+            return True
+        if any(kw == pname or f"_{kw}" in pname or f"{kw}_" in pname or pname.endswith(kw) or pname.startswith(kw) for kw in _FILE_PARAM_KEYWORDS):
             return True
         return False
 
@@ -130,7 +138,7 @@ class PathTraversalScanner:
                     target.url,
                     data={**target.hidden_fields, **target.all_params},
                     retries=1,
-                    timeout=_aiohttp.ClientTimeout(total=8),
+                    timeout=_aiohttp.ClientTimeout(total=4),
                 )
             else:
                 params = target.all_params if isinstance(target, InjectionTarget) else None
@@ -138,14 +146,16 @@ class PathTraversalScanner:
                     target_url,
                     params=params,
                     retries=1,
-                    timeout=_aiohttp.ClientTimeout(total=8),
+                    timeout=_aiohttp.ClientTimeout(total=4),
                 )
             baseline_body = baseline_resp.text()
             baseline_has_linux = any(ind in baseline_body for ind in LINUX_INDICATORS)
             baseline_has_windows = any(ind in baseline_body for ind in WINDOWS_INDICATORS)
+            baseline_has_config = any(ind in baseline_body.lower() for ind in CONFIG_INDICATORS)
         except Exception:
             baseline_has_linux = False
             baseline_has_windows = False
+            baseline_has_config = False
 
         for payload in TRAVERSAL_PAYLOADS:
             try:
@@ -157,7 +167,7 @@ class PathTraversalScanner:
                         target.url,
                         data=form_data,
                         retries=1,
-                        timeout=_aiohttp.ClientTimeout(total=8),
+                        timeout=_aiohttp.ClientTimeout(total=4),
                     )
                     test_evidence_url = f"{target.url} [POST: {param}={payload}]"
                 elif isinstance(target, InjectionTarget):
@@ -207,10 +217,19 @@ class PathTraversalScanner:
                     any(ind in body for ind in WINDOWS_INDICATORS)
                     and not baseline_has_windows
                 )
+                config_found = (
+                    any(ind in body.lower() for ind in CONFIG_INDICATORS)
+                    and ("web.config" in payload.lower() or ".config" in payload.lower())
+                    and not baseline_has_config
+                )
 
-                if linux_found or windows_found:
-                    os_type = "Linux" if linux_found else "Windows"
-                    matched_ind = next((ind for ind in LINUX_INDICATORS if ind in body), "") if linux_found else next((ind for ind in WINDOWS_INDICATORS if ind in body), "")
+                if linux_found or windows_found or config_found:
+                    os_type = "Linux" if linux_found else ("Windows Configuration" if config_found else "Windows")
+                    matched_ind = (
+                        next((ind for ind in LINUX_INDICATORS if ind in body), "")
+                        if linux_found
+                        else (next((ind for ind in CONFIG_INDICATORS if ind in body.lower()), "") if config_found else next((ind for ind in WINDOWS_INDICATORS if ind in body), ""))
+                    )
                     return {
                         "id": "PATH-TRAVERSAL",
                         "title": f"Path Traversal: Parameter '{param}'",
@@ -230,6 +249,43 @@ class PathTraversalScanner:
                             "Validate and sanitise file path inputs. Use an "
                             "allowlist of permitted files rather than "
                             "accepting arbitrary paths. CWE-22, OWASP A01:2021."
+                        ),
+                        "references": [
+                            "https://cwe.mitre.org/data/definitions/22.html",
+                        ],
+                    }
+
+                # Check for dynamic resource embedding sink traversal (e.g. <iframe src="{payload}">)
+                sink_traversal = (
+                    ("../" in payload or "..\\" in payload)
+                    and (
+                        f'src="{payload}"' in body
+                        or f"src='{payload}'" in body
+                        or f'src="{payload.replace(chr(92), "/")}"' in body
+                        or f'href="{payload}"' in body
+                    )
+                    and payload not in baseline_body
+                )
+                if sink_traversal:
+                    return {
+                        "id": "PATH-TRAVERSAL-SINK",
+                        "title": f"Directory Traversal / LFI: Parameter '{param}'",
+                        "severity": "high",
+                        "confidence": "high",
+                        "category": "injection",
+                        "target": target_url,
+                        "verification_method": "baseline_differential",
+                        "evidence": (
+                            f"Parameter: {param}\n"
+                            f"Payload: {payload}\n"
+                            f"Tested URL: {test_evidence_url}\n"
+                            f"The dynamic file/document embedding sink accepted arbitrary relative path traversal "
+                            f"sequence and reflected it into internal resource loader without restriction to safe directory bounds."
+                        ),
+                        "recommendation": (
+                            "Implement strict allowlist validation for file references. "
+                            "Do not dynamically embed raw user path input into document frames or file loaders. "
+                            "CWE-22, OWASP A01:2021."
                         ),
                         "references": [
                             "https://cwe.mitre.org/data/definitions/22.html",

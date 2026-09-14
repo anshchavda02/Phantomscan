@@ -120,9 +120,10 @@ class SecondOrderDetector:
                             page_findings.append({
                                 "id": f"SECOND-ORDER-{ptype.upper()}",
                                 "title": f"Second-Order {ptype.upper()} Injection",
-                                "severity": "high",
+                                "severity": "medium",
                                 "confidence": "medium",
                                 "category": "second-order",
+                                "verification_method": "baseline_differential",
                                 "target": check_url,
                                 "evidence": (
                                     f"Injection type: {ptype}\n"

@@ -688,22 +688,47 @@ def parse_supply_chain_data(observations: list[Any], findings: list[Any]) -> Sup
     for obs in observations:
         name = _get_obs_field(obs, "name")
         val = _get_obs_field(obs, "value")
-        if name in ("secrets_found", "exposed_secrets") and isinstance(val, list):
+        if name in ("secrets_found", "exposed_secrets", "secrets_discovered", "secrets") and isinstance(val, list):
             for s in val:
                 if isinstance(s, dict):
-                    raw_val = s.get("value", "")
-                    masked = (raw_val[:8] + "***") if len(raw_val) > 8 else "***"
-                    secrets.append({"type": s.get("type", "Secret"), "value": masked, "location": s.get("location", "")})
+                    if s.get("masked"):
+                        masked = str(s["masked"])
+                    else:
+                        raw_val = str(s.get("value", ""))
+                        masked = (raw_val[:8] + "***") if len(raw_val) > 8 else "***"
+                    secrets.append({
+                        "type": str(s.get("type", "Secret")),
+                        "value": masked,
+                        "location": str(s.get("location", "")),
+                        "severity": str(s.get("severity", "high")),
+                    })
+                elif isinstance(s, str):
+                    masked = (s[:8] + "***") if len(s) > 8 else "***"
+                    secrets.append({"type": "Secret", "value": masked, "location": "", "severity": "high"})
         elif name in ("dependencies", "scanned_dependencies") and isinstance(val, list):
             dependencies.extend(val)
+        elif name in ("dependency_confusion_candidates", "dependency_confusion") and isinstance(val, list):
+            for item in val:
+                pkg = item if isinstance(item, str) else item.get("package", str(item))
+                confusion.append({"package": pkg, "risk": "Internal package exposed to public registry"})
+        elif name in ("slopsquatting_candidates", "slopsquatting") and isinstance(val, list):
+            for item in val:
+                pkg = item if isinstance(item, str) else item.get("package", str(item))
+                slopsquatting.append({"package": pkg, "risk": "Potential AI-hallucinated unverified package"})
 
     for f in findings:
         fid = str(getattr(f, "id", "") or (f.get("id", "") if isinstance(f, dict) else "")).lower()
         title = str(getattr(f, "title", "") or (f.get("title", "") if isinstance(f, dict) else ""))
+        cat = str(getattr(f, "category", "") or (f.get("category", "") if isinstance(f, dict) else "")).lower()
         if "confusion" in fid or "confusion" in title.lower():
             confusion.append({"package": title, "risk": "Internal package exposed to public registry"})
         elif "slopsquat" in fid or "slopsquat" in title.lower() or "hallucin" in title.lower():
             slopsquatting.append({"package": title, "risk": "Potential AI-hallucinated unverified package"})
+        elif "secret" in fid or "secret" in cat or "token" in fid or "key" in fid:
+            ev = str(getattr(f, "evidence", "") or (f.get("evidence", "") if isinstance(f, dict) else ""))
+            masked = (ev[:8] + "***") if len(ev) > 8 else "***"
+            loc = str(getattr(f, "target", "") or (f.get("target", "") if isinstance(f, dict) else ""))
+            secrets.append({"type": title, "value": masked, "location": loc, "severity": str(getattr(f, "severity", "high"))})
 
     return SupplyChainData(
         secrets=secrets,
@@ -711,6 +736,45 @@ def parse_supply_chain_data(observations: list[Any], findings: list[Any]) -> Sup
         dependency_confusion=confusion,
         slopsquatting=slopsquatting,
     )
+
+
+def parse_checklist_data(findings: list[Any], payload: dict[str, Any]) -> ChecklistData:
+    """Extract or synthesize manual pen-testing verification checklist items."""
+    existing_chk = payload.get("checklist")
+    if isinstance(existing_chk, ChecklistData):
+        return existing_chk
+    if isinstance(existing_chk, dict) and "categories" in existing_chk:
+        return ChecklistData(categories=existing_chk["categories"])
+    if isinstance(existing_chk, list):
+        return ChecklistData(categories=[{"name": "Verification Tasks", "items": existing_chk}])
+
+    items: list[dict[str, Any]] = []
+    options = payload.get("options") or {}
+    checklist_flag = bool(options.get("checklist"))
+
+    for f in findings:
+        f_id = str(getattr(f, "id", "") or (f.get("id", "") if isinstance(f, dict) else ""))
+        method = str(getattr(f, "verification_method", "") or (f.get("verification_method", "") if isinstance(f, dict) else ""))
+        conf = str(getattr(f, "confidence", "") or (f.get("confidence", "") if isinstance(f, dict) else "")).lower()
+        title = str(getattr(f, "title", "") or (f.get("title", "") if isinstance(f, dict) else ""))
+        mod = str(getattr(f, "module", "") or (f.get("module", "") if isinstance(f, dict) else ""))
+        target = str(getattr(f, "target", "") or (f.get("target", "") if isinstance(f, dict) else ""))
+
+        if checklist_flag or method in ("passive_observation", "external_verification") or conf in ("medium", "low"):
+            items.append({
+                "task": f"Verify: {title}",
+                "context": f"{target or f_id} (Detected via {method.replace('_', ' ') or 'heuristics'})",
+                "module": mod or "Analyst Review",
+            })
+
+    if not items:
+        items = [
+            {"task": "Verify Multi-Factor Authentication (MFA) enforcement on administrative consoles", "context": "Administrative entry points", "module": "auth"},
+            {"task": "Verify session invalidation on logout and password change", "context": "Session management", "module": "auth"},
+            {"task": "Confirm rate-limiting thresholds on sensitive authentication & API endpoints", "context": "Edge WAF / Gateway", "module": "rate_limit"},
+        ]
+
+    return ChecklistData(categories=[{"name": "Manual Verification Checklist", "items": items}])
 
 
 def write_html_report(path: Path, payload: dict[str, Any]) -> None:
@@ -828,11 +892,95 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     
     intel_data = parse_intel(payload.get("observations", []))
     chains_data = parse_chains_from_findings(findings)
+    if isinstance(payload.get("chains"), list):
+        for c in payload.get("chains", []):
+            if isinstance(c, ChainFinding):
+                chains_data.append(c)
+            elif isinstance(c, dict):
+                chains_data.append(ChainFinding(
+                    id=str(c.get("id", "CHAIN-CUSTOM")),
+                    name=str(c.get("name", "Attack Chain")),
+                    severity=str(c.get("severity", "critical")),
+                    description=str(c.get("description", "")),
+                    components=c.get("components", []),
+                    steps=c.get("steps", []),
+                    impact=str(c.get("impact", "")),
+                ))
+            elif hasattr(c, "steps"):
+                chains_data.append(c)
+
     screenshots_data = parse_screenshots(payload.get("observations", []), payload)
     api_data = parse_api_data(payload.get("observations", []), findings)
     compliance_data = parse_compliance_data(findings)
     supply_chain_data = parse_supply_chain_data(payload.get("observations", []), findings)
-    
+    checklist_data = parse_checklist_data(findings, payload)
+
+    # 1. Parse Engagement Profile
+    eng_dict = payload.get("engagement") or {}
+    if isinstance(eng_dict, EngagementProfile):
+        engagement_profile = eng_dict
+    elif isinstance(eng_dict, dict):
+        engagement_profile = EngagementProfile(
+            client=str(eng_dict.get("client") or ""),
+            assessor=str(eng_dict.get("assessor") or ""),
+            engagement_type=str(eng_dict.get("engagement_type") or ""),
+            reference=str(eng_dict.get("reference") or ""),
+            date=str(eng_dict.get("date") or ""),
+            business_impact=str(eng_dict.get("business_impact") or ""),
+        )
+    else:
+        engagement_profile = EngagementProfile()
+
+    # 2. Parse Posture Diff
+    diff_val = payload.get("diff")
+    if isinstance(diff_val, DiffData):
+        diff_data = diff_val
+    elif isinstance(diff_val, dict):
+        diff_data = DiffData(
+            new_findings=int(diff_val.get("new_findings", 0)),
+            resolved_findings=int(diff_val.get("resolved_findings", 0)),
+            changed_findings=int(diff_val.get("changed_findings", 0)),
+            same_findings=int(diff_val.get("same_findings", 0)),
+            score_delta=int(diff_val.get("score_delta", 0)),
+            new_list=[dict_to_finding(f) for f in diff_val.get("new_list", [])],
+            resolved_list=[dict_to_finding(f) for f in diff_val.get("resolved_list", [])],
+        )
+    else:
+        diff_data = DiffData()
+
+    # 3. Parse Score History
+    score_history_list: list[ScoreHistory] = []
+    for sh in payload.get("score_history", []):
+        if isinstance(sh, ScoreHistory):
+            score_history_list.append(sh)
+        elif isinstance(sh, dict):
+            score_history_list.append(ScoreHistory(date=str(sh.get("date", "")), value=int(sh.get("value", 0))))
+
+    # 4. Map Sequential Attack Paths from chains and attack graph
+    raw_paths = payload.get("attack_paths")
+    if isinstance(raw_paths, AttackPathMap):
+        attack_paths_map = raw_paths
+    elif isinstance(raw_paths, dict) and "paths" in raw_paths:
+        attack_paths_map = AttackPathMap(paths=raw_paths["paths"], d3_json=raw_paths.get("d3_json", {}))
+    elif isinstance(raw_paths, list):
+        attack_paths_map = AttackPathMap(paths=raw_paths)
+    else:
+        paths_list = []
+        for chain in chains_data:
+            paths_list.append({
+                "target_asset": getattr(chain, "name", "Web Application"),
+                "complexity": "Low" if str(getattr(chain, "severity", "")).lower() == "critical" else "Medium",
+                "steps": getattr(chain, "steps", []),
+            })
+        attack_paths_map = AttackPathMap(paths=paths_list)
+
+    # 5. Extract Runtime Telemetry Metadata
+    raw_scan_metadata = payload.get("scan_metadata")
+    if isinstance(raw_scan_metadata, dict):
+        scan_meta_dict = raw_scan_metadata
+    else:
+        scan_meta_dict = {}
+
     scan_data = ScanData(
         scan_meta=scan_meta,
         intel=intel_data,
@@ -843,15 +991,16 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
         cloud_findings=[f for f in findings if 'cloud' in str(getattr(f, 'category', '')).lower() or 'secret' in str(getattr(f, 'id', '')).lower()],
         supply_chain=supply_chain_data,
         threat_intel=ThreatIntelReport(),
-        attack_paths=AttackPathMap(),
+        attack_paths=attack_paths_map,
         compliance=compliance_data,
-        checklist=ChecklistData(),
+        checklist=checklist_data,
         screenshots=screenshots_data,
         fp_log=suppressed,
-        diff=DiffData(),
+        diff=diff_data,
         score=Score(value=payload.get("score", 0), grade=payload.get("grade", "F")),
-        engagement=EngagementProfile(),
-        score_history=[]
+        engagement=engagement_profile,
+        score_history=score_history_list,
+        scan_metadata=scan_meta_dict,
     )
     
     generator = ReportGenerator(template_dir=str(Path(__file__).parent.parent / "templates"))
@@ -997,7 +1146,16 @@ class ReportGenerator:
         # Build Attack Surface Map (D3 data) dynamically if not provided
         d3_data = scan_data.attack_paths.d3_json if (scan_data.attack_paths and scan_data.attack_paths.d3_json) else self.build_d3_attack_map(scan_data)
 
-        scan_metadata = scan_data.scan_meta
+        # Preserve actual runtime telemetry metadata (cache hit rate, circuit breakers, degradation)
+        scan_metadata = getattr(scan_data, "scan_metadata", None) or getattr(scan_data.scan_meta, "scan_metadata", {})
+
+        # Extract AI executive remediation narrative if present
+        executive_narrative = ""
+        for f in scan_data.findings:
+            fid = str(getattr(f, "id", "") or (f.get("id", "") if isinstance(f, dict) else ""))
+            if fid == "AI-NARRATIVE-SUMMARY":
+                executive_narrative = str(getattr(f, "evidence", "") or (f.get("evidence", "") if isinstance(f, dict) else ""))
+                break
 
         html = template.render(
             scan=scan_data.scan_meta,
@@ -1019,8 +1177,10 @@ class ReportGenerator:
             fp_log=scan_data.fp_log,
             diff=scan_data.diff,
             score=scan_data.score,
+            score_history=scan_data.score_history,
             engagement=scan_data.engagement,
             chart_data=chart_data,
+            executive_narrative=executive_narrative,
             generated_at=datetime.now(timezone.utc).isoformat(),
             report_version="2.2.0"
         )
@@ -1029,6 +1189,7 @@ class ReportGenerator:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(html, encoding='utf-8')
         return str(output.absolute())
+
 
     def group_findings(self, findings):
         groups = {}

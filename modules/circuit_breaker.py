@@ -73,6 +73,7 @@ class CircuitBreaker:
             self.state = "CLOSED"
             return result
         except Exception as exc:
+            logger.debug("%s circuit caught failure: %s", self.name, exc)
             self.failure_count += 1
             if self.failure_count >= self.failure_threshold:
                 self.state = "OPEN"

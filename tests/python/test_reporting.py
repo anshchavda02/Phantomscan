@@ -425,6 +425,168 @@ def test_launcher_powershell_options():
     assert "cve_engine" in content
 
 
+def test_html_report_supply_chain_section(tmp_path: Path):
+    """Test that Software Supply Chain & Secrets section renders masked secrets and dependencies."""
+    from phantomscan.reporting import write_html_report
+
+    out_file = tmp_path / "supply_chain_report.html"
+    payload = {
+        "target": "https://api.example.com",
+        "score": 75,
+        "observations": [
+            {
+                "name": "secrets_discovered",
+                "value": [
+                    {
+                        "type": "AWS Access Key ID",
+                        "masked": "AKIAIOSFODNN7EXAMPLE",
+                        "location": "https://api.example.com/assets/app.bundle.js:142",
+                        "severity": "critical",
+                    }
+                ],
+            },
+            {
+                "name": "dependency_confusion_candidates",
+                "value": ["internal-auth-lib", "corp-utils"],
+            },
+            {
+                "name": "slopsquatting_candidates",
+                "value": ["phantom-helper-ai"],
+            },
+            {
+                "name": "scanned_dependencies",
+                "value": [
+                    {"name": "lodash", "version": "4.17.15", "type": "npm", "vulnerable": True},
+                    {"name": "requests", "version": "2.31.0", "type": "pypi", "vulnerable": False},
+                ],
+            },
+        ],
+        "findings": [],
+    }
+
+    write_html_report(out_file, payload)
+    assert out_file.exists()
+    html = out_file.read_text(encoding="utf-8")
+
+    assert "SUPPLY CHAIN &amp; SECRETS" in html or "SUPPLY CHAIN & SECRETS" in html
+    assert "AKIAIOSFODNN7EXAMPLE" in html
+    assert "AWS Access Key ID" in html
+    assert "internal-auth-lib" in html
+    assert "phantom-helper-ai" in html
+    assert "lodash" in html
+    assert "4.17.15" in html
+
+
+def test_html_report_engagement_profile_and_telemetry(tmp_path: Path):
+    """Test that engagement metadata and runtime telemetry appear in the generated report."""
+    from phantomscan.reporting import write_html_report
+
+    out_file = tmp_path / "engagement_report.html"
+    payload = {
+        "target": "https://secure.corp.local",
+        "score": 88,
+        "engagement": {
+            "client": "Acme Global Financial",
+            "assessor": "Senior Security Consultant",
+            "engagement_type": "PCI-DSS Pre-Audit",
+            "reference": "ENG-2026-904",
+            "business_impact": "Loss of transaction data integrity or unauthorized payment processing access.",
+        },
+        "scan_metadata": {
+            "cache_hit_rate": 0.425,
+            "circuit_breakers_opened": ["Active Port Prober", "Crawler Subprocess"],
+            "degradation_active": [{"module": "dir_enum", "reason": "Target 503 rate"}],
+        },
+        "findings": [],
+    }
+
+    write_html_report(out_file, payload)
+    assert out_file.exists()
+    html = out_file.read_text(encoding="utf-8")
+
+    # Engagement fields
+    assert "Acme Global Financial" in html
+    assert "Senior Security Consultant" in html
+    assert "PCI-DSS Pre-Audit" in html
+    assert "ENG-2026-904" in html
+    assert "Loss of transaction data integrity" in html
+
+    # Telemetry fields
+    assert "42.5%" in html
+    assert "Active Port Prober" in html
+    assert "1 fallback(s) active" in html
+
+
+def test_html_report_attack_paths_and_checklist(tmp_path: Path):
+    """Test that sequential attack paths and synthesized manual verification tasks render."""
+    from phantomscan.reporting import write_html_report
+
+    out_file = tmp_path / "paths_checklist_report.html"
+    payload = {
+        "target": "https://target.corp",
+        "score": 45,
+        "chains": [
+            {
+                "name": "Privilege Escalation via Leaked JWT",
+                "severity": "critical",
+                "steps": ["Exposed .env key", "Forge JWT signature", "Admin console takeover"],
+            }
+        ],
+        "findings": [
+            {
+                "id": "PS-PASSIVE-01",
+                "title": "Subdomain Takeover Dangling CNAME",
+                "severity": "high",
+                "confidence": "medium",
+                "verification_method": "passive_observation",
+                "module": "subdomain_takeover",
+                "target": "sub.target.corp",
+            },
+            {
+                "id": "AI-NARRATIVE-SUMMARY",
+                "title": "Automated Executive Narrative",
+                "severity": "info",
+                "confidence": "high",
+                "evidence": "Immediate remediation priority should focus on rotating the exposed database credentials and restricting ingress access on port 5432.",
+            },
+        ],
+        "diff": {
+            "new_findings": 2,
+            "resolved_findings": 1,
+            "changed_findings": 0,
+            "same_findings": 3,
+            "score_delta": -12,
+        },
+        "score_history": [
+            {"date": "2026-08-01", "value": 82},
+            {"date": "2026-09-01", "value": 70},
+        ],
+    }
+
+    write_html_report(out_file, payload)
+    assert out_file.exists()
+    html = out_file.read_text(encoding="utf-8")
+
+    # Attack path
+    assert "ATTACK PATH MAPPING" in html
+    assert "Privilege Escalation via Leaked JWT" in html
+    assert "Forge JWT signature" in html
+
+    # Checklist
+    assert "MANUAL VERIFICATION CHECKLIST" in html
+    assert "Verify: Subdomain Takeover Dangling CNAME" in html
+
+    # Diff & Score History
+    assert "POSTURE DELTA" in html
+    assert "SCORE HISTORY" in html or "HISTORICAL POSTURE" in html or "score-history" in html
+    assert "-12" in html
+
+    # Executive narrative
+    assert "Remediation Narrative" in html
+    assert "Immediate remediation priority should focus on rotating" in html
+
+
+
 
 
 

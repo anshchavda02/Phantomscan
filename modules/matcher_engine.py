@@ -42,8 +42,13 @@ class SafeDSLEvaluator:
         # Normalize common operators from Nuclei DSL syntax if present
         normalized = expression.replace("&&", " and ").replace("||", " or ").replace("!", " not ")
         try:
-            # Parse to AST to verify it's only expressions
+            # Parse to AST and validate safe nodes only
             tree = ast.parse(normalized, mode="eval")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                    return False
+                if isinstance(node, (ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp, ast.Yield, ast.YieldFrom)):
+                    return False
             code = compile(tree, filename="<dsl>", mode="eval")
             result = eval(code, {"__builtins__": {}}, safe_env)
             return bool(result)

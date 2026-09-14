@@ -1,0 +1,114 @@
+<!-- Software Supply Chain & Secrets Section -->
+{% set has_secrets = supply_chain and supply_chain.secrets and (supply_chain.secrets | length > 0) %}
+{% set has_confusion = supply_chain and supply_chain.dependency_confusion and (supply_chain.dependency_confusion | length > 0) %}
+{% set has_slop = supply_chain and supply_chain.slopsquatting and (supply_chain.slopsquatting | length > 0) %}
+{% set has_deps = supply_chain and supply_chain.dependencies and (supply_chain.dependencies | length > 0) %}
+
+{% if has_secrets or has_confusion or has_slop or has_deps %}
+<section id="supply-chain" class="section">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 8px;">
+        <div class="section-label" style="margin-bottom: 0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <span style="color: var(--teal);">SOFTWARE SUPPLY CHAIN &amp; SECRETS</span>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+            {% if has_secrets %}
+            <span class="pill badge-critical" style="font-size: 10px;">{{ supply_chain.secrets | length }} Secrets Exposed</span>
+            {% endif %}
+            {% if has_confusion %}
+            <span class="pill badge-high" style="font-size: 10px;">{{ supply_chain.dependency_confusion | length }} Confusion Risk</span>
+            {% endif %}
+            {% if has_slop %}
+            <span class="pill badge-medium" style="font-size: 10px;">{{ supply_chain.slopsquatting | length }} Slopsquatting</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Exposed Secrets Panel -->
+        {% if has_secrets %}
+        <div class="card" style="border-left: 3px solid var(--sev-critical);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="color: var(--sev-critical); font-size: 13px; font-family: 'Syne', sans-serif; margin: 0;">Exposed Credentials &amp; API Keys</h3>
+                <span class="pill badge-critical" style="font-size: 9px;">CRITICAL EXPOSURE</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                Hardcoded authentication tokens or API keys identified in client-accessible scripts or response bodies. Credentials are safely masked per Rule 6.3.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto;">
+                {% for sec in supply_chain.secrets %}
+                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div style="overflow: hidden;">
+                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
+                            <span class="pill badge-cat badge-cat-auth" style="font-size: 9px;">{{ sec.type or 'Secret' }}</span>
+                            {% if sec.location %}
+                            <span style="font-size: 10px; color: var(--text-tertiary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ sec.location }}">{{ sec.location }}</span>
+                            {% endif %}
+                        </div>
+                        <code style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--sev-critical);">{{ sec.value }}</code>
+                    </div>
+                    <button onclick="window.copyText('{{ sec.value }}', this)" class="copy-btn" style="padding: 3px 8px; font-size: 9px; background: var(--card); border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--r-compact); cursor: pointer;">COPY</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Dependency Confusion & Slopsquatting Panel -->
+        {% if has_confusion or has_slop %}
+        <div class="card" style="border-left: 3px solid var(--sev-high);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="color: var(--sev-high); font-size: 13px; font-family: 'Syne', sans-serif; margin: 0;">Package Integrity &amp; Slopsquatting</h3>
+                <span class="pill badge-high" style="font-size: 9px;">PACKAGE ALERT</span>
+            </div>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                Unclaimed internal dependencies vulnerable to public registry takeover or unverified AI-hallucinated package references.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto;">
+                {% for conf in supply_chain.dependency_confusion %}
+                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 10px 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                        <strong style="font-size: 12px; color: var(--text-primary);">{{ conf.package }}</strong>
+                        <span class="pill badge-high" style="font-size: 8px;">CONFUSION</span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">{{ conf.risk }}</div>
+                </div>
+                {% endfor %}
+
+                {% for slop in supply_chain.slopsquatting %}
+                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-compact); padding: 10px 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                        <strong style="font-size: 12px; color: var(--text-primary);">{{ slop.package }}</strong>
+                        <span class="pill badge-medium" style="font-size: 8px;">SLOPSQUAT</span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">{{ slop.risk }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Scanned Dependencies Panel -->
+        {% if has_deps %}
+        <div class="card" style="border-left: 3px solid var(--teal); {% if not (has_secrets and (has_confusion or has_slop)) %}grid-column: span 2;{% endif %}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="color: var(--teal); font-size: 13px; font-family: 'Syne', sans-serif; margin: 0;">Discovered Software Dependencies ({{ supply_chain.dependencies | length }})</h3>
+                <span class="pill" style="font-size: 9px;">SBOM TELEMETRY</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 220px; overflow-y: auto;">
+                {% for dep in supply_chain.dependencies %}
+                {% set dep_name = dep.name if dep.name is defined else (dep.package if dep.package is defined else dep) %}
+                {% set dep_ver = dep.version if dep.version is defined else '' %}
+                {% set dep_eco = dep.ecosystem if dep.ecosystem is defined else '' %}
+                <span class="pill" style="font-size: 10px; padding: 4px 8px; background: var(--surface); border: 1px solid var(--border);">
+                    {% if dep_eco %}<span style="color: var(--text-tertiary); margin-right: 4px;">[{{ dep_eco }}]</span>{% endif %}
+                    <strong style="color: var(--text-primary);">{{ dep_name }}</strong>
+                    {% if dep_ver %}<span style="color: var(--teal-light); margin-left: 4px;">@{{ dep_ver }}</span>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}

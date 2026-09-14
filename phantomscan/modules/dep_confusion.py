@@ -111,6 +111,6 @@ class DependencyConfusionChecker:
         )
         try:
             resp = await self.http.request("GET", url, timeout=5)
-            return resp.get("status") == 200
+            return resp.status == 200
         except Exception:
             return False

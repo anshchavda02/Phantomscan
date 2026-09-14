@@ -90,3 +90,52 @@ def test_xss_tests_url_params():
 
     assert not is_reflected_unencoded(raw, safe_body)
     assert is_reflected_unencoded(raw, vuln_body)
+
+
+@pytest.mark.asyncio
+async def test_stored_xss_no_false_positive_when_encoded():
+    """Mock form submission where server safely encodes HTML special characters.
+    Even though the alphanumeric marker is in the response body, angle brackets are encoded.
+    Assert: no Stored XSS finding produced.
+    """
+    class SafeFormClient:
+        def __init__(self):
+            self.stored = ""
+
+        async def get(self, url: str, **kwargs: Any) -> MockHTTPResult:
+            encoded = (
+                self.stored.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+                .replace("'", "&#39;")
+            )
+            body = (
+                f"<html><body><form action='http://test.local/comment' method='POST'>"
+                f"<input name='comment'/></form><div>Comments: {encoded}</div></body></html>"
+            ).encode()
+            return MockHTTPResult(status=200, body=body, headers={"content-type": "text/html"})
+
+        async def post(self, url: str, data: Any = None, **kwargs: Any) -> MockHTTPResult:
+            if isinstance(data, dict):
+                self.stored = data.get("comment", "")
+            return await self.get(url)
+
+    client = SafeFormClient()
+    scanner = XSSScanner(http=client)
+    observations = [
+        {
+            "name": "discovered_forms",
+            "value": [{
+                "action": "http://test.local/comment",
+                "method": "POST",
+                "inputs": [{"name": "comment", "type": "text"}],
+            }],
+            "source": "crawler",
+        }
+    ]
+
+    findings = await scanner.run("http://test.local", observations)
+    stored_findings = [f for f in findings if f.get("id") == "XSS-STORED"]
+    assert len(stored_findings) == 0, f"Expected 0 stored XSS findings when encoded, got {len(stored_findings)}"
+

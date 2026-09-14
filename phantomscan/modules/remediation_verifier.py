@@ -62,12 +62,9 @@ class RemediationVerifier:
         try:
             if hasattr(self.http, "get"):
                 resp = await self.http.get(target, retries=1)
-                body = resp.text() if hasattr(resp, "text") else str(resp.body)
             else:
                 resp = await self.http.request("GET", target, timeout=8)
-                body = resp.get("body", "")
-                if isinstance(body, bytes):
-                    body = body.decode("utf-8", errors="ignore")
+            body = resp.text() if hasattr(resp, "text") and callable(resp.text) else str(getattr(resp, "body", ""))
 
             # Check if evidence snippet still exists in response
             snippet = finding.get("evidence", "").split("\n")[0][:40]

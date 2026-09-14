@@ -15,9 +15,14 @@ node_modules/
 *.docx
 *.tex
 *.bib
+# Research papers, drafts, and academic publications (STRICT: NEVER COMMIT)
+*research*
+*RESEARCH*
+*Research*
+*Paper*
+*paper*
 docs/research_paper/
 research/
 .DS_Store
 benchmark_results_*.json
 .agents/
-

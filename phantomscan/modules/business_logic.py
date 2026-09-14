@@ -332,6 +332,7 @@ class BusinessLogicAnalyzer:
                             "confidence": "medium",
                             "category": "business-logic",
                             "target": url,
+                            "verification_method": "baseline_differential",
                             "evidence": (
                                 f"{method} {url} returned HTTP {response.status} "
                                 f"with {len(response.body)} bytes "

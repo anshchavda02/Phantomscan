@@ -96,8 +96,8 @@ def extract_injection_targets(
             )
 
     for obs in observations:
-        name = str(obs.get("name", ""))
-        val = obs.get("value", "")
+        name = obs.get("name", "") if isinstance(obs, dict) else getattr(obs, "name", "")
+        val = obs.get("value", "") if isinstance(obs, dict) else getattr(obs, "value", "")
 
         # 2. Parameterized and Discovered URLs from Crawler / HTTP headers
         if name in ("parameterized_urls", "discovered_urls", "http_url") and isinstance(
@@ -125,13 +125,19 @@ def extract_injection_targets(
         # 3. Discovered Forms (GET & POST)
         if name == "discovered_forms" and isinstance(val, list):
             for form in val:
-                if not isinstance(form, dict):
+                if isinstance(form, dict):
+                    action = form.get("action", clean_base)
+                    method = form.get("method", "POST").upper()
+                    fields = form.get("fields", [])
+                elif hasattr(form, "action"):
+                    action = getattr(form, "action", clean_base)
+                    method = getattr(form, "method", "POST").upper()
+                    fields = getattr(form, "fields", [])
+                else:
                     continue
-                action = form.get("action", clean_base)
+
                 if not action.startswith("http"):
                     action = urljoin(clean_base + "/", action)
-                method = form.get("method", "POST").upper()
-                fields = form.get("fields", [])
 
                 all_inputs: dict[str, str] = {}
                 hidden_fields: dict[str, str] = {}
@@ -154,16 +160,43 @@ def extract_injection_targets(
                         fname = fld.get("name", "").strip()
                         ftype = fld.get("type", "text").lower()
                         fval = str(fld.get("value", ""))
-                        if not fname:
-                            continue
+                    elif hasattr(fld, "name"):
+                        fname = getattr(fld, "name", "").strip()
+                        ftype = getattr(fld, "field_type", "text").lower()
+                        fval = str(getattr(fld, "default_value", ""))
+                    else:
+                        continue
 
-                        if ftype == "hidden":
-                            hidden_fields[fname] = fval
-                        elif ftype in injectable_types:
-                            all_inputs[fname] = fval or "test"
-                            fuzzable_fields.append((fname, fval))
-                        else:
-                            all_inputs[fname] = fval
+                    if not fname:
+                        continue
+
+                    if ftype == "hidden":
+                        hidden_fields[fname] = fval
+                    elif ftype in ("submit", "button"):
+                        all_inputs[fname] = fval or "Submit"
+                    elif ftype in injectable_types:
+                        all_inputs[fname] = fval or "test"
+                        fuzzable_fields.append((fname, fval))
+                    else:
+                        all_inputs[fname] = fval
+
+                # If the form action URL itself contains query parameters, extract them too
+                if "?" in action:
+                    parsed_act = urlparse(action)
+                    clean_act_url = urlunparse(parsed_act._replace(query=""))
+                    qs_act = parse_qs(parsed_act.query, keep_blank_values=True)
+                    all_p_act = {k: v[0] if v else "" for k, v in qs_act.items()}
+                    for pname, pval in all_p_act.items():
+                        add_target(
+                            InjectionTarget(
+                                url=clean_act_url,
+                                method="GET",
+                                param_name=pname,
+                                original_value=pval or "test",
+                                all_params=dict(all_p_act),
+                                target_type="query",
+                            )
+                        )
 
                 for fname, fval in fuzzable_fields:
                     add_target(

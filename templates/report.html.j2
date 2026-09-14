@@ -851,10 +851,13 @@
             document.querySelectorAll('.finding-card, .module-group').forEach(el => el.style.display = 'block');
         });
 
+        const scanTarget = {{ (scan.target or '') | tojson }};
+        const safeTargetSlug = scanTarget.replace(/[^a-zA-Z0-9.-]/g, '_') || 'target';
+
         window.exportJSON = function() {
             const reportData = {
                 version: "{{ report_version }}",
-                target: "{{ scan.target }}",
+                target: scanTarget,
                 score: {{ score.value | default(0) }},
                 grade: "{{ score.grade | default('N/A') }}",
                 timestamp: new Date().toISOString(),
@@ -864,7 +867,7 @@
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
             const a = document.createElement('a');
             a.href = dataStr;
-            a.download = "phantomscan_report_{{ scan.target }}.json";
+            a.download = `phantomscan_report_${safeTargetSlug}.json`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         };
 
@@ -882,7 +885,7 @@
             const rows = [headers.join(",")];
             findings.forEach(f => {
                 rows.push([
-                    escapeCSV(f.target || "{{ scan.target }}"),
+                    escapeCSV(f.target || scanTarget),
                     escapeCSV(f.title || ""),
                     escapeCSV(f.severity || "info"),
                     escapeCSV(f.confidence || "low"),
@@ -899,7 +902,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "phantomscan_audit_{{ scan.target }}.csv";
+            a.download = `phantomscan_audit_${safeTargetSlug}.csv`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         };
@@ -934,7 +937,7 @@
                     message: { text: `${f.title || ruleId}: ${f.evidence || 'Vulnerability detected.'}` },
                     locations: [{
                         physicalLocation: {
-                            artifactLocation: { uri: f.target || "{{ scan.target }}" },
+                            artifactLocation: { uri: f.target || scanTarget },
                             region: { startLine: 1 }
                         }
                     }]
@@ -959,7 +962,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "phantomscan_{{ scan.target }}.sarif.json";
+            a.download = `phantomscan_${safeTargetSlug}.sarif.json`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         };
@@ -1094,6 +1097,8 @@
         {% include 'partials/cve_section.html.j2' ignore missing %}
 
         {% include 'partials/api_section.html.j2' ignore missing %}
+
+        {% include 'partials/supply_chain.html.j2' ignore missing %}
 
         {% include 'partials/attack_path.html.j2' ignore missing %}
 

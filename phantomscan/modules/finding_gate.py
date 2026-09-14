@@ -153,6 +153,20 @@ def gate_finding(
                 )
                 return None
 
+    # ── Check 10: Anti-CSRF token findings require state-modifying HTTP methods ──
+    if fid == "CSRF-TOKEN-MISSING" or (candidate.get("category") == "csrf" and "token" in title.lower()):
+        method = str(candidate.get("method", "")).upper()
+        if not method and "HTTP Method:" in evidence:
+            m_meth = re.search(r"HTTP Method:\s*([A-Z]+)", evidence)
+            if m_meth:
+                method = m_meth.group(1).upper()
+        if method and method in ("GET", "HEAD", "OPTIONS"):
+            _reject(
+                candidate, fp_log,
+                f"Anti-CSRF tokens apply strictly to state-modifying requests; '{method}' is safe per RFC 7231",
+            )
+            return None
+
     # ── Enrich: ID, UID, rule_id, fingerprint ─────────────────────────────
     if not candidate.get("id") and title:
         candidate["id"] = "FINDING-" + re.sub(r"[^A-Z0-9]+", "-", title.upper()).strip("-")[:30]

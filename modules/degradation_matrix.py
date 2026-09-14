@@ -106,6 +106,16 @@ def build_health_status(
     return results
 
 
+_COMPONENT_NAMES: dict[str, str] = {
+    "go_scanner_binary_missing": "Go Port Scanner Engine",
+    "rust_ssl_binary_missing": "Rust TLS Engine",
+    "nodejs_unavailable": "Node.js / Playwright Engine",
+    "nvd_api_down": "NVD CVE API",
+    "nmap_not_installed": "Nmap Port Scanner",
+    "no_internet_connectivity": "Internet Connectivity",
+}
+
+
 def print_degradation_table(
     engine_statuses: dict[str, bool],
     console: Console | None = None,
@@ -145,8 +155,7 @@ def print_degradation_table(
             )
         else:
             table.add_row(
-                entry.condition.replace("not found", "").replace("missing", "").strip()
-                or key.replace("_", " ").title(),
+                _COMPONENT_NAMES.get(key, key.replace("_", " ").title()),
                 "[green]✓ Ready[/]",
                 "—",
                 "—",

@@ -115,16 +115,14 @@ class TicketingIntegration:
             "POST",
             f"{config.jira_url.rstrip('/')}/rest/api/2/issue",
             data=json.dumps(payload),
-            extra_headers={
+            headers={
                 "Authorization": f"Basic {auth_str}",
                 "Content-Type": "application/json",
             },
             timeout=10,
         )
 
-        body = resp.get("body", "{}")
-        if isinstance(body, bytes):
-            body = body.decode("utf-8", errors="ignore")
+        body = resp.text()
 
         data = json.loads(body) if body.startswith("{") else {}
         key = data.get("key", "")
@@ -159,7 +157,7 @@ class TicketingIntegration:
             "POST",
             config.slack_webhook_url,
             data=json.dumps(payload),
-            extra_headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         return TicketResult(finding_id=finding.get("id", ""))
@@ -190,7 +188,7 @@ class TicketingIntegration:
             "POST",
             config.teams_webhook_url,
             data=json.dumps(payload),
-            extra_headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         return TicketResult(finding_id=finding.get("id", ""))

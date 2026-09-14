@@ -92,7 +92,7 @@ class JWTOAuthTester:
         findings.extend(none_findings)
 
         # Test 2: Weak secret brute-force
-        weak_findings = self._test_weak_secret(token, header)
+        weak_findings = self._test_weak_secret(token, header, target=endpoint)
         findings.extend(weak_findings)
 
         # Test 3: Expired token acceptance
@@ -141,7 +141,7 @@ class JWTOAuthTester:
         return findings
 
     def _test_weak_secret(
-        self, token: str, header: dict[str, Any]
+        self, token: str, header: dict[str, Any], target: str = ""
     ) -> list[dict[str, Any]]:
         findings: list[dict[str, Any]] = []
         alg = header.get("alg", "")
@@ -171,7 +171,7 @@ class JWTOAuthTester:
                     "category": "jwt",
                     "verification_method": "active_confirmation",
                     "module": "jwt_oauth",
-                    "target": "",
+                    "target": target,
                     "evidence": (
                         f"JWT HMAC secret cracked: '{secret}' "
                         f"(algorithm: {alg}). Any party knowing this "
@@ -209,7 +209,7 @@ class JWTOAuthTester:
                     "id": "JWT-EXPIRY-NOT-ENFORCED",
                     "title": "JWT Expiry Not Enforced",
                     "severity": "high",
-                    "confidence": "medium",
+                    "confidence": "high",
                     "category": "jwt",
                     "verification_method": "active_confirmation",
                     "module": "jwt_oauth",

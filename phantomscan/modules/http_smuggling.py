@@ -73,7 +73,7 @@ class HTTPSmugglingDetector:
                 return {
                     "id": "SMUGGLING-CLTE",
                     "title": "Possible HTTP Request Smuggling (CL.TE)",
-                    "severity": "high",
+                    "severity": "medium",
                     "confidence": "medium",
                     "category": "http-smuggling",
                     "target": f"http://{host}:{port}",
@@ -126,7 +126,7 @@ class HTTPSmugglingDetector:
                 return {
                     "id": "SMUGGLING-TECL",
                     "title": "Possible HTTP Request Smuggling (TE.CL)",
-                    "severity": "high",
+                    "severity": "medium",
                     "confidence": "medium",
                     "category": "http-smuggling",
                     "target": f"http://{host}:{port}",
@@ -173,7 +173,7 @@ class HTTPSmugglingDetector:
                     return {
                         "id": "SMUGGLING-TETE",
                         "title": "Possible HTTP Request Smuggling (TE.TE Obfuscation)",
-                        "severity": "high",
+                        "severity": "medium",
                         "confidence": "low",
                         "category": "http-smuggling",
                         "target": f"http://{host}:{port}",

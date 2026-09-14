@@ -91,15 +91,24 @@ class DirectoryEnumerator:
                     logger.debug("Suppressed: %s body length matches catch-all baseline", probe_url)
                     return None
 
+            if status == 403:
+                title = f"Directory Exists (Access Blocked): {path}"
+                severity = "info"
+                recommendation = f"Directory {path} returned HTTP 403 Forbidden. Verify access control is intended and headers do not leak backend details."
+            else:
+                title = f"Directory Accessible: {path}"
+                severity = "low"
+                recommendation = f"Restrict directory browsing for {path} if not intended for public access."
+
             return Finding(
                 id=f"DIR-ENUM-{path.replace('/', '-').strip('-').upper()}",
-                title=f"Directory Accessible: {path}",
-                severity="low",
+                title=title,
+                severity=severity,
                 confidence="medium",
                 category="web",
                 target=probe_url,
                 evidence=f"GET {probe_url} → HTTP {status}",
-                recommendation=f"Restrict directory browsing for {path} if not intended for public access.",
+                recommendation=recommendation,
                 verification_method="baseline_differential",
                 cwe="CWE-538",
             )

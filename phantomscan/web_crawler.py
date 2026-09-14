@@ -116,6 +116,35 @@ _API_PATHS = [
     "/rest/user/whoami", "/rest/basket/1",
 ]
 
+_COMMON_APP_PATHS = [
+    # Common web application entry points & directories
+    "/news", "/blog", "/articles", "/readnews", "/posts",
+    "/comments", "/comment", "/feedback", "/forum", "/guestbook",
+    "/search", "/find", "/query",
+    "/login", "/signin", "/auth", "/signup", "/register",
+    "/about", "/contact", "/help", "/profile", "/user",
+    "/products", "/items", "/cart", "/catalog",
+    # Common ASP.NET / IIS endpoints with seed parameters
+    "/ReadNews.aspx", "/ReadNews.aspx?id=0", "/ReadNews.aspx?id=1",
+    "/ReadNews.aspx?id=0&NewsAd=ads/def.html", "/ReadNews.aspx?id=1&NewsAd=ads/def.html",
+    "/Comments.aspx", "/Comments.aspx?id=0", "/Comments.aspx?id=1",
+    "/Search.aspx", "/Search.aspx?tfSearch=test",
+    "/News.aspx", "/Articles.aspx", "/Blog.aspx",
+    "/Login.aspx", "/login.aspx", "/Signup.aspx", "/signup.aspx",
+    "/About.aspx", "/about.aspx", "/Contact.aspx",
+    # Common PHP endpoints with seed parameters
+    "/search.php", "/search.php?test=query",
+    "/artists.php", "/artists.php?artist=1",
+    "/listproducts.php", "/listproducts.php?cat=1",
+    "/product.php", "/product.php?pic=1",
+    "/showimage.php", "/showimage.php?file=./pictures/1.jpg",
+    "/comment.php", "/comment.php?aid=1",
+    "/guestbook.php", "/login.php", "/userinfo.php",
+    "/news.php", "/read.php",
+]
+
+_DISCOVERY_PATHS = list(dict.fromkeys(_API_PATHS + _COMMON_APP_PATHS))
+
 
 # ── Web Crawler ──────────────────────────────────────────────────────────────
 
@@ -154,14 +183,25 @@ class WebCrawler:
                 if seed and allowed_netloc in seed.lower():
                     await self._crawl_page(seed, base, allowed_netloc, 0, result)
 
-        # Phase 2: Probe common API paths
+        # Phase 2: Probe common API & web application paths
         api_results = await self._discover_api_endpoints(base)
         result.api_endpoints.extend(api_results)
+        for ep in api_results:
+            ep_url = ep.get("url")
+            if ep_url:
+                if ep_url not in result.urls:
+                    result.urls.append(ep_url)
+                if "?" in ep_url and ep_url not in result.parameterized_urls:
+                    result.parameterized_urls.append(ep_url)
+                ct = str(ep.get("content_type", "")).lower()
+                norm = ep_url.split("#")[0].rstrip("/")
+                if ("html" in ct or "text" in ct) and norm not in self._visited and len(self._visited) < self.max_pages:
+                    await self._crawl_page(ep_url, base, allowed_netloc, 1, result)
 
         # Phase 3: Extract parameterized URLs
         for url in result.urls:
             parsed = urlparse(url)
-            if parsed.query:
+            if parsed.query and url not in result.parameterized_urls:
                 result.parameterized_urls.append(url)
 
         logger.info(
@@ -210,19 +250,33 @@ class WebCrawler:
             return
 
         body = resp.text()
-        result.urls.append(url)
+        if url not in result.urls:
+            result.urls.append(url)
+        parsed_current = urlparse(url)
+        if parsed_current.query and url not in result.parameterized_urls:
+            result.parameterized_urls.append(url)
 
         # Extract links
         links = self._extract_links(body, url, allowed_netloc)
+        for link in links:
+            if link not in result.urls:
+                result.urls.append(link)
+            if "?" in link and link not in result.parameterized_urls:
+                result.parameterized_urls.append(link)
 
         # Extract forms
         forms = self._extract_forms(body, url)
         result.forms.extend(forms)
+        for f in forms:
+            if f.action and f.action not in result.urls:
+                result.urls.append(f.action)
+            if f.action and "?" in f.action and f.action not in result.parameterized_urls:
+                result.parameterized_urls.append(f.action)
 
         # Recurse into discovered links
         tasks = []
         for link in links:
-            if len(self._visited) >= self.max_pages or len(tasks) >= 15:
+            if len(self._visited) >= self.max_pages or len(tasks) >= 20:
                 break
             link_norm = link.split("#")[0].rstrip("/")
             if link_norm not in self._visited:
@@ -234,30 +288,40 @@ class WebCrawler:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     def _extract_links(self, body: str, current_url: str, allowed_netloc: str) -> list[str]:
-        """Extract same-origin links from HTML body."""
+        """Extract same-origin links from HTML body across <a>, <iframe>, <frame>, <form>, <area>, and <embed> tags."""
         import html
         links: list[str] = []
-        for match in re.finditer(r'<a\s[^>]*href=["\']([^"\'#][^"\']*)', body, re.I):
-            href = html.unescape(match.group(1).strip())
-            if href.startswith(("javascript:", "mailto:", "tel:", "data:")):
-                continue
+        tag_patterns = [
+            r'<a\s[^>]*href=["\']([^"\'#][^"\']*)',
+            r'<iframe\s[^>]*src=["\']([^"\'#][^"\']*)',
+            r'<frame\s[^>]*src=["\']([^"\'#][^"\']*)',
+            r'<form\s[^>]*action=["\']([^"\'#][^"\']*)',
+            r'<area\s[^>]*href=["\']([^"\'#][^"\']*)',
+            r'<embed\s[^>]*src=["\']([^"\'#][^"\']*)',
+        ]
+        for pattern in tag_patterns:
+            for match in re.finditer(pattern, body, re.I):
+                href = html.unescape(match.group(1).strip())
+                if href.startswith(("javascript:", "mailto:", "tel:", "data:")):
+                    continue
 
-            full_url = urljoin(current_url, href)
-            parsed = urlparse(full_url)
+                full_url = urljoin(current_url, href)
+                parsed = urlparse(full_url)
 
-            # Only follow same-origin links
-            if parsed.netloc.lower() != allowed_netloc:
-                continue
-            # Skip non-HTTP
-            if parsed.scheme not in ("http", "https"):
-                continue
-            # Skip binary resources
-            ext = parsed.path.rsplit(".", 1)[-1].lower() if "." in parsed.path else ""
-            if ext in {"jpg", "jpeg", "png", "gif", "svg", "ico", "css", "js",
-                       "woff", "woff2", "ttf", "eot", "pdf", "zip", "mp4", "mp3"}:
-                continue
+                # Only follow same-origin links
+                if parsed.netloc.lower() != allowed_netloc:
+                    continue
+                # Skip non-HTTP
+                if parsed.scheme not in ("http", "https"):
+                    continue
+                # Skip binary resources
+                ext = parsed.path.rsplit(".", 1)[-1].lower() if "." in parsed.path else ""
+                if ext in {"jpg", "jpeg", "png", "gif", "svg", "ico", "css", "js",
+                           "woff", "woff2", "ttf", "eot", "pdf", "zip", "mp4", "mp3"}:
+                    continue
 
-            links.append(full_url)
+                if full_url not in links:
+                    links.append(full_url)
 
         return links
 
@@ -414,7 +478,7 @@ class WebCrawler:
             return None
 
         results = await asyncio.gather(
-            *(probe(p) for p in _API_PATHS),
+            *(probe(p) for p in _DISCOVERY_PATHS),
             return_exceptions=True,
         )
         for r in results:

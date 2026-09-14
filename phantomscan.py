@@ -782,7 +782,14 @@ async def scan_one(
 
     # ── Post-processing and scoring ───────────────────────────────────────────
     safe_target = target.host.replace("/", "_").replace(":", "_")
-    include_medium = args.show_medium or args.show_all or args.confidence in {"medium", "low"}
+    explicit_confidence = any(arg.startswith("--confidence") for arg in sys.argv)
+    is_deep_profile = getattr(args, "profile", "") in {"deep", "deepscan", "advanced", "bug-bounty"} or getattr(args, "advanced", False)
+    include_medium = (
+        args.show_medium
+        or args.show_all
+        or args.confidence in {"medium", "low"}
+        or (is_deep_profile and not explicit_confidence)
+    )
     include_low = args.show_all or args.confidence == "low"
 
     # Parse timestamp for report filenames (YYYYMMDD_HHMMSS)

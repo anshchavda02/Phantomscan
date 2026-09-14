@@ -68,16 +68,35 @@ class CSRFDetector:
             method = form.get("method", "GET").upper()
             fields = form.get("fields", [])
 
-            # Focus on POST forms or state-changing action endpoints
+            # Safe HTTP methods (GET, HEAD, OPTIONS) do not alter server-side state
+            # per RFC 7231 / RFC 9110. CSRF protection applies exclusively to state-modifying
+            # methods (POST, PUT, DELETE, PATCH). Transmitting anti-CSRF tokens in GET queries
+            # is itself a security anti-pattern (CWE-598: token leakage via logs and Referer).
+            if method not in ("POST", "PUT", "DELETE", "PATCH"):
+                continue
+
             parsed = urlparse(action)
             action_path = parsed.path.lower()
 
-            is_state_changing = (
-                method == "POST"
-                or any(kw in action_path for kw in _STATE_CHANGING_KEYWORDS)
-            )
+            # Ignore pure search queries (non-state-changing query interfaces)
+            _SEARCH_FIELD_PATTERNS = [
+                r"^(q|k|s|query|search|keywords?|search_?terms?|field[-_]?keywords?|find)$",
+            ]
+            field_names_preview = [
+                fld.get("name", "") if isinstance(fld, dict) else getattr(fld, "name", "")
+                for fld in fields
+            ]
+            field_names_clean = [f for f in field_names_preview if f]
+            if field_names_clean and all(
+                any(re.search(pat, f.lower()) for pat in _SEARCH_FIELD_PATTERNS)
+                for f in field_names_clean
+            ):
+                continue
 
-            if not is_state_changing:
+            # Filter out purely non-actionable telemetry / tracking tokens
+            _TRACKING_FIELDS = {"ue_back", "_ga", "_gid", "timestamp", "ts"}
+            actionable_fields = [f for f in field_names_clean if f.lower() not in _TRACKING_FIELDS]
+            if not actionable_fields:
                 continue
 
             if action in tested_actions:
@@ -97,7 +116,7 @@ class CSRFDetector:
                         has_csrf_token = True
                         break
 
-            if not has_csrf_token and field_names:
+            if not has_csrf_token and actionable_fields:
                 findings.append({
                     "id": "CSRF-TOKEN-MISSING",
                     "title": f"Absence of Anti-CSRF Tokens: Form at '{action}'",

@@ -27,7 +27,7 @@ def is_reflected_unencoded(payload: str, body: str) -> bool:
         return False
     encoded = payload.replace("<", "&lt;").replace(">", "&gt;")
     # If HTML-encoded version appears and raw payload is not present outside of it
-    if encoded in body and payload not in body.replace(encoded, ""):
+    if encoded != payload and encoded in body and payload not in body.replace(encoded, ""):
         return False
     # If < is in payload, verify literal < is present in body
     if "<" in payload and "<" not in body:
@@ -35,10 +35,14 @@ def is_reflected_unencoded(payload: str, body: str) -> bool:
     # If > is in payload, verify literal > is present in body
     if ">" in payload and ">" not in body:
         return False
-    # Check for HTML entity marker escaping
-    marker = payload.replace("<", "").replace(">", "").strip("/\"'")
-    if f"&lt;{marker}" in body or f"&lt;/{marker}" in body or f"&#60;{marker}" in body or f"\\u003c{marker}" in body:
-        return False
+    # Check for HTML entity marker escaping, but ensure raw payload outside entity escapes is honored
+    if "<" in payload or ">" in payload:
+        marker = payload.replace("<", "").replace(">", "").strip("/\"'")
+        clean_body = body
+        for esc in (f"&lt;{marker}", f"&lt;/{marker}", f"&#60;{marker}", f"\\u003c{marker}"):
+            clean_body = clean_body.replace(esc, "")
+        if payload not in clean_body:
+            return False
     return True
 
 
@@ -50,6 +54,16 @@ def _determine_context(payload: str, body: str) -> tuple[str, str]:
 
     prefix = body[max(0, idx - 100):idx]
     suffix = body[idx + len(payload):min(len(body), idx + len(payload) + 100)]
+
+    # Check if reflected inside src="..." or href="..." attribute with javascript:
+    if "javascript:" in payload.lower():
+        pattern = re.compile(
+            r'(?:href|src|action|data|formaction)\s*=\s*["\']?' + re.escape(payload),
+            re.IGNORECASE,
+        )
+        if pattern.search(body):
+            return "high", "uri_attribute_sink"
+        return "info", "plain_text"
 
     # Trapped in HTML comment
     if "<!--" in prefix and "-->" in suffix and "-->" not in prefix:
@@ -73,6 +87,7 @@ REFLECTED_PAYLOADS: list[str] = [
     "<phantomscan_xss_probe>",
     '"><phantomscan_xss_break>',
     "'><phantomscan_xss_break>",
+    "javascript:/*phantomscan*/alert(1)",
 ]
 
 
@@ -158,6 +173,24 @@ class XSSScanner:
             try:
                 if isinstance(target, InjectionTarget) and target.method == "POST":
                     form_data = dict(target.hidden_fields)
+                    # Refresh ASP.NET ViewState or CSRF tokens if needed
+                    if any(k.startswith("__") for k in form_data) or not form_data:
+                        try:
+                            f_get = await self.http.get(target.url, retries=1, timeout=_aiohttp.ClientTimeout(total=5))
+                            f_html = f_get.text()
+                            for m_tag in re.finditer(r'<input\s+([^>]*?)>', f_html, re.I):
+                                attrs = m_tag.group(1)
+                                nm = re.search(r'name=["\']([^"\']*)', attrs, re.I)
+                                vm = re.search(r'value=["\']([^"\']*)', attrs, re.I)
+                                tm = re.search(r'type=["\']([^"\']*)', attrs, re.I)
+                                if nm:
+                                    n_str = nm.group(1)
+                                    v_str = vm.group(1) if vm else ""
+                                    t_str = tm.group(1).lower() if tm else "text"
+                                    if t_str in ("hidden", "submit", "button") or n_str.startswith("__"):
+                                        form_data[n_str] = v_str
+                        except Exception:
+                            pass
                     form_data.update(target.all_params)
                     form_data[param_name] = payload
                     response = await self.http.post(
@@ -205,6 +238,12 @@ class XSSScanner:
                 # Check if the payload appears UNENCODED in the response
                 if self._is_reflected_not_encoded(payload, body, baseline_body):
                     severity, context_type = _determine_context(payload, body)
+                    # If reflection is trapped without breakout (comment, script string literal, plain text), it cannot execute
+                    if severity == "info":
+                        continue
+                    # For javascript: pseudo-protocol payloads, only report if reflected in an executable attribute sink
+                    if "javascript:" in payload.lower() and context_type != "uri_attribute_sink":
+                        continue
                     confidence = "high" if severity == "high" else "low"
                     return {
                         "id": "XSS-REFLECTED",
@@ -252,19 +291,34 @@ class XSSScanner:
         form_targets: list[tuple[str, str, str, list[dict[str, Any]]]] = []
 
         for obs in observations:
-            if obs.get("name") != "discovered_forms":
+            obs_name = obs.get("name") if isinstance(obs, dict) else getattr(obs, "name", "")
+            if obs_name != "discovered_forms":
                 continue
-            forms = obs.get("value", [])
+            forms = obs.get("value", []) if isinstance(obs, dict) else getattr(obs, "value", [])
             if not isinstance(forms, list):
                 continue
 
             for form in forms:
-                action = form.get("action", target)
-                method = form.get("method", "GET").upper()
-                fields = form.get("fields", [])
+                if isinstance(form, dict):
+                    action = form.get("action", target)
+                    method = form.get("method", "GET").upper()
+                    fields = form.get("fields", [])
+                elif hasattr(form, "action"):
+                    action = getattr(form, "action", target)
+                    method = getattr(form, "method", "GET").upper()
+                    fields = [
+                        {
+                            "name": getattr(fld, "name", ""),
+                            "type": getattr(fld, "field_type", "text"),
+                            "value": getattr(fld, "default_value", ""),
+                        }
+                        for fld in getattr(form, "fields", [])
+                    ]
+                else:
+                    continue
 
                 # Exclude password fields from testing
-                text_types = {"text", "search", "email", "tel", "url", "number", ""}
+                text_types = {"text", "search", "email", "tel", "url", "number", "textarea", ""}
                 text_fields = [
                     f for f in fields
                     if f.get("type", "text").lower() in text_types
@@ -362,18 +416,44 @@ class XSSScanner:
         forms_to_test: list[dict[str, Any]] = []
 
         for obs in observations:
-            if obs.get("name") == "discovered_forms":
-                val = obs.get("value", [])
+            obs_name = obs.get("name") if isinstance(obs, dict) else getattr(obs, "name", "")
+            if obs_name == "discovered_forms":
+                val = obs.get("value", []) if isinstance(obs, dict) else getattr(obs, "value", [])
                 if isinstance(val, list):
                     for f in val:
                         if isinstance(f, dict):
-                            act = f.get("action", "")
-                            if any(kw in act.lower() for kw in ["guestbook", "comment", "feedback", "review", "message", "post"]):
-                                forms_to_test.append(f)
+                            forms_to_test.append(f)
+                        elif hasattr(f, "action"):
+                            f_fields = [
+                                {
+                                    "name": getattr(fld, "name", ""),
+                                    "type": getattr(fld, "field_type", "text"),
+                                    "value": getattr(fld, "default_value", ""),
+                                }
+                                for fld in getattr(f, "fields", [])
+                            ]
+                            forms_to_test.append({
+                                "action": getattr(f, "action", ""),
+                                "method": getattr(f, "method", "POST"),
+                                "fields": f_fields,
+                            })
+
+        candidate_forms: list[dict[str, Any]] = []
+        for f in forms_to_test:
+            act = str(f.get("action", "")).lower()
+            flds = f.get("fields", [])
+            has_kw = any(kw in act for kw in ["guestbook", "comment", "feedback", "review", "message", "post", "contact"])
+            has_interactive = any(
+                str(fld.get("type", "")).lower() == "textarea"
+                or any(k in str(fld.get("name", "")).lower() for k in ["comment", "msg", "text", "body", "desc"])
+                for fld in flds
+            )
+            if has_kw or has_interactive:
+                candidate_forms.append(f)
 
         # Fallback to known stored XSS paths if none discovered in crawl
-        if not forms_to_test:
-            forms_to_test.append({
+        if not candidate_forms and not forms_to_test:
+            candidate_forms.append({
                 "action": f"{base}/guestbook.php",
                 "method": "POST",
                 "fields": [
@@ -383,8 +463,10 @@ class XSSScanner:
                     {"name": "text", "type": "textarea", "value": ""},
                 ],
             })
+        elif not candidate_forms:
+            candidate_forms = forms_to_test[:5]
 
-        for form in forms_to_test[:10]:
+        for form in candidate_forms[:10]:
             action = form.get("action", "")
             if not action.startswith("http"):
                 action = f"{base}/{action.lstrip('/')}"
@@ -392,8 +474,8 @@ class XSSScanner:
             fields = form.get("fields", [])
 
             unique_id = uuid.uuid4().hex[:8]
-            marker = f"ps-stored-{unique_id}"
-            payload = f"<span id='{marker}'>ps_test</span>"
+            marker = f"psxss{unique_id}"
+            payload = f"<phantomscan-{marker}>"
 
             # Fetch fresh tokens and state from live form page
             live_fields: dict[str, str] = {}
@@ -454,12 +536,7 @@ class XSSScanner:
                     post_body = post_resp.text()
 
                 # Check reflection in POST response
-                reflected_in_post = marker in post_body and (
-                    is_reflected_unencoded(payload, post_body)
-                    or f"id=\"{marker}\"" in post_body
-                    or f"id='{marker}'" in post_body
-                    or marker in post_body
-                )
+                reflected_in_post = is_reflected_unencoded(payload, post_body) or marker in post_body
 
                 # Step 2: Fetch the view page
                 view_resp = await self.http.get(
@@ -469,12 +546,7 @@ class XSSScanner:
                 )
                 body = view_resp.text()
 
-                reflected_in_get = marker in body and (
-                    is_reflected_unencoded(payload, body)
-                    or f"id=\"{marker}\"" in body
-                    or f"id='{marker}'" in body
-                    or marker in body
-                )
+                reflected_in_get = is_reflected_unencoded(payload, body) or marker in body
 
                 if reflected_in_post or reflected_in_get:
                     findings.append({

@@ -134,19 +134,22 @@ class ModuleScheduler:
             "business_logic",
             "cve_lookup",
         ],
-        # Tier 6: Needs all findings collected
+        # Tier 6: Needs all findings collected — validate candidate findings
         6: [
             "finding_gate",
+        ],
+        # Tier 7: Suppress false positives on validated findings
+        7: [
             "fp_postprocessor",
         ],
-        # Tier 7: Needs clean findings
-        7: [
+        # Tier 8: Needs clean findings — calculate score, chains, compliance
+        8: [
             "score_engine",
             "chain_engine",
             "compliance_mapper",
         ],
-        # Tier 8: Report generation
-        8: [
+        # Tier 9: Report generation
+        9: [
             "reporter",
         ],
     }

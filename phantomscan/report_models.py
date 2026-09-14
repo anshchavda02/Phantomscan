@@ -166,6 +166,7 @@ class ThreatIntelReport:
 @dataclass
 class AttackPathMap:
     d3_json: Dict[str, Any] = field(default_factory=dict)
+    paths: List[Dict[str, Any]] = field(default_factory=list)
 
 @dataclass
 class ComplianceData:
@@ -222,6 +223,7 @@ class EngagementProfile:
     engagement_type: str = ""
     reference: str = ""
     date: str = ""
+    business_impact: str = ""
 
 @dataclass
 class ScanData:
@@ -243,3 +245,4 @@ class ScanData:
     score: Score
     engagement: EngagementProfile
     score_history: List[ScoreHistory]
+    scan_metadata: Dict[str, Any] = field(default_factory=dict)

@@ -194,6 +194,9 @@ while ($true) {
         if ($useAdvanced -and ($scanProfile -notin @("advanced", "deep"))) {
             $localArgs += "--advanced"
         }
+        if ($useAdvanced -or ($scanProfile -in @("advanced", "deep"))) {
+            $localArgs += "--show-medium"
+        }
         $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
         Write-Host ""
         Write-Host "Running scan: & `"$Python`" `"$Cli`" $($localArgs -join ' ')" -ForegroundColor Cyan
@@ -474,6 +477,7 @@ while ($true) {
         # Options specific to advanced/deep profiles
         if ($profile -eq "deep" -or $profile -eq "deepscan") {
             $scanArgs += "--advanced"
+            $scanArgs += "--show-medium"
         } elseif ($profile -eq "advanced" -or $profile -eq "monitor") {
             $runAllAdvanced = Read-YesNo "Run all 38 advanced modules (y) or select specific ones (n)" $true
             if ($runAllAdvanced) {
