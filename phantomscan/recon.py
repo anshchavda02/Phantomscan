@@ -738,7 +738,7 @@ async def deep_analyze_web(
                     findings.append(
                         Finding(
                             id="CORS-WILDCARD-ORIGIN",
-                            title="CORS wildcard origin (any domain can cross-request)",
+                            title="CORS Wildcard Origin Advertised",
                             severity="low",
                             confidence="high",
                             category="web",

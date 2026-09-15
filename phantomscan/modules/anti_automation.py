@@ -231,10 +231,34 @@ class AntiAutomationTester:
                     has_progressive_delay = True
 
             if not has_progressive_delay:
+                # Detect OAuth endpoints — rate limiting is handled server-side
+                # at the identity provider (IdP), not at the authorization page.
+                # Status 200 on an OAuth page means "authorization form served",
+                # not "login accepted".
+                _OAUTH_INDICATORS = [
+                    "redirect_uri", "client_id", "response_type", "scope",
+                    "state", "code_challenge", "nonce", "oauth", "authorize",
+                    "openid", "oidc",
+                ]
+                login_url_lower = login_url.lower()
+                is_oauth = any(ind in login_url_lower for ind in _OAUTH_INDICATORS)
+
+                finding_severity = "info" if is_oauth else "medium"
+                finding_title = (
+                    "OAuth Login Endpoint — Rate Limiting Evaluated at IdP"
+                    if is_oauth
+                    else "No Rate Limiting or Brute-Force Protection on Login"
+                )
+                evidence_extra = (
+                    "\nNote: This is an OAuth authorization endpoint. Rate limiting "
+                    "and brute-force protection are typically enforced by the identity "
+                    "provider (IdP) server-side, not visible at the client."
+                ) if is_oauth else ""
+
                 findings.append({
                     "id": "AUTH-NO-BRUTE-FORCE-PROTECTION",
-                    "title": "No Rate Limiting or Brute-Force Protection on Login",
-                    "severity": "medium",
+                    "title": finding_title,
+                    "severity": finding_severity,
                     "confidence": "medium",
                     "category": "authentication",
                     "target": login_url,
@@ -243,6 +267,7 @@ class AntiAutomationTester:
                         f"No CAPTCHA detected in login page\n"
                         f"No progressive delay observed\n"
                         f"Response times: {[r['time'] for r in attempt_results]}"
+                        f"{evidence_extra}"
                     ),
                     "recommendation": (
                         "Implement rate limiting, CAPTCHA after failed attempts, "

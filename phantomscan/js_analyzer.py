@@ -199,6 +199,41 @@ class JSRouteExtractor:
                         continue
                     seen_secret_values.add(secret_val)
 
+                    # Context validation: Twilio SIDs require proximity to
+                    # Twilio-related keywords to confirm it's an actual SID
+                    # rather than a random hex string in base64/hash data.
+                    sec_name_lower = sec_name.lower()
+                    if "twilio" in sec_name_lower and "sid" in sec_name_lower:
+                        # Search for Twilio context within ±200 chars of match
+                        start = max(0, sm.start() - 200)
+                        end = min(len(content), sm.end() + 200)
+                        context = content[start:end].lower()
+                        twilio_keywords = ("twilio", "accountsid", "account_sid",
+                                           "twlo", "messaging", "programmable")
+                        if not any(kw in context for kw in twilio_keywords):
+                            continue
+
+                    # Context validation: Generic password matches must not be
+                    # JavaScript property accesses, variable references, or
+                    # form field name assignments.
+                    if "password" in sec_name_lower or "generic password" in sec_name_lower:
+                        # Value cannot contain statement or block terminators
+                        if any(c in secret_val for c in (";", "\n", "\r", "{", "}", ",")):
+                            continue
+                        context_start = max(0, sm.start() - 50)
+                        pre_context = content[context_start:sm.start()].strip()
+                        # Skip object property accesses like: a.password, obj.password, el.password
+                        if re.search(r"\.\s*$", pre_context) or re.search(r"\.\w+$", pre_context):
+                            continue
+                        # Skip form field references like: getElementById("password")
+                        if re.search(r"(?:getElementById|querySelector|getElementsByName)\s*\(\s*$", pre_context):
+                            continue
+                        # Skip validation patterns like: password.length, password ===
+                        post_context_end = min(len(content), sm.end() + 30)
+                        post_context = content[sm.end():post_context_end].strip()
+                        if re.search(r"^\s*(?:\.length|===|!==|\|\||&&)", post_context):
+                            continue
+
                     is_public_id = severity in ("low", "info")
                     rec = (
                         "Verify that this client-side API identifier is locked to authorized "

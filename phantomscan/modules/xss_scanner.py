@@ -549,9 +549,10 @@ class XSSScanner:
                 reflected_in_get = is_reflected_unencoded(payload, body) or marker in body
 
                 if reflected_in_post or reflected_in_get:
+                    display_action = action if len(action) <= 80 else action[:77] + "..."
                     findings.append({
                         "id": "XSS-STORED",
-                        "title": f"Stored Cross-Site Scripting (XSS): Form at '{action}'",
+                        "title": f"Stored Cross-Site Scripting (XSS): Form at '{display_action}'",
                         "severity": "high",
                         "confidence": "high",
                         "category": "injection",

@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 from phantomscan.http_client import RobustHTTPClient, HTTPResult
 from phantomscan.injection_target import InjectionTarget
 from phantomscan.js_analyzer import JSRouteExtractor
+from phantomscan.modules.business_logic import BusinessLogicAnalyzer
 from phantomscan.modules.compliance import ComplianceReporter
 from phantomscan.modules.ai_narrative import AINarrativeReporter
 from phantomscan.modules.idor_detector import IDORDetector
@@ -331,4 +332,145 @@ def test_compliance_benchmarks_no_meta_self_matching():
     assert nist_fw["passed"] >= 6
     assert not any("AC-3" in c for c in nist_fw["failing_controls"])
     assert not any("SI-10" in c for c in nist_fw["failing_controls"])
+
+
+# ── 6. Business Logic Method Tampering Static Terms & Baseline Diff ───────────
+
+def test_business_logic_ignores_static_legal_terms_pages():
+    """Verify that static legal/terms URLs are not harvested as business-logic targets."""
+    analyzer = BusinessLogicAnalyzer(http=MagicMock(spec=RobustHTTPClient))
+    observations = [
+        {
+            "name": "discovered_urls",
+            "value": [
+                "https://www.google.com/intl/en_us/ads/coupons/terms/cyoi/",
+                "https://www.google.com/intl/en_in/ads/coupons/terms/cyoi/",
+                "https://www.google.com/policies/privacy/",
+                "https://www.google.com/api/v1/coupons/apply",
+            ],
+        }
+    ]
+    endpoints = analyzer._extract_endpoints("https://www.google.com", observations)
+    assert "https://www.google.com/api/v1/coupons/apply" in endpoints
+    assert "https://www.google.com/intl/en_us/ads/coupons/terms/cyoi/" not in endpoints
+    assert "https://www.google.com/intl/en_in/ads/coupons/terms/cyoi/" not in endpoints
+    assert "https://www.google.com/policies/privacy/" not in endpoints
+
+
+@pytest.mark.asyncio
+async def test_business_logic_method_tampering_baseline_differential_suppresses_dynamic_html():
+    """Verify that method tampering on HTML pages with small variance (<15%) is suppressed."""
+    http = MagicMock(spec=RobustHTTPClient)
+
+    baseline_html = "<html><head><title>Terms</title></head><body>Nonce: 12345678</body></html>" * 10
+    put_html = "<html><head><title>Terms</title></head><body>Nonce: 87654321</body></html>" * 10
+
+    baseline_resp = MagicMock(spec=HTTPResult)
+    baseline_resp.status = 200
+    baseline_resp.body = baseline_html.encode("utf-8")
+    baseline_resp.text.return_value = baseline_html
+    baseline_resp.headers = {"content-type": "text/html; charset=utf-8"}
+
+    put_resp = MagicMock(spec=HTTPResult)
+    put_resp.status = 200
+    put_resp.body = put_html.encode("utf-8")
+    put_resp.text.return_value = put_html
+    put_resp.headers = {"content-type": "text/html; charset=utf-8"}
+
+    http.get = AsyncMock(return_value=baseline_resp)
+    http.request = AsyncMock(return_value=put_resp)
+
+    analyzer = BusinessLogicAnalyzer(http=http)
+    findings = await analyzer._test_method_tampering(
+        "https://www.google.com",
+        ["https://www.google.com/terms"],
+    )
+    assert len(findings) == 0, f"Method tampering falsely triggered on static HTML page: {findings}"
+
+
+@pytest.mark.asyncio
+async def test_business_logic_method_tampering_confirms_valid_api_state_change():
+    """Verify that method tampering confirms genuine state changes on APIs (e.g. JSON success / 204)."""
+    http = MagicMock(spec=RobustHTTPClient)
+
+    baseline_resp = MagicMock(spec=HTTPResult)
+    baseline_resp.status = 200
+    baseline_resp.body = b'{"status": "ready"}'
+    baseline_resp.text.return_value = '{"status": "ready"}'
+    baseline_resp.headers = {"content-type": "application/json"}
+
+    api_resp = MagicMock(spec=HTTPResult)
+    api_resp.status = 200
+    api_resp.body = b'{"success": true, "message": "Coupon applied via PUT"}'
+    api_resp.text.return_value = '{"success": true, "message": "Coupon applied via PUT"}'
+    api_resp.headers = {"content-type": "application/json"}
+
+    http.get = AsyncMock(return_value=baseline_resp)
+    http.request = AsyncMock(return_value=api_resp)
+
+    analyzer = BusinessLogicAnalyzer(http=http)
+    findings = await analyzer._test_method_tampering(
+        "https://www.google.com",
+        ["https://www.google.com/api/v1/coupons/apply"],
+    )
+    assert len(findings) >= 1
+    assert any(f["id"] == "BL-METHOD-TAMPER-PUT" for f in findings)
+
+
+# ── 7. Supply Chain Password & Generic API Key Precision ───────────────────────
+
+def test_supply_chain_password_ignores_minified_syntax_and_property_access():
+    """Verify that supply_chain password detector ignores JS property accesses and minified flags."""
+    analyzer = SupplyChainAnalyzer(http=MagicMock(spec=RobustHTTPClient))
+
+    minified_js = """
+    b.password;a.hostname=c;
+    PASSWORD:!0,USERNAME:!1
+    password="";a.hash=""
+    """
+    findings = analyzer._scan_for_secrets(minified_js, "https://www.google.com")
+    password_findings = [f for f in findings if "Password" in f.get("title", "")]
+    assert len(password_findings) == 0, f"False positive password findings: {password_findings}"
+
+
+def test_supply_chain_password_detects_real_hardcoded_password():
+    """Verify that supply_chain password detector finds genuine string literal passwords."""
+    analyzer = SupplyChainAnalyzer(http=MagicMock(spec=RobustHTTPClient))
+
+    js_code = """
+    const db_password = "SuperSecretAdminPassword2026!";
+    """
+    findings = analyzer._scan_for_secrets(js_code, "https://example.com")
+    password_findings = [f for f in findings if "Password" in f.get("title", "")]
+    assert len(password_findings) == 1
+    assert "Supe" in password_findings[0]["evidence"]
+
+
+def test_supply_chain_suppresses_generic_api_key_when_google_public_key():
+    """Verify generic API Key pattern does not report AIza... keys already covered by Google Public API Key."""
+    analyzer = SupplyChainAnalyzer(http=MagicMock(spec=RobustHTTPClient))
+
+    js_code = """
+    var clientKey = "AIzaSyBwQcjgmXUAsw5r4FZXO5t8_EZ_aUm_TGE";
+    """
+    findings = analyzer._scan_for_secrets(js_code, "https://www.google.com")
+    titles = [f["title"] for f in findings]
+    assert "Google Public API Key Exposed in JavaScript" in titles
+    assert "Hardcoded API Key Exposed in JavaScript" not in titles
+
+
+# ── 8. JS Analyzer Password Cross-Statement Precision ──────────────────────────
+
+@pytest.mark.asyncio
+async def test_js_analyzer_rejects_empty_quote_multi_statement_password_match():
+    """Verify js_analyzer does not match across empty strings spanning multiple statements."""
+    http = MagicMock(spec=RobustHTTPClient)
+    extractor = JSRouteExtractor(http=http)
+
+    minified_js = """
+    function reset(){a.password="";a.hash="";a.token="";}
+    """
+    _, _, secrets = await extractor.analyze("https://www.google.com", minified_js)
+    pwd_secrets = [s for s in secrets if "password" in s.get("title", "").lower()]
+    assert len(pwd_secrets) == 0, f"False positive password disclosure in js_analyzer: {pwd_secrets}"
 

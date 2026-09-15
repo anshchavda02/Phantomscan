@@ -1,5 +1,27 @@
 <!-- Remediation Matrix Section -->
 {% if findings %}
+<style>
+    .remediation-table {
+        table-layout: fixed;
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .remediation-table th,
+    .remediation-table td {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    .remediation-table .clickable-row {
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .remediation-table .clickable-row:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .light-mode .remediation-table .clickable-row:hover {
+        background: rgba(0, 0, 0, 0.03);
+    }
+</style>
 <section id="remediation" class="section">
     <div class="section-label">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sev-low)" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -8,30 +30,30 @@
 
     <div class="card" style="padding: 0; overflow: hidden;">
         <div style="overflow-x: auto;">
-            <table>
+            <table class="remediation-table">
                 <thead>
                     <tr>
-                        <th style="width: 90px;">Priority</th>
-                        <th>Finding</th>
-                        <th style="width: 110px;">Category</th>
+                        <th style="width: 95px;">Priority</th>
+                        <th style="width: 38%;">Finding</th>
+                        <th style="width: 115px;">Category</th>
                         <th>Remediation Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for severity in ['Critical', 'High', 'Medium', 'Low', 'Info'] %}
-                        {% for finding in findings if (finding.severity | string | lower) == (severity | lower) %}
+                        {% for finding in findings if (finding.severity | string | lower) == (severity | lower) and (finding.category | default('') | string | lower) not in ['compliance', 'reporting', 'checklist'] %}
                         {% set cat_slug = (finding.category | default('other') | string | lower) | replace(' ', '-') | replace('_', '-') %}
                         {% set f_uid = finding.uid | default('finding-' ~ loop.index0 ~ '-' ~ (finding.id | default('finding') | string | lower | replace(' ', '-') | replace(':', '-') | replace('/', '-')), true) %}
-                        <tr class="clickable-row" onclick="window.scrollToFinding('{{ f_uid }}', event)" style="cursor: pointer;">
-                            <td>
+                        <tr class="clickable-row" onclick="window.scrollToFinding('{{ f_uid }}', event)">
+                            <td style="white-space: nowrap;">
                                 <span class="pill badge-{{ finding.severity | string | lower }}" style="font-size: 10px;">
                                     {{ finding.severity | string | upper }}
                                 </span>
                             </td>
-                            <td>
-                                <a href="#{{ f_uid }}" onclick="window.scrollToFinding('{{ f_uid }}', event)" style="font-weight: 600; color: var(--text-primary); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                                    <span>{{ finding.title }}</span>
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--teal-light)" stroke-width="2" style="opacity: 0.7; flex-shrink: 0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                            <td style="overflow-wrap: anywhere; word-break: break-word; min-width: 0;">
+                                <a href="#{{ f_uid }}" onclick="window.scrollToFinding('{{ f_uid }}', event)" style="font-weight: 600; color: var(--text-primary); text-decoration: none; display: inline-flex; align-items: baseline; gap: 6px; overflow-wrap: anywhere; word-break: break-word; max-width: 100%;">
+                                    <span style="overflow-wrap: anywhere; word-break: break-word;">{{ finding.title }}</span>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--teal-light)" stroke-width="2" style="opacity: 0.7; flex-shrink: 0; transform: translateY(1px);"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                 </a>
                             </td>
                             <td>
@@ -39,7 +61,7 @@
                                     {{ finding.category | string | upper }}
                                 </span>
                             </td>
-                            <td style="color: var(--text-secondary); font-size: 12px;">
+                            <td style="color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; word-break: break-word;">
                                 {{ finding.recommendation | truncate_evidence(180) }}
                             </td>
                         </tr>

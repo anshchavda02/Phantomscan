@@ -281,7 +281,7 @@ class AISecretScanner:
          "ElevenLabs API Key", "high"),
         (r'sk_live_[0-9a-zA-Z]{24,}',
          "Stripe Live Secret Key", "critical"),
-        (r'AC[a-z0-9]{32}',
+        (r'AC[a-f0-9]{32}',
          "Twilio Account SID", "high"),
     ]
 
@@ -400,6 +400,14 @@ class AISecretScanner:
             for match in set(re.findall(pattern, all_content)):
                 if _is_placeholder(match):
                     continue
+                if key_name == "Twilio Account SID":
+                    match_pos = all_content.find(match)
+                    if match_pos >= 0:
+                        start = max(0, match_pos - 200)
+                        end = min(len(all_content), match_pos + len(match) + 200)
+                        context = all_content[start:end].lower()
+                        if not any(k in context for k in ("twilio", "accountsid", "account_sid", "auth_token")):
+                            continue
                 findings.append({
                     "id": "AI-KEY-EXPOSED",
                     "title": f"Exposed AI/LLM API Key: {key_name}",

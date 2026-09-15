@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?:secret|private[_-]?key)[\"'\s]*[:=][\"'\s]*[\"']?([A-Za-z0-9_\-]{20,})", re.I), "Secret Key"),
-    (re.compile(r"(?:password|passwd|pwd)[\"'\s]*[:=][\"'\s]*[\"']?([^\s\"']{8,})", re.I), "Password"),
+    (re.compile(r"""(?<!\.)\b(?:[a-zA-Z0-9_]+_)?(?:password|passwd|pwd)\b\s*[:=]\s*["']([^"'`;,\r\n{}]{8,})["']""", re.I), "Password"),
     (re.compile(r"AKIA[0-9A-Z]{16}"), "AWS Access Key ID"),
     (re.compile(r"ghp_[a-zA-Z0-9]{36}"), "GitHub Personal Token"),
     (re.compile(r"gho_[a-zA-Z0-9]{36}"), "GitHub OAuth Token"),
@@ -45,7 +45,7 @@ _KNOWN_LIBRARIES: dict[str, re.Pattern[str]] = {
 class SupplyChainAnalyzer:
     """Analyze third-party scripts for secrets, SRI, and outdated libraries."""
 
-    def __init__(self, http: RobustHTTPClient) -> None:
+    def __init__(self, http: Any = None) -> None:
         self.http = http
 
     async def run(
@@ -135,9 +135,13 @@ class SupplyChainAnalyzer:
             tag = match.group(0)
             src = match.group(1)
             # Only check external CDN scripts (not same-origin)
-            if ("cdn" in src.lower() or "unpkg" in src.lower()
-                or "jsdelivr" in src.lower() or "cdnjs" in src.lower()
-                or "cloudflare" in src.lower()):
+            # Skip dynamic consent/tag management/analytics stubs that do not support static SRI hashes
+            src_lower = src.lower()
+            if any(stub in src_lower for stub in ("cookielaw.org", "onetrust.com", "cookiebot.com", "googletagmanager.com", "segment.com", "hotjar.com")):
+                continue
+            if ("cdn" in src_lower or "unpkg" in src_lower
+                or "jsdelivr" in src_lower or "cdnjs" in src_lower
+                or "cloudflare" in src_lower):
                 if "integrity=" not in tag.lower():
                     no_sri_scripts.append(src)
 
@@ -273,6 +277,39 @@ class SupplyChainAnalyzer:
                 return True
             if len(match) < 8:
                 return True
+            # Bearer Token FP: JavaScript variable/function names that contain
+            # 'token' as a substring (e.g., validationToken, inputToken,
+            # csrfTokenField, accessTokenExpiry) are code identifiers, not secrets.
+            if secret_type == "Bearer Token":
+                # If the match looks like a camelCase/snake_case identifier
+                # rather than an actual token value, reject it.
+                _CODE_IDENTIFIER_PATTERNS = [
+                    r"(?:validation|input|csrf|access|refresh|session|auth|form|"
+                    r"reset|verify|confirm|request|response|header|field|element|"
+                    r"name|type|value|config|setting|option|param|expir|timeout|"
+                    r"handler|listener|callback|manager|service|provider|factory|"
+                    r"store|state|action|reducer|selector|dispatch|middleware)"
+                    r".*token",
+                    r"token.*(?:field|input|name|type|value|header|expir|timeout|"
+                    r"handler|listener|callback|manager|validator|checker|verify)",
+                ]
+                import re as _re
+                if any(_re.search(pat, lower) for pat in _CODE_IDENTIFIER_PATTERNS):
+                    return True
+
+            if secret_type == "Password":
+                # Reject placeholders, HTML form field types, and code keywords
+                if lower in ("password", "password123", "placeholder", "your_password",
+                             "current_password", "new_password", "confirm_password",
+                             "credential", "passphrase"):
+                    return True
+                if any(c in match for c in (";", "\n", "\r", "{", "}", ",")):
+                    return True
+
+            if secret_type == "API Key":
+                # Google API keys starting with AIza are public client keys, classified separately
+                if match.startswith("AIza"):
+                    return True
         return False
 
     @staticmethod

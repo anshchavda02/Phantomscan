@@ -93,6 +93,37 @@ class CSRFDetector:
             ):
                 continue
 
+            # Ignore product search / filter / catalog / driver download forms
+            # These forms query or filter products but do NOT modify server-side state.
+            _NON_STATE_CHANGING_ACTION_PATTERNS = [
+                r"driver", r"download", r"search", r"filter", r"catalog",
+                r"product", r"browse", r"results", r"list", r"find",
+                r"lookup", r"select", r"compare", r"support",
+            ]
+            _NON_STATE_CHANGING_FIELD_PATTERNS = [
+                r"^manual\s*search", r"product", r"operating\s*system",
+                r"language", r"download\s*type", r"driver\s*type",
+                r"category", r"version", r"platform", r"model",
+                r"series", r"family", r"autocomplete",
+            ]
+            if action_path and any(
+                re.search(pat, action_path) for pat in _NON_STATE_CHANGING_ACTION_PATTERNS
+            ):
+                # If the action URL looks like a search/filter endpoint AND the
+                # form fields look like selection/filter controls (not credentials),
+                # suppress the CSRF finding.
+                has_credential_field = any(
+                    re.search(r"pass(word)?|secret|pin|ssn|credit|card|cvv|cvc", f.lower())
+                    for f in field_names_clean
+                )
+                if not has_credential_field:
+                    is_filter_form = any(
+                        any(re.search(fpat, f.lower()) for fpat in _NON_STATE_CHANGING_FIELD_PATTERNS)
+                        for f in field_names_clean
+                    ) if field_names_clean else False
+                    if is_filter_form or len(field_names_clean) <= 1:
+                        continue
+
             # Filter out purely non-actionable telemetry / tracking tokens
             _TRACKING_FIELDS = {"ue_back", "_ga", "_gid", "timestamp", "ts"}
             actionable_fields = [f for f in field_names_clean if f.lower() not in _TRACKING_FIELDS]
@@ -117,9 +148,10 @@ class CSRFDetector:
                         break
 
             if not has_csrf_token and actionable_fields:
+                display_action = action if len(action) <= 80 else action[:77] + "..."
                 findings.append({
                     "id": "CSRF-TOKEN-MISSING",
-                    "title": f"Absence of Anti-CSRF Tokens: Form at '{action}'",
+                    "title": f"Absence of Anti-CSRF Tokens: Form at '{display_action}'",
                     "severity": "medium",
                     "confidence": "high",
                     "category": "csrf",

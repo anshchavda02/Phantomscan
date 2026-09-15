@@ -28,6 +28,9 @@ class CookieAnalyzer:
         "__secure-3papisid", "__secure-3psidcc",
         "1p_jar", "consent", "aec", "socs", "anid", "otz", "dv",
         "search_samesite", "__secure-strp", "__secure-enid", "__secure-3psidts",
+        "ak_bmsc", "bm_sz", "bm_sv", "bm_mi", "bm_s",
+        "__cf_bm", "cf_clearance", "__cfduid",
+        "optanonconsent", "optanonalertboxclosed",
     ])
 
     def analyze(self, set_cookie_headers: list[str], url: str = "") -> list[Finding]:

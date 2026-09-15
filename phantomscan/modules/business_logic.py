@@ -316,14 +316,29 @@ class BusinessLogicAnalyzer:
                 baseline = await self.http.get(url, retries=1)
             except Exception:
                 continue
+            base_text = baseline.text() if hasattr(baseline, "text") and callable(baseline.text) else getattr(baseline, "text", "")
+            base_len = len(baseline.body or b"") if hasattr(baseline, "body") else len(base_text)
             for method in _UNEXPECTED_METHODS:
                 try:
                     response = await self.http.request(method, url, retries=1)
+                    resp_text = response.text() if hasattr(response, "text") and callable(response.text) else getattr(response, "text", "")
+                    resp_len = len(response.body or b"") if hasattr(response, "body") else len(resp_text)
+
+                    # If both are HTML responses and body length is within 15%, this is a static page
+                    # or standard server response differing only by dynamic CSRF tokens, session IDs, or timestamps
+                    content_type = getattr(response, "content_type", "") or ""
+                    if not content_type and hasattr(response, "headers") and isinstance(response.headers, dict):
+                        content_type = response.headers.get("content-type", "")
+                    if "text/html" in content_type.lower() and base_len > 0:
+                        ratio = abs(resp_len - base_len) / max(base_len, resp_len)
+                        if ratio < 0.15:
+                            continue
+
                     if (
                         response.status == 200
                         and method not in ("OPTIONS",)
-                        and response.text() != baseline.text()
-                        and len(response.text()) > 50
+                        and resp_text != base_text
+                        and len(resp_text) > 50
                     ):
                         findings.append({
                             "id": f"BL-METHOD-TAMPER-{method}",
@@ -335,7 +350,7 @@ class BusinessLogicAnalyzer:
                             "verification_method": "baseline_differential",
                             "evidence": (
                                 f"{method} {url} returned HTTP {response.status} "
-                                f"with {len(response.body)} bytes "
+                                f"with {len(response.body) if hasattr(response, 'body') and response.body else resp_len} bytes "
                                 f"(differs from GET response)."
                             ),
                             "recommendation": (
@@ -357,10 +372,13 @@ class BusinessLogicAnalyzer:
         base = target.rstrip("/")
         endpoints: set[str] = set()
         keywords = ("/api", "/rest", "/basket", "/cart", "/order", "/coupon", "/discount", "/checkout", "/payment", "/quantity", "/item")
+        static_doc_keywords = ("/terms", "/privacy", "/policy", "/legal", "/about", "/help", "/docs", "/faq", ".html", ".htm", ".txt", ".md")
 
         def check_and_add(item: str) -> None:
-            if isinstance(item, str) and any(kw in item.lower() for kw in keywords):
-                endpoints.add(item if item.startswith("http") else f"{base}{item if item.startswith('/') else '/' + item}")
+            if isinstance(item, str):
+                item_lower = item.lower()
+                if any(kw in item_lower for kw in keywords) and not any(sk in item_lower for sk in static_doc_keywords):
+                    endpoints.add(item if item.startswith("http") else f"{base}{item if item.startswith('/') else '/' + item}")
 
         for obs in observations:
             val = obs.get("value", "")

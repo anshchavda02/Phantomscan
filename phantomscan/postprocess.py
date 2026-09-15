@@ -56,7 +56,9 @@ def deduplicate_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]
     seen: set[tuple[str, str, str]] = set()
     output: list[dict[str, Any]] = []
     for finding in findings:
-        key = (finding.get("id", ""), finding.get("target", ""), finding.get("evidence", ""))
+        norm_target = str(finding.get("target", "")).rstrip("/")
+        norm_evidence = str(finding.get("evidence", "")).strip()
+        key = (str(finding.get("id", "")), norm_target, norm_evidence)
         if key not in seen:
             seen.add(key)
             output.append(finding)
