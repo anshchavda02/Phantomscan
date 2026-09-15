@@ -164,9 +164,32 @@ class PrivacyScanner:
                     return []
 
         results = await asyncio.gather(*(check_url(u) for u in unique_urls), return_exceptions=True)
+        # Deduplicate and filter out site-wide template phone numbers / PII
+        # If a phone number appears on >= 2 distinct URLs across the target,
+        # it is a corporate support / header / footer number, not exposed user PII.
+        phone_url_counts: dict[str, set[str]] = {}
         for r in results:
             if isinstance(r, list):
-                findings.extend(r)
+                for f in r:
+                    if f.get("id") == "PII-EXPOSURE-PHONE-US":
+                        ev = f.get("evidence", "")
+                        m_sample = re.search(r"Sample \(masked\):\s*([^\n]+)", ev)
+                        if m_sample:
+                            sample = m_sample.group(1).strip()
+                            phone_url_counts.setdefault(sample, set()).add(f.get("target", ""))
+
+        template_phones = {sample for sample, urls in phone_url_counts.items() if len(urls) >= 2}
+
+        for r in results:
+            if isinstance(r, list):
+                for f in r:
+                    if f.get("id") == "PII-EXPOSURE-PHONE-US":
+                        ev = f.get("evidence", "")
+                        m_sample = re.search(r"Sample \(masked\):\s*([^\n]+)", ev)
+                        if m_sample and m_sample.group(1).strip() in template_phones:
+                            logger.debug("Suppressed template corporate phone number: %s", m_sample.group(1))
+                            continue
+                    findings.append(f)
 
         return findings
 
@@ -190,12 +213,17 @@ class PrivacyScanner:
             ]
 
             if matches:
-                severity = "high" if pii_type in _HIGH_RISK_TYPES else "medium"
+                if pii_type == "ip_address":
+                    severity = "info"
+                    confidence = "low"
+                else:
+                    severity = "high" if pii_type in _HIGH_RISK_TYPES else "medium"
+                    confidence = "medium"
                 findings.append({
                     "id": f"PII-EXPOSURE-{pii_type.upper().replace('_', '-')}",
                     "title": f"PII Exposure: {pii_type.replace('_', ' ').title()} Found",
                     "severity": severity,
-                    "confidence": "medium",
+                    "confidence": confidence,
                     "category": "privacy",
                     "target": url,
                     "evidence": (
@@ -267,6 +295,10 @@ class PrivacyScanner:
                     # Filter common version-like patterns (low first octet, small later octets)
                     if octets[0] <= 9 and all(o <= 30 for o in octets[1:]):
                         return True
+                    # Filter well-known public DNS and infrastructure IPs
+                    joined = ".".join(str(o) for o in octets)
+                    if joined in ("8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "9.9.9.9", "149.112.112.112"):
+                        return True
                 except ValueError:
                     return True
             return False
@@ -292,9 +324,27 @@ class PrivacyScanner:
 
         if pii_type == "phone_us":
             stripped = match.strip()
-            # Require at least one separator character (already enforced by the
-            # updated regex, but double-check for safety)
+            # Require at least one separator character
             if not any(c in stripped for c in "()-.  "):
+                return True
+            digits = re.sub(r"\D", "", stripped)
+            if digits.startswith("1") and len(digits) == 11:
+                area_code = digits[1:4]
+            elif len(digits) == 10:
+                area_code = digits[:3]
+            else:
+                return True
+
+            # Reject US toll-free numbers (corporate support/sales, not personal PII)
+            if area_code in ("800", "888", "877", "866", "855", "844", "833"):
+                return True
+
+            # Reject fictional / TV numbers (555-0100 to 555-0199)
+            if area_code == "555" or (len(digits) >= 7 and "55501" in digits):
+                return True
+
+            # Reject repeating digits (e.g. 000-000-0000, 111-111-1111)
+            if len(set(digits)) <= 2:
                 return True
             return False
 

@@ -557,8 +557,8 @@ async def scan_one(
     if args.profile in CRAWL_PROFILES or args.profile != "passive":
         crawl_depth = getattr(args, "crawl_depth", None) or args.depth
         if args.profile in ("deep", "deepscan"):
-            crawler_pages = 150
-            crawler_depth = max(crawl_depth, 3)
+            crawler_pages = 200
+            crawler_depth = max(crawl_depth, 4)
         elif args.profile in ("owasp", "advanced"):
             crawler_pages = 60
             crawler_depth = max(crawl_depth, 2)
@@ -784,13 +784,18 @@ async def scan_one(
     safe_target = target.host.replace("/", "_").replace(":", "_")
     explicit_confidence = any(arg.startswith("--confidence") for arg in sys.argv)
     is_deep_profile = getattr(args, "profile", "") in {"deep", "deepscan", "advanced", "bug-bounty"} or getattr(args, "advanced", False)
+    is_deep_scan = getattr(args, "profile", "") in {"deep", "deepscan"}
     include_medium = (
         args.show_medium
         or args.show_all
         or args.confidence in {"medium", "low"}
         or (is_deep_profile and not explicit_confidence)
     )
-    include_low = args.show_all or args.confidence == "low"
+    include_low = (
+        args.show_all
+        or args.confidence == "low"
+        or (is_deep_scan and not explicit_confidence)
+    )
 
     # Parse timestamp for report filenames (YYYYMMDD_HHMMSS)
     try:

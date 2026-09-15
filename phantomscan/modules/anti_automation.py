@@ -93,6 +93,20 @@ class AntiAutomationTester:
         """Test a specific login URL for anti-automation protections."""
         findings: list[dict[str, Any]] = []
 
+        # Skip OAuth / SSO authorization redirect endpoints entirely.
+        # These pages delegate authentication to an external IdP — sending
+        # credential payloads to them is meaningless and produces false positives.
+        _OAUTH_SKIP_INDICATORS = (
+            "/oauth/authorize", "/oauth2/authorize", "/auth/authorize",
+            "/login/oauth", "/oidc/", "redirect_uri=", "client_id=",
+            "response_type=", "code_challenge=",
+        )
+        login_lower = login_url.lower()
+        if any(ind in login_lower for ind in _OAUTH_SKIP_INDICATORS):
+            logger.debug("Skipping OAuth authorization endpoint: %s", login_url)
+            return findings
+
+
         # Test 1: CAPTCHA presence check
         has_captcha = False
         try:
@@ -161,6 +175,7 @@ class AntiAutomationTester:
                         "confidence": "high",
                         "category": "authentication",
                         "target": login_url,
+                        "verification_method": "active_confirmation",
                         "evidence": (
                             f"Login endpoint at {login_url} accepted common default credentials: '{u_cand}:{p_cand}'\n"
                             f"HTTP Status: {getattr(resp_cred, 'status', 0)}\n"
@@ -262,6 +277,7 @@ class AntiAutomationTester:
                     "confidence": "medium",
                     "category": "authentication",
                     "target": login_url,
+                    "verification_method": "active_confirmation",
                     "evidence": (
                         f"5 rapid login attempts, all returned status {statuses[0] if statuses else 'N/A'}\n"
                         f"No CAPTCHA detected in login page\n"
@@ -287,6 +303,7 @@ class AntiAutomationTester:
                 "confidence": "high",
                 "category": "authentication",
                 "target": login_url,
+                "verification_method": "passive_observation",
                 "evidence": "CAPTCHA marker found in login page HTML",
                 "recommendation": (
                     "Verify CAPTCHA cannot be bypassed via direct API calls "

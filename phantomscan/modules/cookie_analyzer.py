@@ -31,6 +31,11 @@ class CookieAnalyzer:
         "ak_bmsc", "bm_sz", "bm_sv", "bm_mi", "bm_s",
         "__cf_bm", "cf_clearance", "__cfduid",
         "optanonconsent", "optanonalertboxclosed",
+        # Localization / UI preference cookies — non-sensitive, intentionally
+        # accessible to JS for locale switching, theme toggling, etc.
+        "c_code", "locale", "lang", "language", "country", "theme",
+        "currency", "timezone", "region", "tz", "i18n", "l10n",
+        "preferred_locale", "user_locale", "site_lang", "geo",
     ])
 
     def analyze(self, set_cookie_headers: list[str], url: str = "") -> list[Finding]:

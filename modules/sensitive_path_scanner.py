@@ -379,6 +379,11 @@ class SensitivePathScanner:
                     # Step 1: Status code pre-filter
                     if status not in [200, 206]:
                         if status == 403:
+                            # Suppress 403 for paths where blocking is expected/normal
+                            # server behavior — these reveal no actionable information.
+                            _EXPECTED_403_PATHS = {"/.htaccess", "/.htpasswd", "/.htgroups"}
+                            if path_config["path"] in _EXPECTED_403_PATHS:
+                                return path_findings
                             if path_config["severity"] in ("Critical", "High", "critical", "high"):
                                 path_findings.append(Finding(
                                     id=f"SENSITIVE-PATH-BLOCKED-{path_config['path'].replace('/', '-').strip('-').upper()}",

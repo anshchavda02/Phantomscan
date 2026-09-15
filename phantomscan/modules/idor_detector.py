@@ -50,6 +50,13 @@ _DATA_SIGNALS = frozenset({
     "price", "tax_id", "billing", "private_key",
 })
 
+# Public content routes that serve open, unauthenticated content by ID
+_PUBLIC_CONTENT_PATHS = frozenset({
+    "news", "readnews", "article", "articles", "blog", "blogs",
+    "post", "posts", "catalog", "category", "item", "product",
+    "products", "about", "contact", "faq", "terms", "privacy", "help"
+})
+
 
 class IDORDetector:
     """Detect IDOR / BOLA vulnerabilities by manipulating object IDs."""
@@ -176,7 +183,19 @@ class IDORDetector:
 
         # Add common REST resource ID probe paths
         for probe_path in (
-            "/rest/basket/1",
+            "/api/users/1",
+            "/api/user/1",
+            "/api/orders/1",
+            "/api/accounts/1",
+            "/api/profiles/1",
+            "/api/invoices/1",
+            "/api/documents/1",
+            "/users/1",
+            "/user/1",
+            "/profile/1",
+            "/orders/1",
+            "/account/1",
+            "/rest/user/1",
             "/api/Feedbacks/1",
             "/api/Users/1",
             "/rest/user/authentication-details",
@@ -189,9 +208,13 @@ class IDORDetector:
 
     def _find_id_candidates(self, urls: list[str]) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
-        seen: set[str] = set()
+        seen_endpoints: set[tuple[str, str]] = set()
         for url in urls:
             parsed = urlparse(url)
+            # Skip public content routes like /ReadNews.aspx or /articles/
+            path_parts = [p.lower().split(".")[0] for p in parsed.path.strip("/").split("/") if p]
+            if any(p in _PUBLIC_CONTENT_PATHS for p in path_parts):
+                continue
 
             # Check explicit query parameter patterns
             for pattern, kind in _ID_PATTERNS:
@@ -202,9 +225,9 @@ class IDORDetector:
                         val = match.group(2) if match.lastindex and match.lastindex >= 2 else match.group(1)
                         if p_name.lower() in _IGNORED_PARAMS:
                             continue
-                        key = (url, p_name, val)
-                        if key not in seen:
-                            seen.add(key)
+                        endpoint_key = (parsed.path.lower(), p_name.lower())
+                        if endpoint_key not in seen_endpoints:
+                            seen_endpoints.add(endpoint_key)
                             candidates.append({
                                 "url": url,
                                 "id": val,
@@ -218,9 +241,10 @@ class IDORDetector:
                     match = re.search(pattern, parsed.path)
                     if match:
                         val = match.group(1)
-                        key = (url, "", val)
-                        if key not in seen:
-                            seen.add(key)
+                        path_template = re.sub(r"/\d+", "/{id}", parsed.path.lower())
+                        endpoint_key = (path_template, "")
+                        if endpoint_key not in seen_endpoints:
+                            seen_endpoints.add(endpoint_key)
                             candidates.append({
                                 "url": url,
                                 "id": val,
@@ -277,9 +301,26 @@ class IDORDetector:
         if is_json:
             return hits >= 1 or len(test) > 30
 
-        # For explicit object parameters (artist, id, user_id, order_id, etc.)
+        # Non-HTML / plain text responses (e.g. key-value profile dumps)
+        if "<html" not in lower and "<body" not in lower:
+            return hits >= 1
+
+        # For explicit object parameters (artist, id, user_id, order_id, etc.) on HTML pages
         if kind in ("param_id", "param_user_id", "param_order", "param_account", "param_artist", "param_cat", "param_pic", "param_aid", "param_doc", "param_invoice", "path_numeric", "path_uuid", "path_objectid"):
-            return hits >= 2
+            if baseline != test:
+                diff_lines = [
+                    line[1:].strip().lower()
+                    for line in difflib.unified_diff(
+                        baseline.splitlines(), test.splitlines(), lineterm=""
+                    )
+                    if line.startswith("+") and not line.startswith("+++")
+                ]
+                diff_text = " ".join(diff_lines)
+                diff_hits = sum(1 for s in _DATA_SIGNALS if s in diff_text)
+                if diff_hits >= 1:
+                    return True
+            # Require high confidence data signals if diff is not conclusive
+            return hits >= 4
 
         # For generic parameters on HTML pages, require differential data and non-identical response
         if baseline == test:

@@ -113,7 +113,9 @@ class GraphQLTester:
                     "severity": "medium",
                     "confidence": "high",
                     "category": "graphql",
+                    "module": "graphql",
                     "target": endpoint,
+                    "verification_method": "active_confirmation",
                     "evidence": (
                         f"Full schema introspection returned {type_count} types.\n"
                         f"Sample types: {', '.join(type_names[:10])}\n"
@@ -148,7 +150,9 @@ class GraphQLTester:
                     "severity": "medium",
                     "confidence": "high",
                     "category": "graphql",
+                    "module": "graphql",
                     "target": endpoint,
+                    "verification_method": "active_confirmation",
                     "evidence": (
                         f"Deeply nested query (depth=15) accepted.\n"
                         f"Response time: {elapsed:.2f}s.\n"
@@ -179,7 +183,9 @@ class GraphQLTester:
                             "severity": "low",
                             "confidence": "high",
                             "category": "graphql",
+                            "module": "graphql",
                             "target": endpoint,
+                            "verification_method": "active_confirmation",
                             "evidence": (
                                 "50 batched queries accepted in single request.\n"
                                 "Can be used to bypass rate limits or brute-force."
@@ -211,7 +217,9 @@ class GraphQLTester:
                     "severity": "low",
                     "confidence": "high",
                     "category": "graphql",
+                    "module": "graphql",
                     "target": endpoint,
+                    "verification_method": "active_confirmation",
                     "evidence": (
                         "Query with misspelled field 'usrs' returned "
                         "field suggestions, leaking schema information."

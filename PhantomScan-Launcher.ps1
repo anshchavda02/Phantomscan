@@ -477,7 +477,7 @@ while ($true) {
         # Options specific to advanced/deep profiles
         if ($profile -eq "deep" -or $profile -eq "deepscan") {
             $scanArgs += "--advanced"
-            $scanArgs += "--show-medium"
+            $scanArgs += "--show-all"
         } elseif ($profile -eq "advanced" -or $profile -eq "monitor") {
             $runAllAdvanced = Read-YesNo "Run all 38 advanced modules (y) or select specific ones (n)" $true
             if ($runAllAdvanced) {

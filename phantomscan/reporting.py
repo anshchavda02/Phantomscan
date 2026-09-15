@@ -840,7 +840,7 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
                 {"name": "Email Security Check", "phase": "recon", "status": "completed", "engine": "python", "duration": 0.5, "findings": 0},
                 {"name": "YAML Security Rules Engine", "phase": "active", "status": "completed", "engine": "python", "duration": 1.0, "findings": 0},
             ]
-            if profile_str in ("deep", "advanced", "full"):
+            if profile_str in ("deep", "deepscan", "advanced", "full"):
                 from phantomscan.modules import list_module_names
                 for m_name in list_module_names():
                     if m_name not in seen_mods:

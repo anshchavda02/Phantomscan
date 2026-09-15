@@ -73,7 +73,7 @@ class PrototypePollutionDetector:
 
                         # Dynamic confirmation: verify injected property appears in JSON response
                         has_dynamic_prop = dynamic_prop in body and dynamic_prop not in baseline_body
-                        has_pp_marker = "phantomscan_pp" in body or has_dynamic_prop
+                        has_pp_marker = has_dynamic_prop or ("phantomscan_pp" in body)
 
                         if is_json and has_pp_marker:
                             return {
@@ -82,6 +82,7 @@ class PrototypePollutionDetector:
                                 "severity": "high",
                                 "confidence": "high",
                                 "category": "prototype-pollution",
+                                "module": "prototype_pollution",
                                 "target": url,
                                 "verification_method": "baseline_differential",
                                 "evidence": (
@@ -103,6 +104,16 @@ class PrototypePollutionDetector:
                         continue
             return None
 
+        # Capture client baseline for differential analysis
+        client_baseline_body = ""
+        try:
+            base_get = await self.http.get(target, retries=1)
+            client_baseline_body = base_get.text() if hasattr(base_get, "text") and callable(base_get.text) else getattr(base_get, "body", "")
+            if isinstance(client_baseline_body, bytes):
+                client_baseline_body = client_baseline_body.decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+
         async def test_client_qs(qs: str) -> dict[str, Any] | None:
             test_url = f"{target}/?{qs}"
             async with sem:
@@ -112,17 +123,24 @@ class PrototypePollutionDetector:
                         return None
                     body = response.text()
                     is_json = response.headers.get("content-type", "").startswith("application/json")
-                    if (
-                        is_json
-                        and ("\"phantomscan_pp\"" in body or "\"isAdmin\":true" in body)
-                    ) or "window.phantomscan_pp" in body or "Object.prototype.phantomscan_pp" in body:
+                    
+                    has_json_marker = is_json and ("\"phantomscan_pp\"" in body or "\"isAdmin\":true" in body)
+                    has_js_marker = (
+                        ("window.phantomscan_pp" in body or "Object.prototype.phantomscan_pp" in body)
+                        and "window.phantomscan_pp" not in client_baseline_body
+                        and "Object.prototype.phantomscan_pp" not in client_baseline_body
+                    )
+
+                    if has_json_marker or has_js_marker:
                         return {
                             "id": "PROTO-POLLUTION-CLIENT",
                             "title": "Client-Side Prototype Pollution",
                             "severity": "medium",
                             "confidence": "high",
                             "category": "prototype-pollution",
+                            "module": "prototype_pollution",
                             "target": test_url,
+                            "verification_method": "active_confirmation",
                             "evidence": (
                                 f"Query string: {qs}\n"
                                 f"Pollution marker executed in JS context or JSON API state."

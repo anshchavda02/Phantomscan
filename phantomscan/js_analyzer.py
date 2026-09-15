@@ -235,6 +235,7 @@ class JSRouteExtractor:
                             continue
 
                     is_public_id = severity in ("low", "info")
+
                     rec = (
                         "Verify that this client-side API identifier is locked to authorized "
                         "HTTP referrers, origins, and IP constraints in its management console."

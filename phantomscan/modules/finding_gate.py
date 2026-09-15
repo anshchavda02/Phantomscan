@@ -90,13 +90,25 @@ def gate_finding(
     candidate["severity"] = severity
 
     # ── Check 5: verification_method present and valid ────────────────────
-    vm = str(candidate.get("verification_method", ""))
-    if vm and vm not in VALID_VERIFICATION_METHODS:
+    vm = str(candidate.get("verification_method", "")).strip()
+    if not vm:
+        mod = str(candidate.get("module", "")).lower()
+        cat = str(candidate.get("category", "")).lower()
+        ev = str(candidate.get("evidence", "")).lower()
+        if mod in ("headers", "whois", "dns", "ssl", "cookie", "ssl_analyzer") or cat in ("headers", "dns", "ssl", "recon"):
+            candidate["verification_method"] = "passive_observation"
+        elif "baseline" in ev or "differential" in ev or "baseline_differential" in ev:
+            candidate["verification_method"] = "baseline_differential"
+        else:
+            candidate["verification_method"] = "active_confirmation"
+    elif vm not in VALID_VERIFICATION_METHODS:
         _reject(
             candidate, fp_log,
             f"Invalid verification_method: '{vm}'",
         )
         return None
+    else:
+        candidate["verification_method"] = vm
 
     # ── Check 6: status valid ─────────────────────────────────────────────
     status = str(candidate.get("status", "confirmed")).lower()

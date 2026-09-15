@@ -11,6 +11,7 @@ from phantomscan.modules.path_traversal import PathTraversalScanner
 from phantomscan.modules.race_condition import RaceConditionDetector
 from phantomscan.modules.sqli_detector import SQLiDetector
 from phantomscan.modules.ssrf_detector import SSRFDetector
+from phantomscan.modules.finding_gate import gate_finding
 from phantomscan.modules.prototype_pollution import PrototypePollutionDetector
 
 
@@ -109,6 +110,62 @@ async def test_prototype_pollution_detection():
     )
     assert len(findings) >= 1
     assert findings[0]["id"] == "PROTO-POLLUTION-SERVER"
+    assert findings[0]["module"] == "prototype_pollution"
+    assert findings[0]["verification_method"] == "baseline_differential"
+    gated = gate_finding(findings[0])
+    assert gated is not None
+    assert gated["id"] == "PROTO-POLLUTION-SERVER"
+
+
+@pytest.mark.asyncio
+async def test_prototype_pollution_client_detection():
+    """Detect client-side prototype pollution in query parameters and verify FindingGate."""
+    mock_http = MagicMock(spec=RobustHTTPClient)
+
+    def side_effect(url, **kwargs):
+        if "?" in url:
+            return HTTPResult(
+                url, 200, {"content-type": "text/html"}, {},
+                b'<html><script>window.phantomscan_pp = "detected";</script></html>',
+                [], [], 25, "text/html"
+            )
+        return HTTPResult(
+            url, 200, {"content-type": "text/html"}, {},
+            b'<html><body>Normal page</body></html>',
+            [], [], 25, "text/html"
+        )
+
+    mock_http.get = AsyncMock(side_effect=side_effect)
+    mock_http.post = AsyncMock(return_value=HTTPResult("http://example.com", 404, {}, {}, b"", [], [], 20, "text/html"))
+
+    detector = PrototypePollutionDetector(http=mock_http)
+    findings = await detector.run(base_url="http://example.com", observations=[])
+
+    client_findings = [f for f in findings if f["id"] == "PROTO-POLLUTION-CLIENT"]
+    assert len(client_findings) >= 1
+    f = client_findings[0]
+    assert f["module"] == "prototype_pollution"
+    assert f["verification_method"] == "active_confirmation"
+    gated = gate_finding(f)
+    assert gated is not None
+    assert gated["id"] == "PROTO-POLLUTION-CLIENT"
+
+
+@pytest.mark.asyncio
+async def test_prototype_pollution_client_rejects_static_echo():
+    """Ensure that if the baseline page already statically includes the marker, it is suppressed as a false positive."""
+    mock_http = MagicMock(spec=RobustHTTPClient)
+
+    static_page = b'<html><script>window.phantomscan_pp = "dummy static string";</script></html>'
+    mock_http.get = AsyncMock(
+        return_value=HTTPResult("http://example.com", 200, {"content-type": "text/html"}, {}, static_page, [], [], 20, "text/html")
+    )
+    mock_http.post = AsyncMock(return_value=HTTPResult("http://example.com", 404, {}, {}, b"", [], [], 20, "text/html"))
+
+    detector = PrototypePollutionDetector(http=mock_http)
+    findings = await detector.run(base_url="http://example.com", observations=[])
+    client_findings = [f for f in findings if f["id"] == "PROTO-POLLUTION-CLIENT"]
+    assert len(client_findings) == 0
 
 
 if __name__ == "__main__":

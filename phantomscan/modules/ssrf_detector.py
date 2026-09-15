@@ -122,7 +122,9 @@ class SSRFDetector:
                         "severity": "critical",
                         "confidence": "high",
                         "category": "ssrf",
+                        "module": "ssrf",
                         "target": url,
+                        "verification_method": "baseline_differential",
                         "evidence": (
                             f"Parameter: {param}\n"
                             f"Metadata URL: {meta_url}\n"
@@ -170,7 +172,9 @@ class SSRFDetector:
                         "severity": "high",
                         "confidence": "high",
                         "category": "ssrf",
+                        "module": "ssrf",
                         "target": url,
+                        "verification_method": "baseline_differential",
                         "evidence": (
                             f"Parameter: {param}\n"
                             f"Bypass URL: {bypass_url}\n"
@@ -215,7 +219,9 @@ class SSRFDetector:
                 "severity": "high",
                 "confidence": "high",
                 "category": "ssrf",
+                "module": "ssrf",
                 "target": url,
+                "verification_method": "external_verification",
                 "evidence": (
                     f"Parameter: {param}\n"
                     f"OOB callback received from target server."

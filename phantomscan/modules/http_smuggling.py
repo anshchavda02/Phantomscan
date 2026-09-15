@@ -40,10 +40,22 @@ class HTTPSmugglingDetector:
         if port == 443:
             port = 80
 
+        # Step 0: Capture baseline response time on the port
+        baseline_payload = f"GET / HTTP/1.1\r\nHost: {host}\r\nUser-Agent: Mozilla/5.0\r\nConnection: close\r\n\r\n"
+        baseline_ms = 100.0
+        try:
+            base_res = await self.http.send_raw(host, baseline_payload, port=port, timeout=5.0)
+            if base_res.status == 0:
+                logger.debug("Port %s not responding to raw HTTP on %s — skipping smuggling checks", port, host)
+                return findings
+            baseline_ms = max(50.0, float(base_res.response_time_ms))
+        except Exception:
+            return findings
+
         results = await asyncio.gather(
-            self._test_clte(host, port),
-            self._test_tecl(host, port),
-            self._test_tete(host, port),
+            self._test_clte(host, port, baseline_ms),
+            self._test_tecl(host, port, baseline_ms),
+            self._test_tete(host, port, baseline_ms),
             return_exceptions=True,
         )
         for r in results:
@@ -53,7 +65,7 @@ class HTTPSmugglingDetector:
         return findings
 
     async def _test_clte(
-        self, host: str, port: int
+        self, host: str, port: int, baseline_ms: float
     ) -> dict[str, Any] | None:
         """Test CL.TE smuggling: Content-Length wins for front-end,
         Transfer-Encoding wins for back-end."""
@@ -69,14 +81,20 @@ class HTTPSmugglingDetector:
         )
         try:
             result = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-            if result.response_time_ms > 5000 or result.status == 0:
-                return {
+            # Must return a real HTTP response and exceed baseline by significant differential
+            if result.status > 0 and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
+                # Repeat once to confirm timing anomaly is reproducible
+                recheck = await self.http.send_raw(host, payload, port=port, timeout=10.0)
+                if recheck.status > 0 and recheck.response_time_ms >= 4500:
+                    return {
                     "id": "SMUGGLING-CLTE",
                     "title": "Possible HTTP Request Smuggling (CL.TE)",
                     "severity": "medium",
                     "confidence": "medium",
                     "category": "http-smuggling",
+                    "module": "http_smuggling",
                     "target": f"http://{host}:{port}",
+                    "verification_method": "active_confirmation",
                     "evidence": (
                         f"CL.TE probe caused timing anomaly: "
                         f"{result.response_time_ms}ms response time "
@@ -97,7 +115,7 @@ class HTTPSmugglingDetector:
         return None
 
     async def _test_tecl(
-        self, host: str, port: int
+        self, host: str, port: int, baseline_ms: float
     ) -> dict[str, Any] | None:
         """Test TE.CL smuggling: Transfer-Encoding wins for front-end,
         Content-Length wins for back-end."""
@@ -122,32 +140,37 @@ class HTTPSmugglingDetector:
         )
         try:
             result = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-            if result.response_time_ms > 5000 or result.status == 0:
-                return {
-                    "id": "SMUGGLING-TECL",
-                    "title": "Possible HTTP Request Smuggling (TE.CL)",
-                    "severity": "medium",
-                    "confidence": "medium",
-                    "category": "http-smuggling",
-                    "target": f"http://{host}:{port}",
-                    "evidence": (
-                        f"TE.CL probe caused timing anomaly: "
-                        f"{result.response_time_ms}ms response time "
-                        f"(status={result.status}). Manual verification required."
-                    ),
-                    "recommendation": (
-                        "Reject requests with both Content-Length and "
-                        "Transfer-Encoding headers. Normalize at the "
-                        "reverse proxy layer. CWE-444."
-                    ),
-                    "references": ["https://cwe.mitre.org/data/definitions/444.html"],
-                }
+            if result.status > 0 and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
+                # Repeat once to confirm timing anomaly is reproducible
+                recheck = await self.http.send_raw(host, payload, port=port, timeout=10.0)
+                if recheck.status > 0 and recheck.response_time_ms >= 4500:
+                    return {
+                        "id": "SMUGGLING-TECL",
+                        "title": "Possible HTTP Request Smuggling (TE.CL)",
+                        "severity": "medium",
+                        "confidence": "medium",
+                        "category": "http-smuggling",
+                        "module": "http_smuggling",
+                        "target": f"http://{host}:{port}",
+                        "verification_method": "active_confirmation",
+                        "evidence": (
+                            f"TE.CL probe caused timing anomaly: "
+                            f"{result.response_time_ms}ms response time "
+                            f"(status={result.status}). Manual verification required."
+                        ),
+                        "recommendation": (
+                            "Reject requests with both Content-Length and "
+                            "Transfer-Encoding headers. Normalize at the "
+                            "reverse proxy layer. CWE-444."
+                        ),
+                        "references": ["https://cwe.mitre.org/data/definitions/444.html"],
+                    }
         except Exception as exc:
             logger.debug("TE.CL test error: %s", exc)
         return None
 
     async def _test_tete(
-        self, host: str, port: int
+        self, host: str, port: int, baseline_ms: float
     ) -> dict[str, Any] | None:
         """Test TE.TE obfuscation variants."""
         obfuscated_te_headers = [
@@ -169,14 +192,18 @@ class HTTPSmugglingDetector:
             )
             try:
                 result = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-                if result.response_time_ms > 5000:
-                    return {
+                if result.status > 0 and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
+                    recheck = await self.http.send_raw(host, payload, port=port, timeout=10.0)
+                    if recheck.status > 0 and recheck.response_time_ms >= 4500:
+                        return {
                         "id": "SMUGGLING-TETE",
                         "title": "Possible HTTP Request Smuggling (TE.TE Obfuscation)",
                         "severity": "medium",
                         "confidence": "low",
                         "category": "http-smuggling",
+                        "module": "http_smuggling",
                         "target": f"http://{host}:{port}",
+                        "verification_method": "active_confirmation",
                         "evidence": (
                             f"TE.TE obfuscation probe ({te_header[:40]}) "
                             f"caused timing anomaly: "

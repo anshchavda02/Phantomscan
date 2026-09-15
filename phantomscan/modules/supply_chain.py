@@ -24,7 +24,7 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"sk_live_[0-9a-zA-Z]{24,}"), "Stripe Live Secret Key"),
     (re.compile(r"sk_test_[0-9a-zA-Z]{24,}"), "Stripe Test Secret Key"),
     (re.compile(r"sq0atp-[0-9A-Za-z\-_]{22}"), "Square OAuth Token"),
-    (re.compile(r"(?:bearer|token)[\"'\s]*[:=][\"'\s]*[\"']?([A-Za-z0-9_\-.]{20,})", re.I), "Bearer Token"),
+    (re.compile(r"""\b(?:bearer|auth[_-]?token|access[_-]?token)\b\s*[:=]\s*["']([A-Za-z0-9_\-.]{25,})["']""", re.I), "Bearer Token"),
     (re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"), "JWT Token"),
     (re.compile(r"AIza[0-9A-Za-z\-_]{35}"), "Google Public API Key"),
     (re.compile(r"(?:api[_-]?key|apikey)[\"'\s]*[:=][\"'\s]*[\"']?([A-Za-z0-9_\-]{20,})", re.I), "API Key"),
@@ -281,14 +281,16 @@ class SupplyChainAnalyzer:
             # 'token' as a substring (e.g., validationToken, inputToken,
             # csrfTokenField, accessTokenExpiry) are code identifiers, not secrets.
             if secret_type == "Bearer Token":
-                # If the match looks like a camelCase/snake_case identifier
-                # rather than an actual token value, reject it.
+                # Real bearer tokens contain numbers, hex, or base64 chars — plain words are identifiers
+                if not any(c.isdigit() for c in match):
+                    return True
+                # If the match looks like a camelCase/snake_case identifier rather than an actual token value, reject it.
                 _CODE_IDENTIFIER_PATTERNS = [
                     r"(?:validation|input|csrf|access|refresh|session|auth|form|"
                     r"reset|verify|confirm|request|response|header|field|element|"
                     r"name|type|value|config|setting|option|param|expir|timeout|"
                     r"handler|listener|callback|manager|service|provider|factory|"
-                    r"store|state|action|reducer|selector|dispatch|middleware)"
+                    r"store|state|action|reducer|selector|dispatch|middleware|vali|gen)"
                     r".*token",
                     r"token.*(?:field|input|name|type|value|header|expir|timeout|"
                     r"handler|listener|callback|manager|validator|checker|verify)",

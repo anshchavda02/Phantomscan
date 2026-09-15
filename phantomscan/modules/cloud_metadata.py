@@ -54,7 +54,9 @@ class CloudMetadataDetector:
                 "severity": "info",
                 "confidence": "high",
                 "category": "cloud",
+                "module": "cloud_metadata",
                 "target": target,
+                "verification_method": "passive_observation",
                 "evidence": f"Cloud-specific headers indicate {provider} hosting.",
                 "recommendation": (
                     "Ensure cloud-specific security best practices are followed. "
@@ -138,7 +140,9 @@ class CloudMetadataDetector:
                             "severity": "high",
                             "confidence": "high",
                             "category": "cloud",
+                            "module": "cloud_metadata",
                             "target": bucket_url,
+                            "verification_method": "active_confirmation",
                             "evidence": (
                                 f"Bucket {bucket} returns directory listing.\n"
                                 f"Response preview: {body[:300]}"
@@ -182,7 +186,9 @@ class CloudMetadataDetector:
                         "severity": "critical",
                         "confidence": "high",
                         "category": "cloud",
+                        "module": "cloud_metadata",
                         "target": url,
+                        "verification_method": "active_confirmation",
                         "evidence": (
                             f"Direct access to {provider} metadata service.\n"
                             f"Response: {body[:500]}"

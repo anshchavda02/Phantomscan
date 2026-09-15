@@ -52,17 +52,36 @@ def load_known_platform(data_dir: Path, host: str) -> dict[str, Any] | None:
 
 
 def deduplicate_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Deduplicate findings by id, target, and evidence."""
+    """Deduplicate findings by id, target, and evidence.
+
+    Target URLs are normalised case-insensitively for the path portion
+    so /Signup.aspx and /signup.aspx collapse into a single finding.
+    """
+    from urllib.parse import urlparse, urlunparse
+
+    def _normalize_target(target_str: str) -> str:
+        t = target_str.strip().rstrip("/")
+        try:
+            p = urlparse(t)
+            # Lower-case the path for case-insensitive match
+            return urlunparse((
+                p.scheme.lower(), p.netloc.lower(), p.path.lower(),
+                p.params, p.query.lower(), p.fragment,
+            ))
+        except Exception:
+            return t.lower()
+
     seen: set[tuple[str, str, str]] = set()
     output: list[dict[str, Any]] = []
     for finding in findings:
-        norm_target = str(finding.get("target", "")).rstrip("/")
+        norm_target = _normalize_target(str(finding.get("target", "")))
         norm_evidence = str(finding.get("evidence", "")).strip()
         key = (str(finding.get("id", "")), norm_target, norm_evidence)
         if key not in seen:
             seen.add(key)
             output.append(finding)
     return output
+
 
 
 def post_process(

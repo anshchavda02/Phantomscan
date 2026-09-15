@@ -541,7 +541,9 @@ class PipelineDAG:
             asset_graph = AssetGraph.from_observations(new_observations, base_url=base_url)
 
         # Determine requested module set from profile
-        if profile in ("advanced", "deep", "deepscan", "full"):
+        if profile in ("deep", "deepscan"):
+            modules_to_run = set(all_modules.keys())
+        elif profile in ("advanced", "full"):
             modules_to_run = set(all_modules.keys()) - {"continuous_monitor"}
         elif profile == "monitor":
             modules_to_run = {"continuous_monitor"}
@@ -650,6 +652,9 @@ class PipelineDAG:
                 if isinstance(item, tuple) and len(item) == 3:
                     name, findings_result, telemetry = item
                     if findings_result:
+                        for f in findings_result:
+                            if isinstance(f, dict):
+                                f.setdefault("module", name)
                         active_findings.extend(findings_result)
                     new_observations.append({
                         "name": "module_execution",

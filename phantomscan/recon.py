@@ -702,6 +702,23 @@ async def deep_analyze_web(
         except Exception as e:
             log.debug("Template scanning error: %s", e)
 
+        # ── Directory Enumeration with catch-all safety ───────────────────────
+        try:
+            from modules.dir_enum import DirectoryEnumerator
+            dir_enum = DirectoryEnumerator(http_client=client)
+            common_dirs = [
+                "admin", "api", "backup", "config", "dashboard",
+                "dev", "portal", "private", "static", "test", "uploads",
+            ]
+            dir_tasks = [dir_enum.probe_directory(web_root, d, catch_all=catch_all) for d in common_dirs]
+            dir_results = await asyncio.gather(*dir_tasks, return_exceptions=True)
+            for res in dir_results:
+                if isinstance(res, Finding):
+                    findings.append(res)
+                    log.info("Directory found: %s (%s)", res.title, res.target)
+        except Exception as e:
+            log.debug("Directory enumeration error: %s", e)
+
         # ── Fetch the main page for body analysis ─────────────────────────────
         try:
             main_url = base_url if (parsed.path and parsed.path != "/") else (web_root + "/")
@@ -735,18 +752,28 @@ async def deep_analyze_web(
                         )
                     )
                 else:
-                    findings.append(
-                        Finding(
-                            id="CORS-WILDCARD-ORIGIN",
-                            title="CORS Wildcard Origin Advertised",
-                            severity="low",
-                            confidence="high",
-                            category="web",
-                            target=base,
-                            evidence=f"Access-Control-Allow-Origin: {cors_origin}",
-                            recommendation="Restrict CORS to specific trusted domains.",
-                        )
+                    # Suppress CORS wildcard on public root/marketing pages
+                    # (e.g. /, /en-in/, /about/) — standard CDN behavior, not a vuln
+                    _path = parsed.path.strip("/").lower()
+                    _is_public_root = (
+                        not _path
+                        or re.fullmatch(r"[a-z]{2}(-[a-z]{2})?", _path)  # /en, /en-us, /en-in
+                        or _path in ("about", "contact", "products", "blog", "home")
                     )
+                    if not _is_public_root:
+                        findings.append(
+                            Finding(
+                                id="CORS-WILDCARD-ORIGIN",
+                                title="CORS Wildcard Origin Advertised",
+                                severity="low",
+                                confidence="high",
+                                category="web",
+                                target=base,
+                                evidence=f"Access-Control-Allow-Origin: {cors_origin}",
+                                recommendation="Restrict CORS to specific trusted domains.",
+                            )
+                        )
+
 
             # Server version disclosure
             server = headers.get("server", "")

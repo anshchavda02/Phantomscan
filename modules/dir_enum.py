@@ -53,9 +53,22 @@ class DirectoryEnumerator:
                 location = ""
                 if isinstance(headers, dict):
                     location = headers.get("location", headers.get("Location", ""))
-                if location == probe_url.rstrip("/") + "/":
-                    # Just a trailing-slash redirect — normal
+                trailing_url = probe_url.rstrip("/") + "/"
+                if location in (trailing_url, "/" + path.lstrip("/") + "/"):
+                    # Follow canonical trailing-slash redirect to inspect destination
+                    try:
+                        resp_slash = await client.get(trailing_url, allow_redirects=False, timeout=8)
+                        status = getattr(resp_slash, "status", getattr(resp_slash, "status_code", 0))
+                        response = resp_slash
+                    except Exception:
+                        return None
+                else:
+                    # Redirects to home page, sign-in, login, or different route — not an exposed directory
+                    logger.debug("Suppressed directory probe: %s redirected to %s", probe_url, location)
                     return None
+
+            if status not in [200, 403]:
+                return None
 
             if status == 200:
                 if hasattr(response, "text"):
@@ -111,6 +124,7 @@ class DirectoryEnumerator:
                 recommendation=recommendation,
                 verification_method="baseline_differential",
                 cwe="CWE-538",
+                module="dir_enum",
             )
         except Exception as e:
             logger.debug("Directory probe failed for %s: %s", probe_url, e)
