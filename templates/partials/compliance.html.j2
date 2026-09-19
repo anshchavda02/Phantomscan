@@ -8,6 +8,7 @@
 
     <div class="grid-3">
         {% for results in compliance.frameworks %}
+        {% set fw_idx = loop.index0 %}
         <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="margin: 0; font-size: 13px; font-family: 'Syne', sans-serif;">{{ results.name | upper }}</h3>
@@ -30,7 +31,69 @@
                 </div>
             </div>
 
-            {% if results.failing_controls %}
+            {% if results.failing_control_details %}
+            <div style="margin-top: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h4 style="font-size: 9px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; font-family: 'Syne', sans-serif;">
+                        Failing Controls ({{ results.failing_control_details | length }})
+                    </h4>
+                    <span style="font-size: 9px; color: var(--text-tertiary);">Click control to view findings</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    {% for ctrl in results.failing_control_details %}
+                    <div class="compliance-ctrl-card" style="border: 1px solid var(--border); border-radius: var(--r-compact); background: var(--surface); overflow: hidden;">
+                        <div class="compliance-ctrl-header" onclick="window.toggleComplianceDetail(this)" style="display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; cursor: pointer; user-select: none; background: rgba(239, 68, 68, 0.04); border-left: 3px solid var(--sev-critical);">
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0;">
+                                <span class="pill" style="font-size: 9px; font-family: 'JetBrains Mono', monospace; background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical-bd); font-weight: 700;">{{ ctrl.id }}</span>
+                                <span style="font-size: 11px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ ctrl.name }}">{{ ctrl.name }}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                <span class="pill" style="font-size: 9px; background: rgba(239, 68, 68, 0.12); color: var(--sev-critical); border-color: var(--sev-critical-bd); font-weight: 600;">
+                                    {{ ctrl.finding_count }} {{ 'Violation' if ctrl.finding_count == 1 else 'Violations' }}
+                                </span>
+                                <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="compliance-ctrl-body hidden" style="padding: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
+                            {% for f in ctrl.findings %}
+                            {% set cat_slug = (f.category | default('other') | string | lower) | replace(' ', '-') | replace('_', '-') %}
+                            <div style="padding: 8px 10px; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-compact); border-left: 3px solid {{ f.severity | severity_color }};">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+                                    <span style="font-weight: 600; font-size: 11px; color: var(--text-primary); line-height: 1.4;">{{ f.title }}</span>
+                                    <span class="pill badge-{{ f.severity | lower }}" style="font-size: 9px; flex-shrink: 0;">{{ f.severity | upper }}</span>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; font-size: 9px;">
+                                    <span class="pill badge-cat badge-cat-{{ cat_slug }}" style="font-size: 9px;">{{ f.category | upper }}</span>
+                                    {% if f.cwe %}
+                                    <span class="pill" style="font-size: 9px; color: var(--teal-light); border-color: rgba(20, 184, 166, 0.3);">{{ f.cwe }}</span>
+                                    {% endif %}
+                                    {% if f.target %}
+                                    <span class="pill" style="font-size: 9px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ f.target }}">{{ f.target }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if f.evidence %}
+                                <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; font-family: 'JetBrains Mono', monospace; background: var(--surface); padding: 5px 7px; border-radius: var(--r-compact); border: 1px solid var(--border); overflow-wrap: anywhere; word-break: break-word;">
+                                    <span style="color: var(--text-tertiary); font-weight: 600;">EVIDENCE:</span> {{ f.evidence | truncate_evidence(140) }}
+                                </div>
+                                {% endif %}
+                                {% if f.recommendation %}
+                                <div style="font-size: 10.5px; color: var(--text-tertiary); line-height: 1.4; margin-bottom: 6px;">
+                                    <span style="color: var(--teal-light); font-weight: 600;">REMEDIATION:</span> {{ f.recommendation | truncate_evidence(140) }}
+                                </div>
+                                {% endif %}
+                                <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+                                    <a href="#{{ f.id }}" onclick="window.scrollToFinding('{{ f.id }}', event)" class="btn-ghost" style="font-size: 9.5px; padding: 2px 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; color: var(--teal-light); font-weight: 600;">
+                                        View in Detailed Findings &nearr;
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% elif results.failing_controls %}
             <div style="margin-top: 4px;">
                 <h4 style="font-size: 9px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-family: 'Syne', sans-serif;">Failing Controls</h4>
                 <div style="display: flex; flex-wrap: wrap; gap: 4px;">
@@ -44,4 +107,15 @@
         {% endfor %}
     </div>
 </section>
+
+<script>
+window.toggleComplianceDetail = function(headerEl) {
+    const card = headerEl.closest('.compliance-ctrl-card');
+    if (!card) return;
+    const body = card.querySelector('.compliance-ctrl-body');
+    const chevron = card.querySelector('.chevron');
+    if (body) body.classList.toggle('hidden');
+    if (chevron) chevron.classList.toggle('open');
+};
+</script>
 {% endif %}

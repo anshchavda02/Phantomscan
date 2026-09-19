@@ -336,6 +336,7 @@ class ComplianceReporter:
                 "status": "FAIL" if matching else "PASS",
                 "finding_count": len(matching),
                 "findings": [f.get("title", "") for f in matching[:5]],
+                "matching_findings": matching,
             }
         return results
 

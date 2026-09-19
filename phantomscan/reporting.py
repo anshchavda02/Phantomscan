@@ -658,6 +658,8 @@ def parse_compliance_data(findings: list[Any]) -> ComplianceData:
                     "suppression_reason": getattr(f, "suppression_reason", None),
                     "false_positive": getattr(f, "false_positive", False),
                     "suppressed": getattr(f, "suppressed", False),
+                    "target": getattr(f, "target", ""),
+                    "uid": getattr(f, "uid", ""),
                 })
 
         frameworks = []
@@ -666,11 +668,44 @@ def parse_compliance_data(findings: list[Any]) -> ComplianceData:
             passed = sum(1 for r in mapped.values() if r["status"] == "PASS")
             failed = sum(1 for r in mapped.values() if r["status"] == "FAIL")
             failing_controls = [f"{cid}: {info['name']}" for cid, info in mapped.items() if info["status"] == "FAIL"]
+            failing_control_details = []
+            for cid, info in mapped.items():
+                if info["status"] == "FAIL":
+                    ctrl_findings = []
+                    for mf in info.get("matching_findings", []):
+                        f_id = str(mf.get("id", ""))
+                        f_title = str(mf.get("title", ""))
+                        f_sev = str(mf.get("severity", "info"))
+                        f_cat = str(mf.get("category", "other"))
+                        f_evidence = str(mf.get("evidence", ""))
+                        f_rec = str(mf.get("recommendation", ""))
+                        f_cwe = str(mf.get("cwe", ""))
+                        f_target = str(mf.get("target", ""))
+                        f_uid = str(mf.get("uid") or f"finding-{f_id.lower().replace(' ', '-').replace(':', '-').replace('/', '-')}")
+                        ctrl_findings.append({
+                            "id": f_id,
+                            "title": f_title,
+                            "severity": f_sev,
+                            "category": f_cat,
+                            "evidence": f_evidence,
+                            "recommendation": f_rec,
+                            "cwe": f_cwe,
+                            "target": f_target,
+                            "uid": f_uid,
+                        })
+                    failing_control_details.append({
+                        "id": cid,
+                        "name": info["name"],
+                        "label": f"{cid}: {info['name']}",
+                        "finding_count": info.get("finding_count", len(ctrl_findings)),
+                        "findings": ctrl_findings,
+                    })
             frameworks.append({
                 "name": fw_name,
                 "passed": passed,
                 "failed": failed,
                 "failing_controls": failing_controls,
+                "failing_control_details": failing_control_details,
             })
         return ComplianceData(frameworks=frameworks)
     except Exception as exc:

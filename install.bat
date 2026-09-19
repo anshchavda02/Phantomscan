@@ -89,7 +89,8 @@ echo [4/5] Creating launcher scripts...
   echo     ^) else ^(
   echo         python "%%~dp0phantomscan.py" %%*
   echo     ^)
-  echo     if errorlevel 1 pause
+  echo     echo.
+  echo     pause
   echo     exit /b %%errorlevel%%
   echo ^)
   echo if "%%~1"=="" ^(
@@ -100,6 +101,8 @@ echo [4/5] Creating launcher scripts...
   echo     ^) else ^(
   echo         python "%%~dp0phantomscan.py" %%*
   echo     ^)
+  echo     echo.
+  echo     pause
   echo ^)
   echo if errorlevel 1 pause
   echo exit /b %%errorlevel%%

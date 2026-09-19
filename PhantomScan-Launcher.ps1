@@ -25,13 +25,27 @@ function Write-AsciiLogo {
 }
 
 function Write-Title {
-    Clear-Host
+    param([bool]$Clear = $false)
+    if ($Clear) {
+        Clear-Host
+    }
     Write-AsciiLogo
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host " PhantomScan 2.2.0 - Authorized Security Assessment" -ForegroundColor White
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host "Use only on systems you own or have written authorization to test." -ForegroundColor Yellow
     Write-Host ""
+}
+
+function Wait-UserReturn {
+    param([string]$Message = "Press Enter to return to the menu")
+    Write-Host ""
+    try {
+        while ([Console]::KeyAvailable) {
+            $null = [Console]::ReadKey($true)
+        }
+    } catch {}
+    Read-Host $Message
 }
 
 function Read-Choice {
@@ -100,14 +114,59 @@ function Get-NewestLogFile {
     if (-not (Test-Path -LiteralPath $Logs)) {
         return $null
     }
-    return Get-ChildItem -LiteralPath $Logs -Filter "*.log" |
-        Where-Object { $_.LastWriteTime -ge $StartedAt } |
+    $file = Get-ChildItem -LiteralPath $Logs -Filter "*.log" |
+        Where-Object { $_.LastWriteTime -ge $StartedAt.AddSeconds(-30) } |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
+    if ($null -eq $file) {
+        $file = Get-ChildItem -LiteralPath $Logs -Filter "*.log" |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+    }
+    return $file
 }
 
+function Show-ScanLog {
+    param([datetime]$StartedAt)
+    try {
+        $logFile = Get-NewestLogFile -StartedAt $StartedAt
+        if ($null -ne $logFile -and (Test-Path -LiteralPath $logFile.FullName)) {
+            Write-Host ""
+            Write-Host "============================================================" -ForegroundColor DarkCyan
+            Write-Host " SCAN EXECUTION LOG: $($logFile.Name)" -ForegroundColor White
+            Write-Host "============================================================" -ForegroundColor DarkCyan
+            $lines = Get-Content -LiteralPath $logFile.FullName -Encoding UTF8 -ErrorAction SilentlyContinue
+            if ($null -ne $lines -and $lines.Count -gt 0) {
+                foreach ($line in $lines) {
+                    if ($line -match "\[CRITICAL\]|\[ERROR\]") {
+                        Write-Host $line -ForegroundColor Red
+                    } elseif ($line -match "\[WARNING\]|\[WARN\]") {
+                        Write-Host $line -ForegroundColor Yellow
+                    } elseif ($line -match "\[INFO\]") {
+                        Write-Host $line -ForegroundColor Cyan
+                    } elseif ($line -match "\[DEBUG\]") {
+                        Write-Host $line -ForegroundColor DarkGray
+                    } else {
+                        Write-Host $line -ForegroundColor Gray
+                    }
+                }
+            } else {
+                Write-Host "(Log file is currently empty)" -ForegroundColor DarkGray
+            }
+            Write-Host "============================================================" -ForegroundColor DarkCyan
+            Write-Host "Log saved: $($logFile.FullName)" -ForegroundColor DarkCyan
+        } else {
+            Write-Host "No log file found for this scan." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "Notice: Unable to render log file in terminal: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+$isFirstRun = $true
 while ($true) {
-    Write-Title
+    Write-Title -Clear $isFirstRun
+    $isFirstRun = $false
     Write-Host "Scan & Assessment Options:" -ForegroundColor White
     Write-Host "--------------------------" -ForegroundColor DarkGray
     Write-Host "  1. Passive scan        Safe DNS/email checks & Deep Web Analysis"
@@ -141,8 +200,7 @@ while ($true) {
     }
     if ($mode -eq "22") {
         & $Python $Cli --help
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -154,12 +212,13 @@ while ($true) {
             if (-not [string]::IsNullOrWhiteSpace($sourcePath)) {
                 $aiArgs += @("--source-path", $sourcePath, "--check-slopsquatting")
             }
+            $startedAt = Get-Date
             & $Python $Cli @aiArgs
+            Show-ScanLog -StartedAt $startedAt
         } else {
             Write-Host "No target entered." -ForegroundColor Yellow
         }
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -215,8 +274,8 @@ while ($true) {
                 Start-Process -FilePath $html.FullName
             }
         }
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Show-ScanLog -StartedAt $startedAt
+        Wait-UserReturn
         continue
     }
 
@@ -224,8 +283,7 @@ while ($true) {
         $staging = Read-Host "Staging target URL/domain (e.g. staging.example.com)"
         $production = Read-Host "Production target URL/domain (e.g. example.com)"
         & $Python $Cli --diff-env --staging $staging --production $production
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -236,8 +294,7 @@ while ($true) {
         } else {
             & $Python $Cli --mobile-ipa $path --extract-apis
         }
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -245,16 +302,14 @@ while ($true) {
         $dir = Read-Host "Path to project directory [.]"
         if ([string]::IsNullOrWhiteSpace($dir)) { $dir = "." }
         & $Python $Cli --check-deps $dir
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
     if ($mode -eq "13") {
         $files = Read-Host "Enter space-separated JSON report file paths"
         & $Python $Cli --merge $files.Split(' ')
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -275,7 +330,7 @@ while ($true) {
         $bmScript = Join-Path $Root "scripts\benchmark.py"
         if (-not (Test-Path -LiteralPath $bmScript)) {
             Write-Host "Benchmark script not found: $bmScript" -ForegroundColor Red
-            Read-Host "Press Enter to return to the menu"
+            Wait-UserReturn
             continue
         }
         $bmArgs = @($bmScript)
@@ -293,16 +348,14 @@ while ($true) {
         }
         Write-Host "Running benchmark harness..." -ForegroundColor Green
         & $Python @bmArgs
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
     if ($mode -eq "16") {
         Write-Host "Checking polyglot engines and dependencies..." -ForegroundColor Green
         & $Python $Cli --check-engines
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -337,8 +390,7 @@ while ($true) {
                 & $Python -m pytest tests/test_engine_hardening.py -v --tb=short
             }
         }
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -372,11 +424,11 @@ while ($true) {
                     Start-Process -FilePath $html.FullName
                 }
             }
+            Show-ScanLog -StartedAt $startedAt
         } else {
             Write-Host "No target entered." -ForegroundColor Yellow
         }
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -415,8 +467,7 @@ while ($true) {
             Write-Host "Scan cache provides sub-millisecond retrieval of cached HTTP requests and DNS responses." -ForegroundColor Cyan
             Write-Host "Use --time-budget to control scan duration while caching optimizes repeated scans." -ForegroundColor Cyan
         }
-        Write-Host ""
-        Read-Host "Press Enter to return to the menu"
+        Wait-UserReturn
         continue
     }
 
@@ -603,17 +654,15 @@ while ($true) {
         Write-Host "SARIF report:   $($sarif.FullName)" -ForegroundColor Green
     }
 
-    $logFile = Get-NewestLogFile -StartedAt $startedAt
-    if ($null -ne $logFile) {
-        Write-Host "Log file: $($logFile.FullName)" -ForegroundColor DarkCyan
-    }
+    Show-ScanLog -StartedAt $startedAt
 
     Write-Host ""
     Write-Host "Reports folder: $Reports" -ForegroundColor Cyan
     Write-Host "Logs folder:    $Logs" -ForegroundColor Cyan
-    Write-Host ""
-    $again = Read-YesNo "Run another scan" $false
-    if (-not $again) {
-        break
-    }
+    Wait-UserReturn "Scan completed! Press Enter to return to the main menu"
+    continue
 }
+
+Write-Host ""
+Write-Host "PhantomScan Launcher session ended. Goodbye!" -ForegroundColor DarkCyan
+Write-Host ""

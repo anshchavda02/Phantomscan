@@ -10,7 +10,8 @@ if errorlevel 1 (
     ) else (
         python "%~dp0phantomscan.py" %*
     )
-    if errorlevel 1 pause
+    echo.
+    pause
     exit /b %errorlevel%
 )
 if "%~1"=="" (
@@ -21,6 +22,8 @@ if "%~1"=="" (
     ) else (
         python "%~dp0phantomscan.py" %*
     )
+    echo.
+    pause
 )
 if errorlevel 1 pause
 exit /b %errorlevel%

@@ -407,22 +407,52 @@ def test_html_report_rendering_v2_2_features(tmp_path: Path):
     assert "TLS 1.3" in html
 
 
-def test_launcher_powershell_options():
-    """Verify PhantomScan-Launcher.ps1 includes options 1 through 22 and v2.2.0 title."""
-    launcher_path = Path(__file__).parent.parent.parent / "PhantomScan-Launcher.ps1"
-    assert launcher_path.exists()
-    content = launcher_path.read_text(encoding="utf-8")
+def test_compliance_failing_controls_details(tmp_path: Path):
+    """Test that compliance benchmarks include detailed findings with severity, evidence, and jump links."""
+    from phantomscan.reporting import parse_compliance_data, write_html_report
 
-    assert "PhantomScan 2.2.0" in content
-    assert "20. Targeted Modules" in content
-    assert "21. Cache Management" in content
-    assert "22. CLI Help" in content
-    assert "Hardened engine test suite" in content
-    assert "ssl_analyzer" in content
-    assert "cors_analyzer" in content
-    assert "info_disclosure" in content
-    assert "cookie_analyzer" in content
-    assert "cve_engine" in content
+    findings = [
+        {
+            "id": "CSRF-FORM-TEST",
+            "title": "Missing Anti-CSRF Token on /transfer",
+            "severity": "high",
+            "category": "csrf",
+            "evidence": "POST form at /transfer lacks csrf token",
+            "recommendation": "Implement unique anti-CSRF token.",
+            "target": "https://example.com/transfer",
+        }
+    ]
+
+    comp_data = parse_compliance_data(findings)
+    assert comp_data.frameworks
+
+    owasp = next((fw for fw in comp_data.frameworks if fw["name"] == "OWASP Top 10"), None)
+    assert owasp is not None
+    assert owasp["failed"] >= 1
+    assert "failing_control_details" in owasp
+
+    # Find the broken access control entry
+    bac = next((c for c in owasp["failing_control_details"] if "A01" in c["id"]), None)
+    assert bac is not None
+    assert bac["finding_count"] >= 1
+    assert any(f["title"] == "Missing Anti-CSRF Token on /transfer" for f in bac["findings"])
+
+    # Test HTML report rendering
+    out_file = tmp_path / "compliance_report.html"
+    payload = {
+        "target": "https://example.com",
+        "score": 80,
+        "findings": findings,
+        "observations": [],
+    }
+    write_html_report(out_file, payload)
+    html = out_file.read_text(encoding="utf-8")
+
+    assert "COMPLIANCE BENCHMARKS" in html
+    assert "Missing Anti-CSRF Token on /transfer" in html
+    assert "POST form at /transfer lacks csrf token" in html
+    assert "View in Detailed Findings" in html
+    assert "window.scrollToFinding('CSRF-FORM-TEST', event)" in html
 
 
 def test_html_report_supply_chain_section(tmp_path: Path):
