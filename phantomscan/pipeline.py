@@ -12,12 +12,11 @@ import asyncio
 from dataclasses import dataclass, field
 import logging
 import time
-from typing import Any, Type
+from typing import Any
 
 from phantomscan.asset_graph import AssetGraph
 from phantomscan.http_client import RobustHTTPClient
-from phantomscan.models import Finding, Observation
-from phantomscan.modules import MODULE_REGISTRY, get_all_modules, get_module_class
+from phantomscan.modules import get_all_modules
 from phantomscan.scope import NormalizedTarget, normalize_target
 
 logger = logging.getLogger(__name__)

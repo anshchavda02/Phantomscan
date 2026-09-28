@@ -11,7 +11,7 @@
 ### **Next-Generation Modular Cybersecurity Platform for Automated Vulnerability Assessment**
 *Enterprise-Grade DAST Engineered for Modern APIs, AI-Generated / Vibe-Coded Web Apps, Cloud Backends, and Supply Chains*
 
-[![Tests](https://img.shields.io/badge/tests-375%20passed-brightgreen.svg?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-461%20passed-brightgreen.svg?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
 [![Go](https://img.shields.io/badge/go-1.21%2B-00ADD8.svg?style=flat-square)](engines/go/)
 [![Rust](https://img.shields.io/badge/rust-2021%20edition-dea584.svg?style=flat-square)](engines/rust/)
@@ -27,13 +27,13 @@
 
 ## Executive Summary
 
-**PhantomScan v2.0.0** is an evidence-driven, high-concurrency automated vulnerability assessment platform engineered for AppSec teams, DevSecOps pipelines, and modern penetration testers.
+**PhantomScan v2.2.0** is an evidence-driven, high-concurrency automated vulnerability assessment platform engineered for AppSec teams, DevSecOps pipelines, and modern penetration testers.
 
 Legacy vulnerability scanners focus primarily on monolithic web servers and static pattern fuzzing. **PhantomScan bridges the modern security posture gap** by combining:
 1. **AI-Native & Vibe-Coded Application Security**: Auditing applications built with LLM-assisted workflows (*Lovable, Bolt.new, v0, Cursor, Replit, Windsurf*), testing Backend-as-a-Service (BaaS) architectures (*Supabase, Firebase, Convex*), and verifying AI supply chain packages against hallucinated slopsquatting.
 2. **Modern Web & API Protocol Scanners**: Native fuzzers for GraphQL introspection, WebSocket Origin/CSWSH, Prototype Pollution, HTTP Request Smuggling (CL.TE / TE.CL), and IDOR/BOLA.
 3. **Multi-Stage Statistical Injections**: High-specificity SQL Injection, XSS, Path Traversal, and Second-Order Injection engines using baseline differentials and statistical timing verification to guarantee zero false positives.
-4. **Multi-Language Polyglot Performance**: High-speed Go SYN port scanning, Rust native cryptographic TLS inspection, Node.js Playwright SPA DOM crawling, and an async Python DAG orchestrator.
+4. **Multi-Language Polyglot Performance**: High-concurrency Go TCP connect port scanning with adaptive banner grabbing, Rust native cryptographic TLS inspection, Node.js Playwright SPA DOM crawling, and an async Python DAG orchestrator.
 
 ---
 
@@ -50,8 +50,8 @@ PhantomScan executes security operations across a **6-stage topological Pipeline
                   ▼                  ▼                   ▼                   ▼
         ┌──────────────────┐┌──────────────────┐┌──────────────────┐┌──────────────────┐
         │    Go Engine     ││   Rust Engine    ││   Node Engine    ││  Python Modules  │
-        │  (High-Speed     ││  (Native TLS/SSL ││ (Playwright DOM  ││  (38 Specialized │
-        │   SYN Scanner)   ││   Cryptographic  ││   SPA & Visual   ││   Security & AI  │
+        │ (High-Concurrency││  (Native TLS/SSL ││ (Playwright DOM  ││  (38 Specialized │
+        │TCP Connect Scan) ││   Cryptographic  ││   SPA & Visual   ││   Security & AI  │
         │                  ││    Inspector)    ││   Screenshots)   ││   Scanners)      │
         └─────────┬────────┘└────────┬─────────┘└────────┬─────────┘└────────┬─────────┘
                   │                  │                   │                   │
@@ -175,7 +175,7 @@ python phantomscan.py --serve-verify --port 8787
 | `owasp` | OWASP Top 10 web vulnerabilities | SQLi, XSS, Path Traversal, SSTI, CSRF, SSRF, IDOR, Logic |
 | `bug-bounty`| High-impact bounty targets | Takeovers, Smuggling, Race Conditions, Cloud Meta, SSRF |
 | `api` | API & backend audit | REST, GraphQL, tRPC, OpenAPI Ingestion, JWT, IDOR |
-| `network` | Port & service enumeration | High-concurrency Go SYN port scanner + TLS Inspector |
+| `network` | Port & service enumeration | High-concurrency Go TCP port scanner + TLS Inspector |
 | `advanced` | Comprehensive application logic | 38 Advanced Detection Modules + FindingGate™ |
 | `deep` | Exhaustive All-in-One | Full Recon + 150-Page Crawl + All 38 Modules (`force_all`) |
 | `ai` | AI / Vibe-Coded web apps | BaaS RLS, tRPC, Secret Entropy, Slopsquatting, Prompt APIs |
@@ -210,7 +210,7 @@ reports/
 PhantomScan enforces rigorous automated test coverage across all subsystems:
 
 ```bash
-# Run full automated test suite (331 Passing Tests across unit, integration & contract suites)
+# Run full automated test suite (461 Passing Tests across unit, integration & contract suites)
 pytest -v
 
 # Run false-positive regression tests

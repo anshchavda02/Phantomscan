@@ -17,8 +17,17 @@
   - Added Option 17: Multi-tier Test Runner (full suite, FP regressions, polyglot integration, live regression script).
 - Updated Windows batch launcher (`install.bat`, `launcher.bat`, `PhantomScan Launcher.bat`, `phantomscan-cli.bat`) with execution policy bypass, automatic virtualenv resolution, and post-install engine health diagnostics.
 - Updated Linux and macOS installer scripts (`scripts/install.sh`, `scripts/install_macos.sh`) with post-install health check and v2.2.0 CLI examples.
-- Updated CLI parser and help options across `phantomscan.py` with `--check-engines`, `--engine-health`, and `--benchmark`.
-- Expanded automated test coverage to 331 tests across unit, contract, and false-positive regression suites.
+- Expanded automated test coverage to 461 tests across unit, contract, and false-positive regression suites.
+- Codebase Audit Remediation & Hardening:
+  - Fixed infinite loop DoS in SQLi error signature parser on duplicate match boundaries.
+  - Hardened remediation verifier with dynamic HMAC secrets, target URL binding, ScopePolicy enforcement, and HTML output escaping.
+  - Added safe extraction path validation against Zip Slip for mobile APK decompilation.
+  - Calibrated unreachable/offline target scoring (Grade F / Score 20), 100% inconclusive compliance mapping, and unreachable narrative advisories.
+  - Differentiated unregistered internal packages from public collisions in dependency confusion detector.
+  - Wired `config.yaml` loader into CLI orchestrator, engine selection, timeouts, and cache TTLs.
+  - Upgraded deprecated `asyncio.iscoroutinefunction` and `aiohttp.ClientWSTimeout` APIs.
+  - Cleaned all unused imports across `phantomscan/` and `modules/` (flake8 0 warnings).
+  - Added standard `pyproject.toml` PEP 518/621 packaging specification.
 
 ## 2.1.0
 

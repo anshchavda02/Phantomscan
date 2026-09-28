@@ -40,7 +40,14 @@ class RuleEngine:
 
     async def _execute_rule(self, session: aiohttp.ClientSession, target: str, rule: dict[str, Any], observations: list[Observation]) -> None:
         """Execute a single rule against a target."""
+        from phantomscan.scope import ScopePolicy, normalize_target
+
         target_url = f"http://{target}" if not target.startswith("http") else target
+        try:
+            norm_target = normalize_target(target_url)
+            policy = ScopePolicy(target=norm_target, allow_local=norm_target.is_local)
+        except Exception:
+            policy = None
         
         for req in rule.get("requests", []):
             method = req.get("method", "GET").upper()
@@ -48,13 +55,17 @@ class RuleEngine:
             
             for path_template in paths:
                 url = path_template.replace("{{BaseURL}}", target_url)
+                if policy and not policy.is_url_in_scope(url):
+                    continue
+
                 body = req.get("body", "")
+                oob_id: Optional[str] = None
                 
                 # Handle OOB injection
                 if "{{oob_url}}" in url or (body and "{{oob_url}}" in body):
                     if not oob_listener.is_running:
                         oob_listener.start()
-                    self.current_oob_id, callback_url = oob_listener.generate_payload_url()
+                    oob_id, callback_url = oob_listener.generate_payload_url()
                     url = url.replace("{{oob_url}}", callback_url)
                     if body:
                         body = body.replace("{{oob_url}}", callback_url)
@@ -64,7 +75,7 @@ class RuleEngine:
                         text = await response.text()
                         status = response.status
                         
-                        if await self._match_response(req, status, text):
+                        if await self._match_response(req, status, text, oob_id=oob_id):
                             info = rule.get("info", {})
                             observations.append(
                                 Observation(
@@ -82,7 +93,7 @@ class RuleEngine:
                 except Exception:
                     pass
 
-    async def _match_response(self, request_def: dict[str, Any], status: int, body: str) -> bool:
+    async def _match_response(self, request_def: dict[str, Any], status: int, body: str, oob_id: Optional[str] = None) -> bool:
         """Check if a response matches the rule criteria."""
         matchers = request_def.get("matchers", [])
         if not matchers:
@@ -117,7 +128,7 @@ class RuleEngine:
             elif m_type == "oob":
                 # Wait briefly to let network callbacks arrive
                 await asyncio.sleep(1.0)
-                if self.current_oob_id and oob_listener.check_hit(self.current_oob_id):
+                if oob_id and oob_listener.check_hit(oob_id):
                     results.append(True)
                 else:
                     results.append(False)

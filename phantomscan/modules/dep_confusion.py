@@ -88,6 +88,25 @@ class DependencyConfusionChecker:
                     "references": ["CWE-427"],
                     "module": "dep_confusion",
                 })
+            else:
+                findings.append({
+                    "id": f"DEP-CONFUSION-UNREGISTERED-{name.upper().replace('@', '').replace('/', '-')}",
+                    "title": f"Unregistered Internal Dependency Risk: {name}",
+                    "severity": "critical",
+                    "confidence": "high",
+                    "category": "dependency_confusion",
+                    "target": f"{registry}:{name}",
+                    "evidence": (
+                        f"Package: {name}\nInternal naming pattern detected but package is not registered on public {registry} registry.\n"
+                        f"An attacker could claim this package name on {registry} to execute dependency confusion attacks."
+                    ),
+                    "recommendation": (
+                        f"Immediately register '{name}' on {registry} to claim the namespace, or scope your dependencies "
+                        f"under private organization scopes with explicit registry routing."
+                    ),
+                    "references": ["CWE-427", "CWE-1357"],
+                    "module": "dep_confusion",
+                })
 
         return findings
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from modules.fp_postprocessor import apply_rules
 from modules.score_engine import calculate_score, Score

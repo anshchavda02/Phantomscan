@@ -361,11 +361,11 @@ while ($true) {
 
     if ($mode -eq "17") {
         Write-Host "Select Test Suite:" -ForegroundColor White
-        Write-Host "  1. Full test suite (360+ unit & integration tests)"
-        Write-Host "  2. False positive regression tests (120+ regression checks)"
+        Write-Host "  1. Full test suite (460+ unit & integration tests)"
+        Write-Host "  2. False positive regression tests (160+ regression checks)"
         Write-Host "  3. Polyglot engine integration tests (Go, Rust, Node)"
         Write-Host "  4. Python regression verification script (live network validation)"
-        Write-Host "  5. Hardened engine test suite (tests/test_engine_hardening.py - 30 tests)"
+        Write-Host "  5. Hardened engine test suite (tests/test_engine_hardening.py - 33 tests)"
         $tChoice = Read-Choice "Choose test suite" @("1", "2", "3", "4", "5") "1"
         switch ($tChoice) {
             "1" {
@@ -530,7 +530,7 @@ while ($true) {
             $scanArgs += "--advanced"
             $scanArgs += "--show-all"
         } elseif ($profile -eq "advanced" -or $profile -eq "monitor") {
-            $runAllAdvanced = Read-YesNo "Run all 38 advanced modules (y) or select specific ones (n)" $true
+            $runAllAdvanced = Read-YesNo "Run all 40+ advanced modules (y) or select specific ones (n)" $true
             if ($runAllAdvanced) {
                 $scanArgs += "--advanced"
             } else {

@@ -15,7 +15,7 @@ import logging
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class ScanCache:
         self._ttls = {**DEFAULT_TTLS, **(ttl_overrides or {})}
         self._db_path = db_path
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(db_path))
+        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.execute(self._CACHE_TABLE_DDL)
         self._conn.commit()
         # Statistics

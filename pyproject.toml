@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phantomscan"
+version = "2.2.0"
+description = "PhantomScan: Polyglot Enterprise Security Scanner & Automated Attack Path DAG Orchestrator"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "PhantomScan Team" }
+]
+keywords = [
+    "security",
+    "vulnerability-scanner",
+    "polyglot",
+    "cybersecurity",
+    "orchestrator",
+    "dag",
+    "dast",
+    "reconnaissance",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
+dependencies = [
+    "aiohttp>=3.9.0",
+    "cryptography>=42.0.0",
+    "dnspython>=2.6.0",
+    "jinja2>=3.1.0",
+    "psutil>=5.9.0",
+    "pyjwt>=2.8.0",
+    "python-whois>=0.9.0",
+    "PyYAML>=6.0.1",
+    "rich>=13.7.0",
+    "tldextract>=5.1.0",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "Faker>=25.0.0",
+    "flake8>=7.0.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.14.0",
+]
+pdf = [
+    "weasyprint>=60.0",
+    "reportlab>=4.0.0",
+]
+paper = [
+    "matplotlib>=3.8.0",
+    "reportlab>=4.0.0",
+    "pypdf>=4.0.0",
+]
+
+[project.scripts]
+phantomscan = "phantomscan:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["phantomscan*", "modules*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+python_files = ["test_*.py"]

@@ -10,8 +10,6 @@ import logging
 import re
 from typing import Any
 
-from phantomscan.http_client import RobustHTTPClient
-
 logger = logging.getLogger(__name__)
 
 _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [

@@ -10,7 +10,10 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from phantomscan.sarif_exporter import generate_sarif_report, write_sarif_report
+from phantomscan.sarif_exporter import (
+    generate_sarif_report as generate_sarif_report,
+    write_sarif_report as write_sarif_report,
+)
 
 from phantomscan.report_models import (
     APISecurityData,
@@ -24,7 +27,6 @@ from phantomscan.report_models import (
     EngagementProfile,
     IntelligenceData,
     IPIntel,
-    ModuleStatus,
     PortResult,
     ScanData,
     ScanResult,
@@ -40,6 +42,14 @@ from phantomscan.report_models import (
 )
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "generate_sarif_report",
+    "write_sarif_report",
+    "write_html_report",
+    "write_json_report",
+    "write_csv_report",
+]
 
 
 def write_json_report(path: Path, payload: dict[str, Any]) -> None:

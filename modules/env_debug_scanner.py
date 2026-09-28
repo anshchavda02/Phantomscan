@@ -1,10 +1,9 @@
 """Environment and debug route scanner module with HTML catch-all rejection."""
 from __future__ import annotations
 
-import json
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 from modules.response_validator import ResponseContentValidator

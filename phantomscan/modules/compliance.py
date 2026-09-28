@@ -320,6 +320,11 @@ class ComplianceReporter:
             and str(f.get("severity", "")).lower() in ("critical", "high", "medium", "low")
         ]
 
+        is_unreachable = any(
+            str(f.get("id", "")).upper() in ("HTTP-REQUEST-FAILED", "TARGET-UNREACHABLE")
+            for f in findings
+        )
+
         results: dict[str, dict[str, Any]] = {}
         for control_id, control in framework.items():
             matching = []
@@ -331,9 +336,17 @@ class ComplianceReporter:
                 ).lower()
                 if any(kw in text for kw in control["keywords"]):
                     matching.append(f)
+            
+            if matching:
+                status = "FAIL"
+            elif is_unreachable:
+                status = "INCONCLUSIVE"
+            else:
+                status = "PASS"
+
             results[control_id] = {
                 "name": control["name"],
-                "status": "FAIL" if matching else "PASS",
+                "status": status,
                 "finding_count": len(matching),
                 "findings": [f.get("title", "") for f in matching[:5]],
                 "matching_findings": matching,
@@ -347,11 +360,15 @@ class ComplianceReporter:
         lines = [f"{framework} Compliance Assessment:\n"]
         pass_count = sum(1 for r in results.values() if r["status"] == "PASS")
         fail_count = sum(1 for r in results.values() if r["status"] == "FAIL")
+        inconclusive_count = sum(1 for r in results.values() if r["status"] == "INCONCLUSIVE")
         total = len(results)
-        lines.append(f"  PASS: {pass_count}/{total}  FAIL: {fail_count}/{total}\n")
+        if inconclusive_count > 0:
+            lines.append(f"  PASS: {pass_count}/{total}  FAIL: {fail_count}/{total}  INCONCLUSIVE: {inconclusive_count}/{total}\n")
+        else:
+            lines.append(f"  PASS: {pass_count}/{total}  FAIL: {fail_count}/{total}\n")
 
         for control_id, result in sorted(results.items()):
-            icon = "✓" if result["status"] == "PASS" else "✗"
+            icon = "✓" if result["status"] == "PASS" else ("✗" if result["status"] == "FAIL" else "—")
             line = f"  {icon} {control_id}: {result['name']} — {result['status']}"
             if result["finding_count"]:
                 line += f" ({result['finding_count']} findings)"

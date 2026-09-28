@@ -16,6 +16,7 @@ from typing import Any
 
 import hashlib
 
+from phantomscan.config import load_config
 from phantomscan.db import Database
 from phantomscan.email_security import analyze_email
 from phantomscan.engines import run_engine
@@ -201,6 +202,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Scan Configuration & Tuning
     config_group = parser.add_argument_group("Scan Configuration & Tuning")
+    config_group.add_argument("--config", default=None, help="Path to custom config.yaml")
     config_group.add_argument("--threads", type=int, default=1, help="Number of concurrent threads (default: 1)")
     config_group.add_argument("--depth", type=int, default=1, help="Web crawler depth (default: 1)")
     config_group.add_argument("--silent", action="store_true", help="Suppress rich terminal output (useful for piping)")
@@ -356,13 +358,20 @@ async def timed_step(
 
 
 async def scan_one(
-    args: argparse.Namespace, target_value: str, root: Path
+    args: argparse.Namespace, target_value: str, root: Path, cfg: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Run one authorised scan and return the full report dict."""
+    if cfg is None:
+        cfg = load_config(getattr(args, "config", None) or (root / "config.yaml"))
+
+    port_profile_map = cfg.get("ports", {})
     if getattr(args, "profile", "") in ("deep", "deepscan"):
         args.profile = "deep"
         if getattr(args, "ports", "top100") == "top100":
             args.ports = "top1000"
+    elif getattr(args, "ports", "top100") == "top100" and getattr(args, "profile", "") in port_profile_map:
+        args.ports = port_profile_map[args.profile]
+
     target = parse_target(target_value)
     logger = setup_logger(root, target.host, args.debug, args.log_file)
     logger.info(
@@ -378,7 +387,10 @@ async def scan_one(
     started = utc_now()
     db = Database(root / "phantomscan.sqlite3")
     scan_id = db.create_scan(target.host, args.profile, started)
-    scan_cache = ScanCache(root / "data" / "scan_cache.sqlite3")
+    scan_cache = ScanCache(
+        root / "data" / "scan_cache.sqlite3",
+        ttl_overrides=cfg.get("performance", {}).get("cache_ttl", {}),
+    )
 
     observations: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
@@ -656,21 +668,35 @@ async def scan_one(
         "target_type": target.target_type,
         "profile": args.profile,
         "ports": args.ports,
-        "timeout_seconds": 5,
+        "timeout_seconds": cfg.get("scan", {}).get("timeout_seconds", 5),
         "scope": {
             "allowed_hosts": [target.host],
             "allowed_cidrs": [target.host] if target.target_type == "cidr" else [],
         },
     }
     _exe = ".exe" if sys.platform == "win32" else ""
-    go_bin = root / "engines" / "go" / "bin" / f"phantomscan-go{_exe}"
-    rust_bin = root / "engines" / "rust" / "target" / "release" / f"phantomscan-rust{_exe}"
-    node_script = root / "engines" / "node" / "browser_engine.js"
+    go_path = cfg.get("engines", {}).get("go", {}).get("path", "engines/go/bin/phantomscan-go")
+    rust_path = cfg.get("engines", {}).get("rust", {}).get("path", "engines/rust/target/release/phantomscan-rust")
+    node_path = cfg.get("engines", {}).get("node", {}).get("path", "engines/node/browser_engine.js")
+
+    go_bin = root / go_path
+    if _exe and not str(go_bin).endswith(_exe):
+        go_bin = Path(f"{go_bin}{_exe}")
+
+    rust_bin = root / rust_path
+    if _exe and not str(rust_bin).endswith(_exe):
+        rust_bin = Path(f"{rust_bin}{_exe}")
+
+    node_script = root / node_path
+
+    go_enabled = cfg.get("engines", {}).get("go", {}).get("enabled", True)
+    rust_enabled = cfg.get("engines", {}).get("rust", {}).get("enabled", True)
+    node_enabled = cfg.get("engines", {}).get("node", {}).get("enabled", True)
 
     if args.profile != "passive":
         # ── Port Scanning (Native Go with Python fallback) ──
         used_go = False
-        if go_bin.exists():
+        if go_enabled and go_bin.exists():
             go_res = await timed_step(
                 "Scanning TCP ports (Go engine)", logger, observations, args.silent,
                 run_engine, [str(go_bin)], request, "go-portscan", target,
@@ -694,7 +720,7 @@ async def scan_one(
 
         # ── TLS Inspection (Native Rust with Python fallback) ──
         used_rust = False
-        if rust_bin.exists():
+        if rust_enabled and rust_bin.exists():
             rust_res = await timed_step(
                 "Inspecting TLS (Rust engine)", logger, observations, args.silent,
                 run_engine, [str(rust_bin)], request, "rust-tls", target,
@@ -717,7 +743,7 @@ async def scan_one(
             findings.extend(tls_findings)
 
         # ── Headless Browser (Node.js/Playwright) ──
-        if node_script.exists():
+        if node_enabled and node_script.exists():
             node_res = await timed_step(
                 "DOM analysis (Node browser)", logger, observations, args.silent,
                 run_engine, ["node", str(node_script)], request, "node-browser", target,
@@ -762,6 +788,7 @@ async def scan_one(
                 args.webhook,
                 getattr(args, "source_path", None),
                 getattr(args, "check_slopsquatting", False) or is_deep,
+                max_concurrency=cfg.get("performance", {}).get("max_concurrent_modules_per_tier", 15),
                 force_all=is_deep,
                 returns_tuple=True,
             )
@@ -951,12 +978,16 @@ async def main_async() -> int:
         debug=args.debug,
     )
 
+    cfg = load_config(getattr(args, "config", None) or (root / "config.yaml"))
+
     # Initialize enterprise infrastructure
+    rel_cfg = cfg.get("reliability", {})
     governor = ResourceGovernor(
-        max_memory_mb=getattr(args, "max_memory_mb", 2048),
-        max_concurrent_scans=getattr(args, "max_concurrent_scans", 5),
+        max_memory_mb=getattr(args, "max_memory_mb", None) or rel_cfg.get("max_memory_mb", 2048),
+        max_concurrent_scans=getattr(args, "max_concurrent_scans", None) or rel_cfg.get("max_concurrent_scans", 5),
     )
-    scan_cache = ScanCache(db_path=root / "phantomscan.sqlite3")
+    cache_ttls = cfg.get("performance", {}).get("cache_ttl", {})
+    scan_cache = ScanCache(db_path=root / "phantomscan.sqlite3", ttl_overrides=cache_ttls)
     checkpoint = ScanCheckpoint(db_path=root / "phantomscan.sqlite3")
     breakers = create_default_breakers()
 
@@ -993,7 +1024,7 @@ async def main_async() -> int:
             async with governor.acquire_scan_slot():
                 governor.check_memory()
                 display = ScanProgressDisplay(target, silent=args.silent)
-                report = await display.run_with_progress(scan_one(args, target, root))
+                report = await display.run_with_progress(scan_one(args, target, root, cfg=cfg))
                 if report.get("duration", 0) < 5.0:
                     logging.warning(
                         "Scan completed in under 5 seconds — "

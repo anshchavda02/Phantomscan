@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-from phantomscan.models import Confidence, Finding, Severity
+from typing import Any, Dict, List
+from phantomscan.models import Finding
 
 @dataclass
 class ModuleStatus:

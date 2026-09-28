@@ -9,7 +9,6 @@ Provides a structured representation of testable injection points across:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import html
 import logging
 from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse, urlunparse

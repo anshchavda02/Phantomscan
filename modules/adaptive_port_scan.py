@@ -13,7 +13,7 @@ import logging
 import socket
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

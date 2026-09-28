@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
-from urllib.parse import urljoin
 
 from phantomscan.http_client import RobustHTTPClient
 from phantomscan.models import Finding, Observation

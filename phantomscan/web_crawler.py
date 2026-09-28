@@ -17,9 +17,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urljoin, urlparse
 
-from phantomscan.http_client import RobustHTTPClient, http_client
+from phantomscan.http_client import RobustHTTPClient
 from phantomscan.models import Observation
 
 logger = logging.getLogger(__name__)
@@ -169,8 +169,6 @@ class WebCrawler:
         seed_urls: list[str] | None = None,
     ) -> CrawlResult:
         """Crawl *base_url* and return discovered links, forms, and APIs."""
-        import aiohttp as _aiohttp
-
         result = CrawlResult()
         base = base_url.rstrip("/")
         parsed_base = urlparse(base)

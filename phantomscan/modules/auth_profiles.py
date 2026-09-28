@@ -7,9 +7,7 @@ Credentials are Fernet-encrypted with a passphrase-derived key (PBKDF2).
 
 from __future__ import annotations
 
-import asyncio
 import base64
-import hashlib
 import json
 import logging
 import os
@@ -17,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from phantomscan.http_client import RobustHTTPClient
 

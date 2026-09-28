@@ -11,7 +11,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 from modules.cve_engine import CVEEngine, TechnologyVersion
-from phantomscan.models import Finding
 
 logger = logging.getLogger(__name__)
 

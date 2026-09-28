@@ -69,7 +69,15 @@ class MobileAPIExtractor:
             else:
                 logger.info("apktool not found, falling back to zip extraction for %s", apk_path)
                 with zipfile.ZipFile(apk_path, "r") as zip_ref:
-                    zip_ref.extractall(temp_dir)
+                    if hasattr(zipfile, "Path"):
+                        zip_ref.extractall(temp_dir, filter="data")
+                    else:
+                        resolved_temp = Path(temp_dir).resolve()
+                        for member in zip_ref.namelist():
+                            dest = (resolved_temp / member).resolve()
+                            if not dest.is_relative_to(resolved_temp):
+                                raise ValueError(f"Path traversal detected in APK entry: {member}")
+                            zip_ref.extract(member, temp_dir)
 
             for file_path in Path(temp_dir).rglob("*"):
                 if file_path.is_file() and file_path.suffix in [".xml", ".smali", ".json", ".txt", ".js"]:

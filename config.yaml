@@ -1,4 +1,4 @@
-# PhantomScan 2.0.0 configuration
+# PhantomScan 2.2.0 configuration
 app:
   name: PhantomScan
   version: 2.2.0
@@ -9,7 +9,7 @@ scan:
   default_profile: quick
   timeout_seconds: 8
   max_redirects: 5
-  user_agent: PhantomScan/2.0 authorized-security-assessment
+  user_agent: PhantomScan/2.2.0 authorized-security-assessment
   enforce_scope: true
   collect_evidence: false
 

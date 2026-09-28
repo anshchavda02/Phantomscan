@@ -21,10 +21,10 @@ import statistics
 import string
 import time
 from typing import Any, Optional
-from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+from urllib.parse import parse_qs, urlparse
 
 from phantomscan.http_client import RobustHTTPClient
-from phantomscan.modules.db_error_signatures import ErrorMatch, find_signature
+from phantomscan.modules.db_error_signatures import find_signature
 from phantomscan.modules.waf_detector import is_waf_block_page, classify_waf_response
 
 logger = logging.getLogger(__name__)
@@ -83,12 +83,15 @@ class ResponseFingerprint:
         self.error_signatures: set[str] = set()
 
         # Extract any DB error signatures present
-        match = find_signature(body)
+        cur_body = body
+        match = find_signature(cur_body)
         while match:
             self.error_signatures.add(match.signature)
-            # Remove matched text and keep scanning for additional signatures
-            remaining = body[body.find(match.matched_text) + len(match.matched_text):]
-            match = find_signature(remaining) if remaining else None
+            idx = cur_body.find(match.matched_text)
+            if idx == -1:
+                break
+            cur_body = cur_body[idx + len(match.matched_text):]
+            match = find_signature(cur_body) if cur_body else None
 
 
 # ── SQLi Detector ─────────────────────────────────────────────────────────────

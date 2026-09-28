@@ -36,7 +36,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from phantomscan.http_client import RobustHTTPClient
 

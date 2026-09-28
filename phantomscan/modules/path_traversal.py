@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from typing import Any, Optional
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
 

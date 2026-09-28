@@ -7,7 +7,6 @@ new endpoints and parameters directly into the YAML Rule Engine for vulnerabilit
 """
 import asyncio
 import sys
-from typing import Optional
 from mitmproxy import http
 from mitmproxy.tools.dump import DumpMaster
 from mitmproxy.options import Options

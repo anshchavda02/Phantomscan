@@ -112,5 +112,26 @@ async def test_dependency_confusion_checker():
         assert "corp-internal-billing" in findings[0]["title"]
 
 
+@pytest.mark.asyncio
+async def test_dependency_confusion_unregistered_package():
+    mock_http = MagicMock()
+    checker = DependencyConfusionChecker(http=mock_http)
+    checker.check_public_registry = AsyncMock(return_value=False)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        pkg_path = Path(tmp_dir) / "package.json"
+        pkg_path.write_text(json.dumps({
+            "dependencies": {
+                "corp-internal-auth": "1.0.0",
+            }
+        }))
+
+        findings = await checker.check_project(tmp_dir)
+        assert len(findings) == 1
+        assert findings[0]["id"] == "DEP-CONFUSION-UNREGISTERED-CORP-INTERNAL-AUTH"
+        assert findings[0]["severity"] == "critical"
+        assert "Unregistered Internal Dependency Risk" in findings[0]["title"]
+
+
 if __name__ == "__main__":
     unittest.main()

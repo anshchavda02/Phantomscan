@@ -26,6 +26,13 @@ _NO_FINDINGS_TEMPLATE = (
     "posture against automated testing methodologies."
 )
 
+_UNREACHABLE_TEMPLATE = (
+    "The PhantomScan Advanced Security assessment of {target} could not be completed "
+    "because the target was unreachable or refused network connections. No security "
+    "posture guarantees can be made. Verify network connectivity, firewall rules, and "
+    "target availability before re-running the assessment."
+)
+
 _REMEDIATION_NARRATIVES = {
     "injection": (
         "Injection vulnerabilities (SQLi, XSS, Command Injection) were identified. "
@@ -87,7 +94,8 @@ class AINarrativeReporter:
             findings = []
 
         target = base_url.rstrip("/")
-        narrative = self.generate_narrative(findings, target)
+        is_unreachable = kwargs.get("is_unreachable", False)
+        narrative = self.generate_narrative(findings, target, is_unreachable=is_unreachable)
 
         return [{
             "id": "AI-NARRATIVE-SUMMARY",
@@ -100,7 +108,24 @@ class AINarrativeReporter:
             "recommendation": "Distribute this narrative to technical leadership.",
         }]
 
-    def generate_narrative(self, findings: list[dict[str, Any]], target: str) -> str:
+    def generate_narrative(
+        self,
+        findings: list[dict[str, Any]],
+        target: str,
+        is_unreachable: bool = False,
+    ) -> str:
+        unreachable = is_unreachable or any(
+            f.get("id") in ("HTTP-REQUEST-FAILED", "TARGET-UNREACHABLE", "SCAN-STATUS-UNREACHABLE")
+            or "target unreachable" in str(f.get("title", "")).lower()
+            or "target unreachable" in str(f.get("evidence", "")).lower()
+            or "target unreachable" in str(f.get("description", "")).lower()
+            or "connection refused" in str(f.get("evidence", "")).lower()
+            or "connection refused" in str(f.get("description", "")).lower()
+            for f in findings
+        )
+        if unreachable:
+            return _UNREACHABLE_TEMPLATE.format(target=target)
+
         # Filter out meta-reporting findings, compliance status findings, and suppressed findings
         eval_findings = [
             f for f in findings

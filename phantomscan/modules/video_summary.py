@@ -10,7 +10,6 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from phantomscan.http_client import RobustHTTPClient
@@ -49,7 +48,7 @@ class VideoSummaryGenerator:
         # Check dependencies
         try:
             import pyttsx3
-            from PIL import Image, ImageDraw, ImageFont
+            from PIL import Image, ImageDraw
             from moviepy.editor import AudioFileClip, ImageClip, concatenate_videoclips
         except ImportError as err:
             logger.warning("Video summary dependencies missing (pyttsx3, Pillow, moviepy): %s", err)

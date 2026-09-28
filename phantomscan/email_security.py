@@ -9,7 +9,6 @@ Checks performed:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import dns.asyncresolver

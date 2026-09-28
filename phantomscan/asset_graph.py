@@ -16,8 +16,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import logging
-import re
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse, urlunparse
 
 from phantomscan.models import Observation

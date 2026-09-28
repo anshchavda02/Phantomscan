@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import inspect
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
@@ -36,7 +37,7 @@ def test_all_modules_instantiable_and_runnable():
         # Must be instantiable with http client
         instance = cls(http=mock_http)
         assert hasattr(instance, "run"), f"Module '{name}' ({cls.__name__}) lacks async run() method"
-        assert asyncio.iscoroutinefunction(instance.run), f"Module '{name}'.run() must be an async coroutine"
+        assert inspect.iscoroutinefunction(instance.run), f"Module '{name}'.run() must be an async coroutine"
 
 
 def test_deep_scan_dag_includes_all_45_modules():

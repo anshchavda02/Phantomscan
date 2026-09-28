@@ -100,5 +100,22 @@ async def test_ai_narrative_generation():
     assert "Injection" in results[0]["evidence"]
 
 
+@pytest.mark.asyncio
+async def test_ai_narrative_unreachable_target():
+    """Verify that unreachable targets produce an advisory rather than false assurance."""
+    findings = [
+        {"id": "HTTP-REQUEST-FAILED", "title": "Target unreachable", "category": "network", "severity": "info"}
+    ]
+    reporter = AINarrativeReporter()
+    results = await reporter.run(
+        base_url="https://unreachable.target",
+        observations=[],
+        findings=findings,
+    )
+    assert len(results) == 1
+    assert "could not be completed because the target was unreachable" in results[0]["evidence"]
+    assert "0 vulnerabilities" not in results[0]["evidence"]
+
+
 if __name__ == "__main__":
     unittest.main()

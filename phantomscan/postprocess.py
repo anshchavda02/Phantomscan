@@ -176,9 +176,12 @@ def score(
         for item in obs
     )
     has_unreachable_finding = any(
-        item.get("id") in ("HTTP-REQUEST-FAILED",) for item in findings
+        item.get("id") in ("HTTP-REQUEST-FAILED", "TARGET-UNREACHABLE") for item in findings
     )
-    if ("http_error" in obs_names or has_unreachable_finding) and not has_http_success and not is_local:
+    if has_unreachable_finding and not has_http_success:
+        if not platform or not platform.get("minimum_score"):
+            return 20
+    elif "http_error" in obs_names and not has_http_success and not is_local:
         if not platform or not platform.get("minimum_score"):
             return 20
 

@@ -15,14 +15,25 @@ node_modules/
 *.docx
 *.tex
 *.bib
+*.pdf
 # Research papers, drafts, and academic publications (STRICT: NEVER COMMIT)
 *research*
 *RESEARCH*
 *Research*
 *Paper*
 *paper*
-docs/research_paper/
+scripts/test_bookmark_link.py
+scripts/test_multi_link.py
+scripts/verify_links.py
+scripts/inspect_citations.py
+docs/
 research/
+*REPORT*.md
+*Report*.md
+*REPORT*.docx
+*Report*.docx
+PHANTOMSCAN_COMPLETE_TECHNICAL_REPORT.md
+PhantomScan_Full_Technical_Detailed_Report.docx
 .DS_Store
 benchmark_results_*.json
 .agents/

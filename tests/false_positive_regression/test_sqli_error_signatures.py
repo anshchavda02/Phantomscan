@@ -76,3 +76,15 @@ def test_waf_block_mentioning_sql_not_matched():
 def test_error_in_your_query_not_matched():
     """'error in your query' alone is too generic and must not match."""
     assert find_signature("There was an error in your query parameters") is None
+
+
+def test_response_fingerprint_duplicate_signatures_no_infinite_loop():
+    """Duplicate identical DB error signatures must not trigger an infinite loop in ResponseFingerprint."""
+    from phantomscan.modules.sqli_detector import ResponseFingerprint
+    body = (
+        "Fatal error: You have an error in your SQL syntax; check manual\n"
+        "Some intermediate content\n"
+        "Fatal error: You have an error in your SQL syntax; check manual\n"
+    )
+    fp = ResponseFingerprint(status=500, body=body, headers={})
+    assert len(fp.error_signatures) > 0

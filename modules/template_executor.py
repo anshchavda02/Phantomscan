@@ -8,7 +8,7 @@ from typing import Any, Optional
 from modules.catch_all_detector import CatchAllResult
 from modules.extractor_engine import ExtractorEngine
 from modules.matcher_engine import MatcherEngine, MatchResult
-from modules.template_loader import Template, RequestDefinition
+from modules.template_loader import Template
 from phantomscan.models import Finding
 from phantomscan.modules.finding_gate import gate_finding
 

@@ -12,7 +12,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from phantomscan.models import Finding
 

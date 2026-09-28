@@ -1,8 +1,6 @@
 """Response content validation utility."""
 from __future__ import annotations
 
-import re
-
 
 class ResponseContentValidator:
     """Shared validator to confirm an HTTP 200 response actually contains the content type

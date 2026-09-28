@@ -6,18 +6,23 @@ to allow users to re-test individual findings instantly.
 
 from __future__ import annotations
 
+import html
 import hmac
 import hashlib
-import json
 import logging
+import os
+import secrets
 from dataclasses import dataclass
 from typing import Any
+import urllib.parse
 
 from phantomscan.http_client import RobustHTTPClient
+from phantomscan.scope import ScopePolicy, normalize_target
 
 logger = logging.getLogger(__name__)
 
-SECRET_KEY = b"phantomscan_verifier_secret_key_v2"
+_ENV_KEY = os.environ.get("PHANTOMSCAN_VERIFIER_SECRET")
+SECRET_KEY: bytes = _ENV_KEY.encode() if _ENV_KEY else secrets.token_bytes(32)
 
 
 @dataclass
@@ -37,26 +42,42 @@ class RemediationVerifier:
         """Module interface."""
         return []
 
-    @staticmethod
-    def generate_token(finding_id: str) -> str:
-        """Generate HMAC-SHA256 verification token for a finding."""
-        return hmac.new(SECRET_KEY, finding_id.encode(), hashlib.sha256).hexdigest()[:16]
+    @classmethod
+    def get_secret_key(cls) -> bytes:
+        return SECRET_KEY
 
-    @staticmethod
-    def validate_token(finding_id: str, token: str) -> bool:
+    @classmethod
+    def generate_token(cls, finding_id: str, target: str | None = None) -> str:
+        """Generate HMAC-SHA256 verification token for a finding and target."""
+        msg = f"{finding_id}:{target or ''}".encode()
+        return hmac.new(cls.get_secret_key(), msg, hashlib.sha256).hexdigest()[:16]
+
+    @classmethod
+    def validate_token(cls, finding_id: str, token: str, target: str | None = None) -> bool:
         """Validate HMAC token for finding verification."""
-        expected = hmac.new(SECRET_KEY, finding_id.encode(), hashlib.sha256).hexdigest()[:16]
-        return hmac.compare_digest(expected, token)
+        expected = cls.generate_token(finding_id, target)
+        if hmac.compare_digest(expected, token):
+            return True
+        if target:
+            fallback = cls.generate_token(finding_id, None)
+            return hmac.compare_digest(fallback, token)
+        return False
 
-    def generate_verify_link(self, finding_id: str, base_url: str = "http://localhost:8420") -> str:
+    def generate_verify_link(self, finding_id: str, target: str | None = None, base_url: str = "http://localhost:8420") -> str:
         """Generate full verification URL."""
-        token = self.generate_token(finding_id)
-        return f"{base_url}/verify?finding={finding_id}&token={token}"
+        token = self.generate_token(finding_id, target)
+        target_param = f"&target={urllib.parse.quote(target)}" if target else ""
+        return f"{base_url}/verify?finding={urllib.parse.quote(finding_id)}&token={token}{target_param}"
 
     async def verify_finding(self, finding: dict[str, Any], target: str) -> VerifyResult:
         """Re-run a check against target to see if finding is resolved."""
         if not self.http:
-            self.http = RobustHTTPClient()
+            try:
+                norm = normalize_target(target)
+                policy = ScopePolicy(target=norm, allow_local=norm.is_local)
+                self.http = RobustHTTPClient(scope_policy=policy)
+            except Exception:
+                self.http = RobustHTTPClient()
 
         # Verification attempt: re-fetch affected endpoint
         try:
@@ -102,24 +123,27 @@ class RemediationVerifier:
             token = request.query.get("token", "")
             target = request.query.get("target", "http://localhost")
 
-            if not self.validate_token(finding_id, token):
+            if not self.validate_token(finding_id, token, target=target):
                 return web.Response(status=403, text="Invalid or expired verification token.")
 
             res = await self.verify_finding({"id": finding_id}, target)
 
+            escaped_status = html.escape(str(res.status))
+            escaped_msg = html.escape(str(res.message))
+            escaped_evidence = html.escape(str(res.evidence)) if res.evidence else ""
             color = "#10b981" if res.status == "RESOLVED" else "#ef4444"
-            html = f"""<!DOCTYPE html>
+            html_content = f"""<!DOCTYPE html>
 <html>
 <head><title>PhantomScan Verification</title></head>
 <body style="font-family:sans-serif; background:#070710; color:#e2e2f8; padding:40px; text-align:center;">
     <div style="max-width:500px; margin:auto; background:#111124; border:1px solid #1e1e3f; border-radius:12px; padding:30px;">
-        <h1 style="color:{color};">{res.status}</h1>
-        <p>{res.message}</p>
-        {f'<pre style="text-align:left; background:#0c0c1a; padding:10px; border-radius:6px;">{res.evidence}</pre>' if res.evidence else ''}
+        <h1 style="color:{color};">{escaped_status}</h1>
+        <p>{escaped_msg}</p>
+        {f'<pre style="text-align:left; background:#0c0c1a; padding:10px; border-radius:6px; overflow-x:auto;">{escaped_evidence}</pre>' if escaped_evidence else ''}
     </div>
 </body>
 </html>"""
-            return web.Response(text=html, content_type="text/html")
+            return web.Response(text=html_content, content_type="text/html")
 
         app = web.Application()
         app.add_routes(routes)

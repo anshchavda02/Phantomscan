@@ -10,7 +10,6 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 import threading
-import time
 import uuid
 
 class OOBState:

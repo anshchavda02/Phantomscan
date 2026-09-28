@@ -14,7 +14,6 @@ import os
 import socket
 import urllib.request
 from typing import Optional, Tuple
-from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
