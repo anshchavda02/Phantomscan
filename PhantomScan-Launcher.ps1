@@ -109,6 +109,17 @@ function Get-NewestSarifReport {
         Select-Object -First 1
 }
 
+function Get-NewestPdfReport {
+    param([datetime]$StartedAt)
+    if (-not (Test-Path -LiteralPath $Reports)) {
+        return $null
+    }
+    return Get-ChildItem -LiteralPath $Reports -Filter "*.pdf" |
+        Where-Object { $_.LastWriteTime -ge $StartedAt } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+}
+
 function Get-NewestLogFile {
     param([datetime]$StartedAt)
     if (-not (Test-Path -LiteralPath $Logs)) {
@@ -652,6 +663,11 @@ while ($true) {
     $sarif = Get-NewestSarifReport -StartedAt $startedAt
     if ($null -ne $sarif) {
         Write-Host "SARIF report:   $($sarif.FullName)" -ForegroundColor Green
+    }
+
+    $pdf = Get-NewestPdfReport -StartedAt $startedAt
+    if ($null -ne $pdf) {
+        Write-Host "PDF report:     $($pdf.FullName)" -ForegroundColor Green
     }
 
     Show-ScanLog -StartedAt $startedAt

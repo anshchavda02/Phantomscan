@@ -14,6 +14,10 @@ from phantomscan.sarif_exporter import (
     generate_sarif_report as generate_sarif_report,
     write_sarif_report as write_sarif_report,
 )
+from phantomscan.pdf_report import (
+    generate_pdf_report as generate_pdf_report,
+    write_pdf_report as write_pdf_report,
+)
 
 from phantomscan.report_models import (
     APISecurityData,
@@ -49,6 +53,8 @@ __all__ = [
     "write_html_report",
     "write_json_report",
     "write_csv_report",
+    "write_pdf_report",
+    "generate_pdf_report",
 ]
 
 

@@ -40,6 +40,7 @@ from phantomscan.reporting import (
     write_json_report,
     write_csv_report,
     write_sarif_report,
+    write_pdf_report,
 )
 from phantomscan.scanners import inspect_tls, scan_ports
 from phantomscan.scope import parse_target, root_domain
@@ -220,7 +221,7 @@ def build_parser() -> argparse.ArgumentParser:
     report_group.add_argument("--csv-out", help="Path to save the CSV report")
     report_group.add_argument("--sarif", action="store_true", help="Generate an OASIS SARIF v2.1.0 report")
     report_group.add_argument("--sarif-out", help="Path to save the SARIF report")
-    report_group.add_argument("--pdf", action="store_true", help="Generate a PDF report (experimental)")
+    report_group.add_argument("--pdf", action="store_true", help="Generate a publication-grade PDF report (pure Python)")
     report_group.add_argument("--pdf-out", help="Path to save the PDF report")
     report_group.add_argument("--log-file", help="Custom path for the debug log file")
     
@@ -1097,6 +1098,20 @@ async def main_async() -> int:
                 sarif_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.sarif.json")
             write_sarif_report(sarif_path, report)
 
+        pdf_path = None
+        if getattr(args, "pdf", False) or getattr(args, "pdf_out", None):
+            if getattr(args, "pdf_out", None) and len(reports) == 1:
+                pdf_path = Path(args.pdf_out)
+            else:
+                pdf_path = get_unique_path(output_dir / f"{safe_target}_{ts_str}.pdf")
+            try:
+                write_pdf_report(pdf_path, report)
+            except Exception as exc:
+                logger.error("Failed to generate PDF report: %s", exc)
+                if not args.silent:
+                    cprint(f"PDF error      : {exc}", "yellow")
+                pdf_path = None
+
         if args.json:
             print(json.dumps(report, indent=2, sort_keys=True))
         elif not args.silent:
@@ -1105,6 +1120,8 @@ async def main_async() -> int:
             cprint(f"CSV written    : {csv_path}", "green")
             if sarif_path:
                 cprint(f"SARIF written  : {sarif_path}", "green")
+            if pdf_path:
+                cprint(f"PDF written    : {pdf_path}", "green")
 
     return 0
 

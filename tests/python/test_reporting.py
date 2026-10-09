@@ -2,7 +2,11 @@
 
 import json
 from pathlib import Path
-from phantomscan.reporting import write_json_report, write_csv_report
+from phantomscan.reporting import (
+    write_json_report,
+    write_csv_report,
+    write_pdf_report,
+)
 
 def test_write_json_report(tmp_path: Path):
     """Test JSON report generation."""
@@ -614,6 +618,151 @@ def test_html_report_attack_paths_and_checklist(tmp_path: Path):
     # Executive narrative
     assert "Remediation Narrative" in html
     assert "Immediate remediation priority should focus on rotating" in html
+
+
+def test_write_pdf_report_basic(tmp_path: Path):
+    """Test standard PDF report generation with ReportLab."""
+    out_file = tmp_path / "audit_report.pdf"
+    payload = {
+        "target": "example.com",
+        "score": 92,
+        "grade": "A",
+        "profile": "quick",
+        "duration": 5.4,
+        "findings": [
+            {
+                "id": "SEC-TEST-01",
+                "title": "Missing Content-Security-Policy",
+                "severity": "medium",
+                "confidence": "high",
+                "category": "web",
+                "cwe": "CWE-1021",
+                "owasp_category": "A05:2021",
+                "verification_method": "header_inspection",
+                "target": "https://example.com",
+                "evidence": "CSP header missing from response.",
+                "recommendation": "Configure a restrictive Content-Security-Policy header.",
+                "references": ["https://owasp.org"],
+            }
+        ],
+        "observations": [
+            {"name": "ip", "value": "93.184.216.34"},
+            {"name": "open_port", "value": {"port": 443, "service": "https"}},
+        ],
+    }
+
+    write_pdf_report(out_file, payload)
+    assert out_file.exists()
+    assert out_file.stat().st_size > 1000
+    with open(out_file, "rb") as f:
+        header = f.read(5)
+    assert header == b"%PDF-"
+
+
+def test_write_pdf_report_empty_findings(tmp_path: Path):
+    """Test PDF generation for clean targets with zero findings."""
+    out_file = tmp_path / "clean_report.pdf"
+    payload = {
+        "target": "https://clean-example.com",
+        "score": 100,
+        "grade": "A",
+        "profile": "passive",
+        "findings": [],
+        "observations": [],
+    }
+
+    write_pdf_report(out_file, payload)
+    assert out_file.exists()
+    assert out_file.stat().st_size > 500
+    with open(out_file, "rb") as f:
+        header = f.read(5)
+    assert header == b"%PDF-"
+
+
+def test_write_pdf_report_rich_payload_with_special_chars(tmp_path: Path):
+    """Test PDF report with multiple severities, attack chains, and XML-sensitive characters."""
+    out_file = tmp_path / "rich_report.pdf"
+    payload = {
+        "target": "https://vulnerable.app/api?q=test&id=1",
+        "score": 38,
+        "grade": "F",
+        "profile": "deep",
+        "duration": 42.1,
+        "started_at": "2026-10-09T18:00:00Z",
+        "finished_at": "2026-10-09T18:00:42Z",
+        "observations": [
+            {"name": "ip", "value": "198.51.100.1"},
+            {"name": "open_port", "value": {"port": 80, "service": "http"}},
+            {"name": "open_port", "value": {"port": 443, "service": "https"}},
+            {"name": "tls_info", "value": {"grade": "C", "issuer": "Untrusted Cert"}},
+            {"name": "tech", "value": {"name": "PHP 7.4"}},
+            {"name": "tech", "value": {"name": "Apache"}},
+        ],
+        "chains": [
+            {
+                "name": "SQLi to Admin Account Takeover",
+                "severity": "critical",
+                "steps": [
+                    "Inject quote: ' OR 1=1 --",
+                    "Extract admin token <token_xyz>",
+                    "Authenticate via /admin with leaked token",
+                ],
+                "impact": "Full database and administrative compromise",
+            }
+        ],
+        "findings": [
+            {
+                "id": "SEC-SQLI-01",
+                "title": "SQL Injection in 'q' parameter <Script>alert(1)</Script>",
+                "severity": "critical",
+                "confidence": "high",
+                "category": "sqli",
+                "cwe": "CWE-89",
+                "owasp_category": "A03:2021",
+                "verification_method": "timing_difference",
+                "target": "https://vulnerable.app/api?q=1&search=2",
+                "evidence": "SELECT * FROM users WHERE search='\" OR sleep(5)--' & code=1",
+                "recommendation": "Use parameterized prepared statements exclusively & validate types.",
+                "references": ["https://owasp.org/www-community/attacks/SQL_Injection"],
+            },
+            {
+                "id": "SEC-XSS-01",
+                "title": "Reflected Cross-Site Scripting (XSS)",
+                "severity": "high",
+                "confidence": "high",
+                "category": "xss",
+                "cwe": "CWE-79",
+                "owasp_category": "A03:2021",
+                "verification_method": "dom_reflection",
+                "target": "https://vulnerable.app/search",
+                "evidence": "<script>alert('xss')</script> reflected unencoded in <div>",
+                "recommendation": "Context-aware HTML output encoding.",
+            },
+            {
+                "id": "SEC-COOKIE-FLAGS",
+                "title": "Missing Secure and SameSite Flags on Session Cookie",
+                "severity": "low",
+                "confidence": "high",
+                "category": "web",
+                "cwe": "CWE-614",
+                "evidence": "Set-Cookie: PHPSESSID=abc123; path=/",
+                "recommendation": "Set Secure, HttpOnly, and SameSite=Lax flags.",
+            },
+            {
+                "id": "AI-NARRATIVE-SUMMARY",
+                "title": "Executive Summary",
+                "severity": "info",
+                "evidence": "Immediate critical priority: parameterize all SQL queries and sanitize output.",
+            },
+        ],
+    }
+
+    write_pdf_report(out_file, payload)
+    assert out_file.exists()
+    assert out_file.stat().st_size > 3000
+    with open(out_file, "rb") as f:
+        header = f.read(5)
+    assert header == b"%PDF-"
 
 
 

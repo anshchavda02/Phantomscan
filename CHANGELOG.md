@@ -17,7 +17,12 @@
   - Added Option 17: Multi-tier Test Runner (full suite, FP regressions, polyglot integration, live regression script).
 - Updated Windows batch launcher (`install.bat`, `launcher.bat`, `PhantomScan Launcher.bat`, `phantomscan-cli.bat`) with execution policy bypass, automatic virtualenv resolution, and post-install engine health diagnostics.
 - Updated Linux and macOS installer scripts (`scripts/install.sh`, `scripts/install_macos.sh`) with post-install health check and v2.2.0 CLI examples.
-- Expanded automated test coverage to 461 tests across unit, contract, and false-positive regression suites.
+- Added **Pure-Python Standalone PDF Report Exporter** (`phantomscan/pdf_report.py`) powered by ReportLab:
+  - Generates publication-grade, styled executive and technical audit PDFs without external C dependencies (no `cairo` or `pango` required).
+  - Features executive summary banners, security scorecards, letter grade badges, severity matrix tables, attack surface summaries, compound exploit chains, syntax-escaped monospace evidence cards, and regulatory compliance matrices.
+  - Dynamic two-pass numbered canvas with running headers and confidential audit footers ("Page X of Y").
+  - Integrated into CLI via `--pdf` and `--pdf-out <path>`, and auto-detected in the Windows interactive launcher (`PhantomScan-Launcher.ps1`).
+- Expanded automated test coverage to 464 tests across unit, contract, and false-positive regression suites.
 - Codebase Audit Remediation & Hardening:
   - Fixed infinite loop DoS in SQLi error signature parser on duplicate match boundaries.
   - Hardened remediation verifier with dynamic HMAC secrets, target URL binding, ScopePolicy enforcement, and HTML output escaping.
