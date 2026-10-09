@@ -13,11 +13,16 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="margin: 0; font-size: 13px; font-family: 'Syne', sans-serif;">{{ results.name | upper }}</h3>
                 {% set total = results.passed + results.failed %}
-                {% set pass_rate = ((results.passed / total) * 100) | round(0) if total > 0 else 100 %}
-
+                {% if results.status == 'INCONCLUSIVE' or (total == 0 and (results.inconclusive | default(0)) > 0) %}
+                <div class="pill" style="font-size: 10px; border-color: var(--sev-medium-bd); color: var(--sev-medium); font-weight: 700; background: rgba(245, 158, 11, 0.1);">
+                    Inconclusive
+                </div>
+                {% else %}
+                {% set pass_rate = (((results.passed / total) * 100) | round(0) | int) if total > 0 else 0 %}
                 <div class="pill" style="font-size: 10px; border-color: {% if pass_rate == 100 %}var(--sev-low-bd){% elif pass_rate >= 80 %}var(--sev-medium-bd){% else %}var(--sev-critical-bd){% endif %}; color: {% if pass_rate == 100 %}var(--sev-low){% elif pass_rate >= 80 %}var(--sev-medium){% else %}var(--sev-critical){% endif %}; font-weight: 700;">
                     {{ pass_rate }}% Pass
                 </div>
+                {% endif %}
             </div>
 
             <div style="display: flex; gap: 8px; margin-top: 4px;">
@@ -29,7 +34,19 @@
                     <div style="font-size: 20px; font-weight: 700; color: var(--sev-critical); font-family: 'JetBrains Mono', monospace;">{{ results.failed }}</div>
                     <div style="font-size: 9px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Failed</div>
                 </div>
+                {% if results.inconclusive is defined and results.inconclusive > 0 %}
+                <div style="flex: 1; text-align: center; background: var(--surface); padding: 8px; border-radius: var(--r-compact); border: 1px solid var(--border);">
+                    <div style="font-size: 20px; font-weight: 700; color: var(--sev-medium); font-family: 'JetBrains Mono', monospace;">{{ results.inconclusive }}</div>
+                    <div style="font-size: 9px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">Inconclusive</div>
+                </div>
+                {% endif %}
             </div>
+
+            {% if (results.status == 'INCONCLUSIVE' or (results.passed == 0 and results.failed == 0)) and (results.inconclusive | default(0)) > 0 %}
+            <div style="font-size: 10px; color: var(--text-tertiary); padding: 6px 9px; background: rgba(245, 158, 11, 0.06); border-radius: var(--r-compact); border: 1px solid rgba(245, 158, 11, 0.2); line-height: 1.4;">
+                <span style="color: var(--sev-medium); font-weight: 600;">Notice:</span> Controls could not be conclusively audited because the target was unreachable or service verification failed.
+            </div>
+            {% endif %}
 
             {% if results.failing_control_details %}
             <div style="margin-top: 4px;">

@@ -683,7 +683,16 @@ def parse_compliance_data(findings: list[Any]) -> ComplianceData:
             mapped = reporter._map_to_framework(dict_findings, fw_dict, fw_name)
             passed = sum(1 for r in mapped.values() if r["status"] == "PASS")
             failed = sum(1 for r in mapped.values() if r["status"] == "FAIL")
-            failing_controls = [f"{cid}: {info['name']}" for cid, info in mapped.items() if info["status"] == "FAIL"]
+            inconclusive = sum(1 for r in mapped.values() if r["status"] == "INCONCLUSIVE")
+            total_controls = len(mapped)
+            inconclusive_controls = [
+                f"{cid}: {info['name']}" for cid, info in mapped.items()
+                if info["status"] == "INCONCLUSIVE"
+            ]
+            failing_controls = [
+                f"{cid}: {info['name']}" for cid, info in mapped.items()
+                if info["status"] == "FAIL"
+            ]
             failing_control_details = []
             for cid, info in mapped.items():
                 if info["status"] == "FAIL":
@@ -716,11 +725,23 @@ def parse_compliance_data(findings: list[Any]) -> ComplianceData:
                         "finding_count": info.get("finding_count", len(ctrl_findings)),
                         "findings": ctrl_findings,
                     })
+
+            if failed > 0:
+                fw_status = "FAIL"
+            elif passed == 0 and inconclusive > 0:
+                fw_status = "INCONCLUSIVE"
+            else:
+                fw_status = "PASS"
+
             frameworks.append({
                 "name": fw_name,
                 "passed": passed,
                 "failed": failed,
+                "inconclusive": inconclusive,
+                "total_controls": total_controls,
+                "status": fw_status,
                 "failing_controls": failing_controls,
+                "inconclusive_controls": inconclusive_controls,
                 "failing_control_details": failing_control_details,
             })
         return ComplianceData(frameworks=frameworks)

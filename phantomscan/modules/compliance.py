@@ -189,7 +189,8 @@ NIST_80053 = {
         "keywords": [
             "cleartext transmission", "unencrypted traffic", "missing hsts",
             "weak tls", "weak ssl", "tls 1.0", "tls 1.1", "deprecated ssl",
-            "plaintext transmission", "mixed content",
+            "plaintext transmission", "mixed content", "cleartext http",
+            "unencrypted transmission", "unencrypted http",
         ],
     },
     "SC-13": {
@@ -328,15 +329,47 @@ class ComplianceReporter:
         results: dict[str, dict[str, Any]] = {}
         for control_id, control in framework.items():
             matching = []
+            c_name_lower = str(control["name"]).lower()
+            c_id_lower = str(control_id).lower()
+            c_prefix = c_id_lower.split(":")[0]  # e.g., "a02" for "a02:2021"
+
             for f in eval_findings:
+                raw_id = str(f.get("id", ""))
+                norm_id = raw_id.replace("-", " ").replace("_", " ")
+                owasp_cat = str(f.get("owasp_category", "")).lower()
+                cwe_str = str(f.get("cwe", "")).upper()
+
+                # Direct OWASP Category match (e.g. A02:2021 matches A02:2021-Cryptographic_Failures)
+                is_owasp_match = False
+                if "owasp" in framework_name.lower() and owasp_cat:
+                    if (
+                        c_id_lower in owasp_cat
+                        or c_prefix in owasp_cat
+                        or c_name_lower in owasp_cat
+                    ):
+                        is_owasp_match = True
+
+                # CWE cross-reference matching
+                cwe_match = False
+                if any(x in cwe_str for x in ("CWE-319", "CWE-311", "CWE-312")):
+                    if control_id in ("A02:2021", "4.1", "SC-8", "SC-13"):
+                        cwe_match = True
+
                 text = (
                     f"{f.get('title', '')} {f.get('category', '')} "
-                    f"{f.get('id', '')} {f.get('cwe', '')} {f.get('owasp_category', '')} "
+                    f"{raw_id} {norm_id} "
+                    f"{f.get('description', '')} {f.get('evidence', '')} "
+                    f"{f.get('cwe', '')} {f.get('owasp_category', '')} "
                     f"{f.get('recommendation', '')}"
                 ).lower()
-                if any(kw in text for kw in control["keywords"]):
+
+                if (
+                    is_owasp_match
+                    or cwe_match
+                    or any(kw in text for kw in control["keywords"])
+                ):
                     matching.append(f)
-            
+
             if matching:
                 status = "FAIL"
             elif is_unreachable:

@@ -765,8 +765,68 @@ def test_write_pdf_report_rich_payload_with_special_chars(tmp_path: Path):
     assert header == b"%PDF-"
 
 
+def test_compliance_benchmarks_inconclusive_when_unreachable(tmp_path: Path):
+    """Test that unreachable targets mark controls as Inconclusive and do NOT claim 100% Pass in HTML."""
+    from phantomscan.reporting import parse_compliance_data, write_html_report
+
+    findings = [
+        {
+            "id": "HTTP-REQUEST-FAILED",
+            "title": "HTTP service could not be verified",
+            "severity": "info",
+            "category": "reporting",
+            "evidence": "Cannot reach target over HTTPS or HTTP: 400",
+        }
+    ]
+
+    comp_data = parse_compliance_data(findings)
+    assert comp_data.frameworks
+
+    for fw in comp_data.frameworks:
+        assert fw["passed"] == 0
+        assert fw["failed"] == 0
+        assert fw["inconclusive"] > 0
+        assert fw["status"] == "INCONCLUSIVE"
+
+    out_file = tmp_path / "inconclusive_report.html"
+    payload = {
+        "target": "https://unreachable.example.com",
+        "score": 0,
+        "findings": findings,
+        "observations": [],
+    }
+    write_html_report(out_file, payload)
+    html = out_file.read_text(encoding="utf-8")
+
+    assert "COMPLIANCE BENCHMARKS" in html
+    assert "Inconclusive" in html
+    # Must NOT report "100% Pass" when passed == 0 and failed == 0
+    assert "100% Pass" not in html
+    assert "Notice:" in html or "could not be conclusively audited" in html
 
 
+def test_compliance_cleartext_http_mapping():
+    """Test that CLEARTEXT-HTTP-TRANSMISSION correctly maps to A02, PCI 4.1, and NIST SC-8."""
+    from phantomscan.reporting import parse_compliance_data
 
+    findings = [
+        {
+            "id": "CLEARTEXT-HTTP-TRANSMISSION",
+            "title": "Unencrypted HTTP Transmission in Use",
+            "severity": "medium",
+            "category": "transport",
+            "cwe": "CWE-319",
+            "owasp_category": "A02:2021-Cryptographic_Failures",
+            "evidence": "Application is accessible over plain, unencrypted HTTP (http://example.com).",
+            "recommendation": "Migrate to HTTPS with valid TLS certificates.",
+        }
+    ]
 
+    comp_data = parse_compliance_data(findings)
+    owasp = next(f for f in comp_data.frameworks if f["name"] == "OWASP Top 10")
+    pci = next(f for f in comp_data.frameworks if f["name"] == "PCI DSS v4.0")
+    nist = next(f for f in comp_data.frameworks if f["name"] == "NIST 800-53")
 
+    assert any("A02:2021" in c for c in owasp["failing_controls"])
+    assert any("4.1" in c for c in pci["failing_controls"])
+    assert any("SC-8" in c for c in nist["failing_controls"])
