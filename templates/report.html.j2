@@ -853,6 +853,15 @@
 
         const scanTarget = {{ (scan.target or '') | tojson }};
         const safeTargetSlug = scanTarget.replace(/[^a-zA-Z0-9.-]/g, '_') || 'target';
+        const pdfSiblingFilename = {{ (pdf_filename or '') | tojson }} || `${safeTargetSlug}.pdf`;
+
+        window.openAuditPDF = function() {
+            if (pdfSiblingFilename) {
+                window.open(pdfSiblingFilename, '_blank');
+            } else {
+                window.printReport();
+            }
+        };
 
         window.exportJSON = function() {
             const reportData = {

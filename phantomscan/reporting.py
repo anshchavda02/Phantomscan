@@ -828,7 +828,7 @@ def parse_checklist_data(findings: list[Any], payload: dict[str, Any]) -> Checkl
     return ChecklistData(categories=[{"name": "Manual Verification Checklist", "items": items}])
 
 
-def write_html_report(path: Path, payload: dict[str, Any]) -> None:
+def write_html_report(path: Path, payload: dict[str, Any], pdf_filename: str | None = None) -> None:
     """Legacy wrapper to convert payload to ScanData and generate HTML."""
     # Calculate duration dynamically if duration key is missing
     raw_duration = payload.get("duration")
@@ -1055,7 +1055,7 @@ def write_html_report(path: Path, payload: dict[str, Any]) -> None:
     )
     
     generator = ReportGenerator(template_dir=str(Path(__file__).parent.parent / "templates"))
-    generator.generate_html(scan_data, str(path))
+    generator.generate_html(scan_data, str(path), pdf_filename=pdf_filename)
 
 
 
@@ -1170,7 +1170,8 @@ class ReportGenerator:
         self.env.filters['ref_url'] = resolve_reference_url
         self.env.filters['ref_title'] = resolve_reference_title
 
-    def generate_html(self, scan_data: ScanData, output_path: str) -> str:
+    def generate_html(self, scan_data: ScanData, output_path: str, pdf_filename: str | None = None) -> str:
+        pdf_rel_name = pdf_filename or Path(output_path).with_suffix(".pdf").name
         # Ensure findings in scan_data have unique uids
         import re
         seen_uids: set[str] = set()
@@ -1232,6 +1233,7 @@ class ReportGenerator:
             engagement=scan_data.engagement,
             chart_data=chart_data,
             executive_narrative=executive_narrative,
+            pdf_filename=pdf_rel_name,
             generated_at=datetime.now(timezone.utc).isoformat(),
             report_version="2.2.0"
         )

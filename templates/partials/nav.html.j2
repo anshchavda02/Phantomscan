@@ -107,7 +107,8 @@
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div id="export-dropdown" class="export-dropdown hidden">
-                <button onclick="window.printReport()">PDF / Print</button>
+                <button onclick="window.openAuditPDF()" title="Open standalone publication-grade PDF compiled by ReportLab">Download Audit PDF (.pdf)</button>
+                <button onclick="window.printReport()" title="Print current webpage using browser Print-to-PDF">Print Webpage (Browser)</button>
                 <button onclick="window.exportJSON()">JSON Export</button>
                 <button onclick="window.exportCSV()">CSV Audit Export</button>
                 <button onclick="window.exportSARIF()">SARIF v2.1.0 (GitHub)</button>
