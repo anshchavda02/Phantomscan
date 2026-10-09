@@ -7,9 +7,18 @@ new endpoints and parameters directly into the YAML Rule Engine for vulnerabilit
 """
 import asyncio
 import sys
-from mitmproxy import http
-from mitmproxy.tools.dump import DumpMaster
-from mitmproxy.options import Options
+from typing import Any
+
+try:
+    from mitmproxy import http
+    from mitmproxy.tools.dump import DumpMaster
+    from mitmproxy.options import Options
+    MITMPROXY_AVAILABLE = True
+except ImportError:
+    http = None
+    DumpMaster = None
+    Options = None
+    MITMPROXY_AVAILABLE = False
 
 from phantomscan.models import Observation
 from phantomscan.rules_engine import run_yaml_rules
@@ -20,8 +29,10 @@ class PhantomProxyAddon:
         self.seen_endpoints = set()
         self.observations: list[Observation] = []
 
-    async def request(self, flow: http.HTTPFlow):
+    async def request(self, flow: Any):
         """Intercept outbound requests before they hit the server."""
+        if not hasattr(flow, "request"):
+            return
         url = flow.request.pretty_url
         if not url.startswith(f"http://{self.target_scope}") and not url.startswith(f"https://{self.target_scope}"):
             return # Ignore out-of-scope traffic
@@ -38,6 +49,11 @@ class PhantomProxyAddon:
 
 def start_proxy(host: str, port: int, target_scope: str) -> None:
     """Start the mitmproxy passive interception listener."""
+    if not MITMPROXY_AVAILABLE:
+        print("[!] Error: 'mitmproxy' is required for passive proxy mode.")
+        print("[!] Install it via: pip install mitmproxy")
+        return
+
     print(f"[*] Starting Passive Proxy Mode on {host}:{port}")
     print(f"[*] Scope Locked to: {target_scope}")
     print("[*] Intercepted traffic will automatically trigger YAML vulnerability rules.")

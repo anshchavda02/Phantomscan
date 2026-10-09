@@ -16,6 +16,8 @@ from typing import Any
 
 import hashlib
 
+logger = logging.getLogger("phantomscan")
+
 from phantomscan.config import load_config
 from phantomscan.db import Database
 from phantomscan.email_security import analyze_email
