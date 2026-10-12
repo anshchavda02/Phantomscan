@@ -201,16 +201,86 @@ while ($true) {
     Write-Host " 19. Proxy mode          Intercept traffic and feed to YAML Rules Engine"
     Write-Host " 20. Targeted Modules    Run specialized modules (SSL, CORS, Info Disclosure, Cookies, CVEs)"
     Write-Host " 21. Cache Management    Inspect scan cache, view hit rate, or purge cached targets"
-    Write-Host " 22. CLI Help            Display full command-line help"
+    Write-Host " 22. Generate PDF Report Export publication-grade PDF report from existing scan"
+    Write-Host " 23. CLI Help            Display full command-line help"
     Write-Host "  0. Exit"
     Write-Host ""
 
-    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22") "1"
+    $mode = Read-Choice "Select an option" @("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23") "1"
     if ($mode -eq "0") {
         break
     }
-    if ($mode -eq "22") {
+    if ($mode -eq "23") {
         & $Python $Cli --help
+        Wait-UserReturn
+        continue
+    }
+
+    if ($mode -eq "22") {
+        Write-Host ""
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host " EXPORT PUBLICATION-GRADE PDF REPORT" -ForegroundColor White
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host "Select an existing scan report to compile into a PDF:" -ForegroundColor Yellow
+        Write-Host ""
+
+        $jsonFiles = @()
+        if (Test-Path -LiteralPath $Reports) {
+            $jsonFiles = Get-ChildItem -LiteralPath $Reports -Filter "*.json" |
+                Where-Object { -not $_.Name.EndsWith(".sarif.json") } |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 10
+        }
+
+        $selectedReportPath = $null
+        if ($jsonFiles.Count -gt 0) {
+            Write-Host "Recent Scan Reports:" -ForegroundColor Cyan
+            for ($i = 0; $i -lt $jsonFiles.Count; $i++) {
+                $idx = $i + 1
+                $dateStr = $jsonFiles[$i].LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+                Write-Host "  $idx. $($jsonFiles[$i].Name) ($dateStr)"
+            }
+            Write-Host "  C. Custom file path..."
+            Write-Host ""
+
+            $allowedChoices = @("C", "c") + (1..$jsonFiles.Count | ForEach-Object { "$_" })
+            $repChoice = Read-Choice "Select a report" $allowedChoices "1"
+            if ($repChoice.ToUpperInvariant() -eq "C") {
+                $customPath = Read-Host "Enter path to JSON report file"
+                if (-not [string]::IsNullOrWhiteSpace($customPath) -and (Test-Path -LiteralPath $customPath)) {
+                    $selectedReportPath = (Resolve-Path $customPath).Path
+                } else {
+                    Write-Host "Report file not found." -ForegroundColor Yellow
+                }
+            } else {
+                $selIdx = [int]$repChoice - 1
+                $selectedReportPath = $jsonFiles[$selIdx].FullName
+            }
+        } else {
+            $customPath = Read-Host "Enter path to JSON report file (e.g. reports/target.json)"
+            if (-not [string]::IsNullOrWhiteSpace($customPath) -and (Test-Path -LiteralPath $customPath)) {
+                $selectedReportPath = (Resolve-Path $customPath).Path
+            } else {
+                Write-Host "Report file not found." -ForegroundColor Yellow
+            }
+        }
+
+        if ($null -ne $selectedReportPath) {
+            $outPdf = [System.IO.Path]::ChangeExtension($selectedReportPath, ".pdf")
+            Write-Host ""
+            Write-Host "Generating PDF report from $selectedReportPath..." -ForegroundColor Green
+            & $Python $Cli --json-to-pdf $selectedReportPath --pdf-out $outPdf
+            if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $outPdf)) {
+                Write-Host ""
+                Write-Host "[+] PDF Report created: $outPdf" -ForegroundColor Green
+                $openNow = Read-YesNo "Open PDF report now" $true
+                if ($openNow) {
+                    Start-Process -FilePath $outPdf
+                }
+            } else {
+                Write-Host "[!] Failed to create PDF report." -ForegroundColor Red
+            }
+        }
         Wait-UserReturn
         continue
     }
@@ -268,6 +338,11 @@ while ($true) {
             $localArgs += "--show-medium"
         }
         $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
+        $requestPdf = Read-YesNo "Generate publication-grade PDF report" $true
+        $openPdf = if ($requestPdf) { Read-YesNo "Open PDF report after scan" $false } else { $false }
+        if ($requestPdf) {
+            $localArgs += "--pdf"
+        }
         Write-Host ""
         Write-Host "Running scan: & `"$Python`" `"$Cli`" $($localArgs -join ' ')" -ForegroundColor Cyan
         $startedAt = Get-Date
@@ -283,6 +358,14 @@ while ($true) {
             if ($null -ne $html) {
                 Write-Host "Opening HTML report: $($html.FullName)" -ForegroundColor Green
                 Start-Process -FilePath $html.FullName
+            }
+        }
+        $pdf = Get-NewestPdfReport -StartedAt $startedAt
+        if ($null -ne $pdf) {
+            Write-Host "PDF report:     $($pdf.FullName)" -ForegroundColor Green
+            if ($openPdf) {
+                Write-Host "Opening PDF report: $($pdf.FullName)" -ForegroundColor Green
+                Start-Process -FilePath $pdf.FullName
             }
         }
         Show-ScanLog -StartedAt $startedAt
@@ -516,8 +599,9 @@ while ($true) {
     $showJsonInWindow = Read-YesNo "Print JSON in this window" $false
     $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
     $saveJson = Read-YesNo "Save JSON report" $true
+    $requestPdf = Read-YesNo "Generate publication-grade PDF report" $true
+    $openPdf = if ($requestPdf) { Read-YesNo "Open PDF report after scan" $false } else { $false }
     $requestSarif = Read-YesNo "Generate OASIS SARIF v2.1.0 report (GitHub Code Scanning / CI/CD)" $false
-    $requestPdf = Read-YesNo "Request PDF flag (experimental in this build)" $false
     $debugLogging = Read-YesNo "Show debug log output in this window" $false
     $enterpriseSettings = Read-YesNo "Configure enterprise tuning (--time-budget, --depth, --log-format, --resume)" $false
 
@@ -668,6 +752,10 @@ while ($true) {
     $pdf = Get-NewestPdfReport -StartedAt $startedAt
     if ($null -ne $pdf) {
         Write-Host "PDF report:     $($pdf.FullName)" -ForegroundColor Green
+        if ($openPdf) {
+            Write-Host "Opening PDF report: $($pdf.FullName)" -ForegroundColor Green
+            Start-Process -FilePath $pdf.FullName
+        }
     }
 
     Show-ScanLog -StartedAt $startedAt

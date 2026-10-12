@@ -830,3 +830,46 @@ def test_compliance_cleartext_http_mapping():
     assert any("A02:2021" in c for c in owasp["failing_controls"])
     assert any("4.1" in c for c in pci["failing_controls"])
     assert any("SC-8" in c for c in nist["failing_controls"])
+
+
+def test_cli_json_to_pdf_conversion(tmp_path: Path):
+    """Test CLI --json-to-pdf flag converts JSON report to PDF."""
+    import json
+    import subprocess
+    import sys
+
+    json_file = tmp_path / "scan_report.json"
+    pdf_file = tmp_path / "scan_report.pdf"
+
+    payload = {
+        "target": "https://example.com",
+        "started_at": "2026-10-12T10:00:00Z",
+        "duration": 5.0,
+        "score": 85,
+        "findings": [
+            {
+                "id": "SEC-TEST-001",
+                "title": "Test Security Finding",
+                "severity": "high",
+                "evidence": "Found vulnerability in test endpoint",
+                "recommendation": "Remediate test issue.",
+            }
+        ],
+    }
+    json_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    cmd = [
+        sys.executable,
+        "phantomscan.py",
+        "--json-to-pdf",
+        str(json_file),
+        "--pdf-out",
+        str(pdf_file),
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 1000
+    with open(pdf_file, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+

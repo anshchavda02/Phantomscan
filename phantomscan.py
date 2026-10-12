@@ -225,6 +225,7 @@ def build_parser() -> argparse.ArgumentParser:
     report_group.add_argument("--sarif-out", help="Path to save the SARIF report")
     report_group.add_argument("--pdf", action="store_true", help="Generate a publication-grade PDF report (pure Python)")
     report_group.add_argument("--pdf-out", help="Path to save the PDF report")
+    report_group.add_argument("--json-to-pdf", help="Compile an existing JSON scan report into a publication-grade PDF report")
     report_group.add_argument("--log-file", help="Custom path for the debug log file")
     
     # Legacy / Unused in v2 (Kept for compatibility)
@@ -1132,6 +1133,22 @@ def main() -> int:
     """CLI entrypoint."""
     parser = build_parser()
     args = parser.parse_args()
+
+    if getattr(args, "json_to_pdf", None):
+        json_file = Path(args.json_to_pdf)
+        if not json_file.exists():
+            print(f"[!] Error: JSON report file not found: {json_file}")
+            sys.exit(1)
+        try:
+            with open(json_file, "r", encoding="utf-8") as f:
+                report_data = json.load(f)
+            pdf_out = Path(args.pdf_out) if getattr(args, "pdf_out", None) else json_file.with_suffix(".pdf")
+            write_pdf_report(pdf_out, report_data)
+            cprint(f"[+] PDF report generated: {pdf_out}", "green")
+            return 0
+        except Exception as exc:
+            print(f"[!] Failed to generate PDF from {json_file}: {exc}")
+            sys.exit(1)
 
     if args.daemon == "stop":
         sys.exit(0)
