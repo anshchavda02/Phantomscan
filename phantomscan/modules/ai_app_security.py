@@ -212,8 +212,8 @@ class SecretPatternEngine:
                 continue
             for match in set(matches):
                 if isinstance(match, tuple):
-                    match = match[0]
-                if _is_placeholder(match):
+                    match = next((m for m in match if m), "")
+                if not match or _is_placeholder(match):
                     continue
                 # Shannon entropy check for generic patterns (skip short fixed-prefix keys)
                 if pattern_def.get("category") == "GENERIC" and _shannon_entropy(match) < 3.0:
@@ -225,6 +225,16 @@ class SecretPatternEngine:
                 if match_pos >= 0 and _is_comment_context(content, match_pos):
                     severity = "info"
                     confidence = "low"
+
+                # Google AI key context validation: downgrade to info if no Gemini/Vertex AI context
+                if pattern_def.get("id") == "google-ai-key" and match_pos >= 0:
+                    start = max(0, match_pos - 200)
+                    end = min(len(content), match_pos + len(match) + 200)
+                    context = content[start:end].lower()
+                    ai_keywords = ("gemini", "generativeai", "google_ai", "googleai", "genai", "vertex")
+                    if not any(kw in context for kw in ai_keywords):
+                        severity = "info"
+                        confidence = "low"
 
                 findings.append({
                     "id": f"SECRET-{pattern_def['id'].upper()}",
@@ -408,6 +418,31 @@ class AISecretScanner:
                         context = all_content[start:end].lower()
                         if not any(k in context for k in ("twilio", "accountsid", "account_sid", "auth_token")):
                             continue
+
+                if key_name == "Google Gemini/AI API Key":
+                    match_pos = all_content.find(match)
+                    if match_pos >= 0:
+                        start = max(0, match_pos - 200)
+                        end = min(len(all_content), match_pos + len(match) + 200)
+                        context = all_content[start:end].lower()
+                        ai_keywords = ("gemini", "generativeai", "google_ai", "googleai", "genai", "vertex")
+                        if not any(k in context for k in ai_keywords):
+                            # Standard Google Client API Key (Maps, Firebase web, etc.) without AI context
+                            continue
+
+                if key_name == "HuggingFace Token":
+                    match_pos = all_content.find(match)
+                    if match_pos >= 0:
+                        start = max(0, match_pos - 1)
+                        end = min(len(all_content), match_pos + len(match) + 1)
+                        surrounding = all_content[start:end]
+                        is_quoted = (surrounding.startswith(("'", '"', "`")) and surrounding.endswith(("'", '"', "`")))
+                        context_window = all_content[max(0, match_pos - 150):min(len(all_content), match_pos + len(match) + 150)].lower()
+                        has_hf_context = any(k in context_window for k in ("huggingface", "hf_token", "hf_api", "hf-token", "transformers"))
+                        if not (is_quoted or has_hf_context):
+                            # Minified JS variable collision without quotes or HuggingFace context
+                            continue
+
                 findings.append({
                     "id": "AI-KEY-EXPOSED",
                     "title": f"Exposed AI/LLM API Key: {key_name}",

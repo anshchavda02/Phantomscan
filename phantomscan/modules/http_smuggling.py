@@ -12,8 +12,23 @@ from typing import Any
 from urllib.parse import urlparse
 
 from phantomscan.http_client import RobustHTTPClient
+from phantomscan.modules.waf_detector import is_waf_block_page
 
 logger = logging.getLogger(__name__)
+
+
+def _is_valid_smuggling_anomaly(res: Any) -> bool:
+    """Return True if response is a valid smuggling candidate (not an error, rate limit, or WAF block)."""
+    if not res or getattr(res, "status", 0) <= 0:
+        return False
+    status = res.status
+    if status in (400, 401, 403, 405, 429):
+        return False
+    body = res.text() if hasattr(res, "text") and callable(res.text) else str(getattr(res, "body", ""))
+    headers = getattr(res, "headers", None)
+    if is_waf_block_page(body, status, headers):
+        return False
+    return True
 
 
 class HTTPSmugglingDetector:
@@ -82,10 +97,10 @@ class HTTPSmugglingDetector:
         try:
             result = await self.http.send_raw(host, payload, port=port, timeout=10.0)
             # Must return a real HTTP response and exceed baseline by significant differential
-            if result.status > 0 and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
+            if _is_valid_smuggling_anomaly(result) and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
                 # Repeat once to confirm timing anomaly is reproducible
                 recheck = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-                if recheck.status > 0 and recheck.response_time_ms >= 4500:
+                if _is_valid_smuggling_anomaly(recheck) and recheck.response_time_ms >= 4500:
                     return {
                     "id": "SMUGGLING-CLTE",
                     "title": "Possible HTTP Request Smuggling (CL.TE)",
@@ -140,10 +155,10 @@ class HTTPSmugglingDetector:
         )
         try:
             result = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-            if result.status > 0 and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
+            if _is_valid_smuggling_anomaly(result) and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
                 # Repeat once to confirm timing anomaly is reproducible
                 recheck = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-                if recheck.status > 0 and recheck.response_time_ms >= 4500:
+                if _is_valid_smuggling_anomaly(recheck) and recheck.response_time_ms >= 4500:
                     return {
                         "id": "SMUGGLING-TECL",
                         "title": "Possible HTTP Request Smuggling (TE.CL)",
@@ -192,9 +207,9 @@ class HTTPSmugglingDetector:
             )
             try:
                 result = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-                if result.status > 0 and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
+                if _is_valid_smuggling_anomaly(result) and result.response_time_ms >= 5000 and result.response_time_ms >= (baseline_ms * 3 + 2000):
                     recheck = await self.http.send_raw(host, payload, port=port, timeout=10.0)
-                    if recheck.status > 0 and recheck.response_time_ms >= 4500:
+                    if _is_valid_smuggling_anomaly(recheck) and recheck.response_time_ms >= 4500:
                         return {
                         "id": "SMUGGLING-TETE",
                         "title": "Possible HTTP Request Smuggling (TE.TE Obfuscation)",

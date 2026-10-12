@@ -352,6 +352,146 @@ async def test_privacy_scanner_template_phone_deduplication():
         f"Template phone numbers appearing on multiple pages should be suppressed, got {len(phone_findings)}"
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# FIX 13: js_analyzer / secret_patterns — Resend key identifier false positives
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_resend_api_key_identifier_false_positive_suppressed():
+    """JavaScript identifiers like 're_MicrosoftTeamsApp' must NOT match Resend API key."""
+    from phantomscan.js_analyzer import JSRouteExtractor
+
+    http = MagicMock(spec=RobustHTTPClient)
+    extractor = JSRouteExtractor(http=http)
+
+    js_code = """
+    var re_MicrosoftTeamsApp = function() { return 1; };
+    var re_ExtenConfig = { enabled: true };
+    """
+    _, _, secrets = await extractor.analyze("https://example.com", js_code)
+    resend_findings = [s for s in secrets if "resend" in s.get("title", "").lower()]
+    assert len(resend_findings) == 0, f"Unquoted code identifiers starting with re_ must not match Resend: {resend_findings}"
+
+    # Genuine quoted string literal DOES match
+    valid_js = """const resendKey = "re_1234567890abcdef12345678";"""
+    _, _, valid_secrets = await extractor.analyze("https://example.com", valid_js)
+    valid_resend = [s for s in valid_secrets if "resend" in s.get("title", "").lower()]
+    assert len(valid_resend) == 1, "Quoted Resend token must match"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FIX 14: ai_app_security — HuggingFace minified variable false positive
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_huggingface_minified_var_false_positive_suppressed():
+    """Minified identifiers starting with hf_ without quotes or context must not trigger HuggingFace."""
+    from phantomscan.modules.ai_app_security import AISecretScanner
+
+    http = MagicMock(spec=RobustHTTPClient)
+    scanner = AISecretScanner(http=http)
+
+    minified_js = "function a(){var hf_0123456789012345678901234567890123=42;return hf_0123456789012345678901234567890123;}"
+    findings = await scanner.scan("https://example.com", minified_js, [], {})
+    hf_findings = [f for f in findings if "huggingface" in f.get("title", "").lower()]
+    assert len(hf_findings) == 0, f"Minified variable should not trigger HuggingFace finding: {hf_findings}"
+
+    # Quoted real HuggingFace token DOES trigger
+    real_js = 'const token = "hf_abcdefghijklmnopqrstuvwxyz01234567";'
+    real_findings = await scanner.scan("https://example.com", real_js, [], {})
+    real_hf = [f for f in real_findings if "huggingface" in f.get("title", "").lower()]
+    assert len(real_hf) == 1, "Quoted HuggingFace token must be detected"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FIX 15: ai_app_security — Google Client API key not critical Gemini key
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_google_client_key_without_ai_context_not_critical_ai_key():
+    """Standard Google Client API Key (Maps, Firebase web) without AI context must not be reported as Critical Gemini key."""
+    from phantomscan.modules.ai_app_security import AISecretScanner
+
+    http = MagicMock(spec=RobustHTTPClient)
+    scanner = AISecretScanner(http=http)
+
+    normal_google_js = """
+    var firebaseConfig = {
+        apiKey: "AIzaSyBwQcjgmXUAsw5r4FZXO5t8_EZ_aUm_TGE",
+        authDomain: "app.firebaseapp.com"
+    };
+    """
+    findings = await scanner.scan("https://example.com", normal_google_js, [], {})
+    gemini_findings = [f for f in findings if "gemini" in f.get("title", "").lower()]
+    assert len(gemini_findings) == 0, f"Standard Google Client Key must not be reported as Gemini AI key: {gemini_findings}"
+
+    # With AI context (Gemini / Generative AI)
+    ai_google_js = """
+    const gemini_api_key = "AIzaSyBwQcjgmXUAsw5r4FZXO5t8_EZ_aUm_TGE";
+    const model = getGenerativeModel("gemini-pro");
+    """
+    ai_findings = await scanner.scan("https://example.com", ai_google_js, [], {})
+    ai_gemini = [f for f in ai_findings if "gemini" in f.get("title", "").lower()]
+    assert len(ai_gemini) == 1, "Google Key with Gemini context must be reported as Gemini key"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FIX 16: http_smuggling — WAF 403 / rate limit is NOT smuggling timing anomaly
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_http_smuggling_waf_403_rejection_suppressed():
+    """When server/WAF delays 10s then returns 403 Forbidden or WAF block, smuggling must not be reported."""
+    from phantomscan.modules.http_smuggling import HTTPSmugglingDetector
+
+    mock_http = MagicMock(spec=RobustHTTPClient)
+
+    # Baseline succeeds fast
+    baseline_result = MagicMock()
+    baseline_result.status = 200
+    baseline_result.response_time_ms = 80
+    baseline_result.body = b"OK"
+    baseline_result.text = MagicMock(return_value="OK")
+
+    # Probe takes 6000ms but returns HTTP 403 Forbidden (Akamai / Cloudflare WAF block)
+    waf_result = MagicMock()
+    waf_result.status = 403
+    waf_result.response_time_ms = 6000
+    waf_result.body = b"Access Denied by WAF"
+    waf_result.text = MagicMock(return_value="Access Denied by WAF")
+
+    async def mock_send_raw(host, payload, **kwargs):
+        if "GET /" in payload:
+            return baseline_result
+        return waf_result
+
+    mock_http.send_raw = AsyncMock(side_effect=mock_send_raw)
+
+    detector = HTTPSmugglingDetector(http=mock_http)
+    findings = await detector.run("http://example.com", [])
+    assert len(findings) == 0, f"WAF 403 rejection timing delay must produce zero smuggling findings, got: {findings}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FIX 17: sensitive_path_scanner — Wildcard 403 suppresses blocked path findings
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_sensitive_path_wildcard_403_suppressed():
+    """When server returns 403 for random nonexistent paths, sensitive path 403 findings must be suppressed."""
+    from modules.sensitive_path_scanner import SensitivePathScanner
+    from tests.false_positive_regression.conftest import MockHTTPClient, MockHTTPResult
+
+    # Server returns 403 for all paths (including random UUID)
+    client = MockHTTPClient(
+        default_response=MockHTTPResult(status=403, body=b"Forbidden")
+    )
+    scanner = SensitivePathScanner(http_client=client)
+    findings = await scanner.scan("https://example.com")
+
+    blocked_findings = [f for f in findings if "SENSITIVE-PATH-BLOCKED" in f.id]
+    assert len(blocked_findings) == 0, f"Wildcard 403 server must not trigger SENSITIVE-PATH-BLOCKED findings: {blocked_findings}"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

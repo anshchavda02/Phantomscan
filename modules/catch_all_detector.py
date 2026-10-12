@@ -17,6 +17,7 @@ class CatchAllResult:
     note: str = ""
     detected: bool = False
     baseline_length: int = 0
+    is_wildcard_403: bool = False
 
     def __post_init__(self) -> None:
         if self.detected and not self.has_catch_all:
@@ -36,7 +37,7 @@ class CatchAllDetector:
     async def detect(self, web_root: str) -> CatchAllResult:
         """Test if the server returns 200 for a path that definitely doesn't exist (randomly generated).
         If yes, it uses catch-all routing and every 200 response must be body-verified before
-        any finding is created.
+        any finding is created. If it returns 403, wildcard 403 / default WAF block is detected.
         """
         parsed = urlparse(web_root)
         if parsed.scheme and parsed.netloc:
@@ -89,6 +90,15 @@ class CatchAllDetector:
                             f"applying strict body verification to ALL sensitive path probes."
                         ),
                     )
+            elif status == 403:
+                return CatchAllResult(
+                    is_wildcard_403=True,
+                    note=(
+                        f"Server returned HTTP 403 for random path {test_path}. "
+                        f"Wildcard 403 / default WAF block detected — server blocks "
+                        f"all random paths by default."
+                    ),
+                )
         except Exception as e:
             logger.debug("Catch-all test error: %s", e)
         finally:

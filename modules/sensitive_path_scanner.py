@@ -379,6 +379,9 @@ class SensitivePathScanner:
                     # Step 1: Status code pre-filter
                     if status not in [200, 206]:
                         if status == 403:
+                            if getattr(catch_all, "is_wildcard_403", False):
+                                # Server returns 403 on random/nonexistent paths; 403 does not indicate path existence
+                                return path_findings
                             # Suppress 403 for paths where blocking is expected/normal
                             # server behavior — these reveal no actionable information.
                             _EXPECTED_403_PATHS = {"/.htaccess", "/.htpasswd", "/.htgroups"}

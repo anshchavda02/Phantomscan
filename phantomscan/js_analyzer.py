@@ -86,7 +86,9 @@ def _load_secret_patterns() -> list[tuple[re.Pattern, str, str]]:
                     sev = entry.get("severity", "high")
                     if reg:
                         try:
-                            compiled = re.compile(reg, re.IGNORECASE)
+                            case_sensitive_prefixes = ("re_", "hf_", "sk_live_", "sk_test_", "rk_live_", "ghp_", "github_pat_", "AIza")
+                            flags = 0 if any(p in reg for p in case_sensitive_prefixes) else re.IGNORECASE
+                            compiled = re.compile(reg, flags)
                             label = f"{vendor} {stype}".strip()
                             patterns.append((compiled, label, sev))
                         except re.error:
@@ -191,13 +193,33 @@ class JSRouteExtractor:
             # Check for exposed secrets
             for pattern, sec_name, severity in self.secret_patterns:
                 for sm in pattern.finditer(content):
-                    secret_val = sm.group(1).strip() if sm.lastindex else sm.group(0).strip()
+                    secret_val = (sm.group(sm.lastindex) if sm.lastindex else sm.group(0)).strip().strip("\"'`")
                     # Skip common test/dummy values
                     if secret_val.lower() in {"null", "undefined", "true", "false", "test", "your_key_here", "example"}:
                         continue
+
+                    # Filter out English PascalCase/camelCase identifiers starting with re_ (e.g., re_MicrosoftTeamsApp)
+                    if secret_val.startswith("re_"):
+                        suffix = secret_val[3:]
+                        if re.match(r"^[A-Z][a-zA-Z]+$", suffix) and not any(c.isdigit() for c in suffix):
+                            continue
+
                     if secret_val in seen_secret_values:
                         continue
                     seen_secret_values.add(secret_val)
+
+                    sec_name_lower = sec_name.lower()
+
+                    # Context validation: Google API Keys are public client identifiers unless
+                    # explicit AI-specific context (Gemini, Vertex) is present.
+                    if "aiza" in secret_val.lower() or "google" in sec_name_lower:
+                        start = max(0, sm.start() - 200)
+                        end = min(len(content), sm.end() + 200)
+                        context = content[start:end].lower()
+                        ai_keywords = ("gemini", "generativeai", "google_ai", "googleai", "genai", "vertex")
+                        if not any(kw in context for kw in ai_keywords):
+                            sec_name = "Public Google Client API Key"
+                            severity = "low"
 
                     # Context validation: Twilio SIDs require proximity to
                     # Twilio-related keywords to confirm it's an actual SID
