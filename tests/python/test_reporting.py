@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import pytest
 from phantomscan.reporting import (
     write_json_report,
     write_csv_report,
@@ -622,6 +623,7 @@ def test_html_report_attack_paths_and_checklist(tmp_path: Path):
 
 def test_write_pdf_report_basic(tmp_path: Path):
     """Test standard PDF report generation with ReportLab."""
+    pytest.importorskip("reportlab")
     out_file = tmp_path / "audit_report.pdf"
     payload = {
         "target": "example.com",
@@ -661,6 +663,7 @@ def test_write_pdf_report_basic(tmp_path: Path):
 
 def test_write_pdf_report_empty_findings(tmp_path: Path):
     """Test PDF generation for clean targets with zero findings."""
+    pytest.importorskip("reportlab")
     out_file = tmp_path / "clean_report.pdf"
     payload = {
         "target": "https://clean-example.com",
@@ -681,6 +684,7 @@ def test_write_pdf_report_empty_findings(tmp_path: Path):
 
 def test_write_pdf_report_rich_payload_with_special_chars(tmp_path: Path):
     """Test PDF report with multiple severities, attack chains, and XML-sensitive characters."""
+    pytest.importorskip("reportlab")
     out_file = tmp_path / "rich_report.pdf"
     payload = {
         "target": "https://vulnerable.app/api?q=test&id=1",
@@ -834,6 +838,7 @@ def test_compliance_cleartext_http_mapping():
 
 def test_cli_json_to_pdf_conversion(tmp_path: Path):
     """Test CLI --json-to-pdf flag converts JSON report to PDF."""
+    pytest.importorskip("reportlab")
     import json
     import subprocess
     import sys

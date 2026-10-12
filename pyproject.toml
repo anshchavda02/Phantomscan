@@ -47,6 +47,7 @@ dependencies = [
     "tldextract>=5.1.0",
     "websockets>=12.0",
     "brotli>=1.1.0",
+    "reportlab>=4.0.0",
 ]
 
 [project.optional-dependencies]
