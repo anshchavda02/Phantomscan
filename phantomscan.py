@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 import time
@@ -981,6 +981,173 @@ async def main_async() -> int:
         else:
             cprint("[!] Benchmark script not found.", "red")
             return 1
+
+    # Standalone mode: Dependency Confusion / Supply Chain check
+    if getattr(args, "check_deps", None):
+        from phantomscan.modules.dep_confusion import DependencyConfusionChecker
+        dep_dir = Path(args.check_deps)
+        if not dep_dir.exists():
+            cprint(f"[!] Target directory does not exist: {dep_dir}", "red")
+            return 1
+        cprint(f"[*] Auditing project dependencies in: {dep_dir.resolve()}", "cyan")
+        client = RobustHTTPClient(timeout_seconds=getattr(args, "timeout", 10.0))
+        await client.start()
+        try:
+            checker = DependencyConfusionChecker(http=client)
+            dep_findings = await checker.check_project(str(dep_dir))
+        finally:
+            await client.close()
+        if not dep_findings:
+            cprint("[+] Zero dependency confusion or unregistered package risks detected.", "green")
+        else:
+            cprint(f"[!] Identified {len(dep_findings)} dependency supply chain risks:", "yellow")
+            for f in dep_findings:
+                sev = str(f.get("severity", "medium")).upper()
+                cprint(f"  [{sev}] {f.get('title')}: {f.get('target')}", "red" if sev in ("CRITICAL", "HIGH") else "yellow")
+                cprint(f"       Evidence: {f.get('evidence')}", "white")
+                cprint(f"       Advice: {f.get('recommendation')}", "cyan")
+        out_dir = root / "reports"
+        out_dir.mkdir(exist_ok=True)
+        ts_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        json_path = Path(args.json_out) if getattr(args, "json_out", None) else out_dir / f"dep_confusion_{ts_str}.json"
+        json_path.write_text(json.dumps(dep_findings, indent=2), encoding="utf-8")
+        cprint(f"[+] Dependency audit report saved: {json_path}", "green")
+        return 0
+
+    # Standalone mode: Merge scan JSON reports
+    if getattr(args, "merge", None):
+        from phantomscan.modules.scan_merger import TeamScanMerger
+        files = args.merge
+        merger = TeamScanMerger()
+        res = merger.merge_files(files)
+        cprint("[*] Scan Report Merge & Deduplication Complete:", "green")
+        cprint(f"    - Input scan files     : {len(files)}", "cyan")
+        cprint(f"    - Total findings input : {res.total_before_merge}", "cyan")
+        cprint(f"    - Duplicates removed   : {res.duplicates_removed}", "yellow")
+        cprint(f"    - Clean unified findings: {res.total_after_merge}", "green")
+        cprint(f"    - Assessors credited   : {', '.join(res.assessors) if res.assessors else 'Anonymous'}", "cyan")
+        out_dir = root / "reports"
+        out_dir.mkdir(exist_ok=True)
+        ts_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        merged_payload = {
+            "schema": "phantomscan.report.v1",
+            "merged_at": datetime.now(timezone.utc).isoformat(),
+            "target": "Merged-Assessment",
+            "total_before_merge": res.total_before_merge,
+            "total_after_merge": res.total_after_merge,
+            "duplicates_removed": res.duplicates_removed,
+            "assessors": res.assessors,
+            "findings": res.findings,
+        }
+        json_path = Path(args.json_out) if getattr(args, "json_out", None) else out_dir / f"merged_scan_{ts_str}.json"
+        json_path.write_text(json.dumps(merged_payload, indent=2), encoding="utf-8")
+        cprint(f"[+] Merged report saved: {json_path}", "green")
+        return 0
+
+    # Standalone mode: Remediation verification server
+    if getattr(args, "serve_verify", False):
+        from phantomscan.modules.remediation_verifier import RemediationVerifier
+        port = getattr(args, "verify_port", 8420) or 8420
+        verifier = RemediationVerifier()
+        cprint(f"[*] Starting Remediation Verification server on http://127.0.0.1:{port}...", "green")
+        cprint("[*] Reports with verification links will test remediations through this server.", "cyan")
+        cprint("[*] Press Ctrl+C to terminate the verification server.", "yellow")
+        await verifier.start_server(host="127.0.0.1", port=port)
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            cprint("[*] Remediation Verification server stopped.", "yellow")
+        return 0
+
+    # Standalone mode: Mobile APK / IPA API Extraction
+    if getattr(args, "mobile_apk", None) or getattr(args, "mobile_ipa", None):
+        from phantomscan.modules.mobile_api import MobileAPIExtractor
+        apk_path = getattr(args, "mobile_apk", None)
+        ipa_path = getattr(args, "mobile_ipa", None)
+        pkg_path = apk_path or ipa_path
+        if not pkg_path or not Path(pkg_path).exists():
+            cprint(f"[!] Package file not found: {pkg_path}", "red")
+            return 1
+        cprint(f"[*] Extracting backend APIs from mobile package: {pkg_path}", "cyan")
+        client = RobustHTTPClient(timeout_seconds=getattr(args, "timeout", 10.0))
+        await client.start()
+        try:
+            extractor = MobileAPIExtractor(http=client)
+            if apk_path:
+                endpoints = await extractor.extract_from_apk(apk_path)
+            else:
+                endpoints = await extractor.extract_from_ipa(ipa_path)
+            cprint(f"[+] Extracted {len(endpoints)} API endpoints:", "green")
+            for ep in endpoints:
+                cprint(f"    - {ep}", "cyan")
+            findings = []
+            if getattr(args, "extract_apis", False) and endpoints:
+                cprint("[*] Testing extracted API endpoints for security exposures...", "cyan")
+                findings = await extractor.test_mobile_apis(endpoints)
+                cprint(f"[+] Security verification completed: {len(findings)} findings.", "green")
+        finally:
+            await client.close()
+        out_dir = root / "reports"
+        out_dir.mkdir(exist_ok=True)
+        ts_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        json_path = Path(args.json_out) if getattr(args, "json_out", None) else out_dir / f"mobile_api_{ts_str}.json"
+        pkg_payload = {
+            "schema": "phantomscan.mobile_api.v1",
+            "package": pkg_path,
+            "endpoints": endpoints,
+            "findings": findings,
+        }
+        json_path.write_text(json.dumps(pkg_payload, indent=2), encoding="utf-8")
+        cprint(f"[+] Mobile API analysis report saved: {json_path}", "green")
+        return 0
+
+    # Standalone mode: Differential Staging vs Production comparison
+    if getattr(args, "diff_env", False):
+        from phantomscan.modules.diff_env_scanner import DifferentialScanner
+        staging = getattr(args, "staging", None)
+        production = getattr(args, "production", None)
+        if not staging or not production:
+            cprint("[!] --diff-env requires both --staging and --production targets or reports.", "red")
+            return 1
+        cprint(f"[*] Running Differential Environment Comparison: Staging={staging} vs Production={production}", "cyan")
+        cfg = load_config(getattr(args, "config", None) or (root / "config.yaml"))
+        staging_path = Path(staging)
+        production_path = Path(production)
+        if staging_path.exists() and staging_path.suffix == ".json":
+            staging_res = json.loads(staging_path.read_text(encoding="utf-8"))
+        else:
+            cprint(f"[*] Scanning Staging environment: {staging}...", "cyan")
+            staging_res = await scan_one(args, staging, root, cfg=cfg)
+        if production_path.exists() and production_path.suffix == ".json":
+            prod_res = json.loads(production_path.read_text(encoding="utf-8"))
+        else:
+            cprint(f"[*] Scanning Production environment: {production}...", "cyan")
+            prod_res = await scan_one(args, production, root, cfg=cfg)
+        diff_engine = DifferentialScanner(http=RobustHTTPClient())
+        diff_result = await diff_engine.compare(staging_res, prod_res)
+        cprint(f"[+] Posture Differential Summary: {diff_result.summary}", "green")
+        cprint(f"    - Staging Score   : {diff_result.staging_score}/100", "cyan")
+        cprint(f"    - Production Score: {diff_result.production_score}/100", "cyan")
+        cprint(f"    - Regressions (Deploy Gaps): {len(diff_result.regressions)}", "red" if diff_result.regressions else "green")
+        cprint(f"    - New Staging Issues: {len(diff_result.improvements)}", "yellow" if diff_result.improvements else "green")
+        out_dir = root / "reports"
+        out_dir.mkdir(exist_ok=True)
+        ts_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        diff_payload = {
+            "schema": "phantomscan.diff_env.v1",
+            "staging": staging,
+            "production": production,
+            "summary": diff_result.summary,
+            "staging_score": diff_result.staging_score,
+            "production_score": diff_result.production_score,
+            "regressions": diff_result.regressions,
+            "improvements": diff_result.improvements,
+        }
+        json_path = Path(args.json_out) if getattr(args, "json_out", None) else out_dir / f"diff_env_{ts_str}.json"
+        json_path.write_text(json.dumps(diff_payload, indent=2), encoding="utf-8")
+        cprint(f"[+] Differential report saved: {json_path}", "green")
+        return 0
 
     if not args.target and not args.batch:
         parser.error("--target, --batch, --check-engines, or --benchmark is required")

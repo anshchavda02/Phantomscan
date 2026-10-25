@@ -75,7 +75,8 @@ def write_csv_report(path: Path, payload: dict[str, Any]) -> None:
         writer = csv.writer(f)
         writer.writerow([
             "Target", "Title", "Severity", "Confidence", "Category",
-            "Finding ID", "CWE", "OWASP", "Evidence", "Recommendation", "Fingerprint",
+            "Module", "Verification Method", "Finding ID", "CWE", "OWASP",
+            "Evidence", "Recommendation", "Fingerprint",
         ])
         for item in findings:
             if not isinstance(item, dict):
@@ -86,6 +87,8 @@ def write_csv_report(path: Path, payload: dict[str, Any]) -> None:
                 item.get("severity", "info"),
                 item.get("confidence", ""),
                 item.get("category", ""),
+                item.get("module", ""),
+                item.get("verification_method", ""),
                 item.get("id") or item.get("rule_id", ""),
                 item.get("cwe", ""),
                 item.get("owasp_category", ""),

@@ -48,6 +48,10 @@ class TeamScanMerger:
         assessors_set: set[str] = set()
 
         for scan in scan_results:
+            if isinstance(scan, list):
+                scan = {"findings": scan, "assessor": "Anonymous"}
+            elif not isinstance(scan, dict):
+                continue
             assessor = scan.get("assessor", scan.get("scan_meta", {}).get("assessor", "Anonymous"))
             assessors_set.add(assessor)
             scan_findings = scan.get("findings", [])
