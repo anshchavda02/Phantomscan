@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import pytest
+from phantomscan import __version__
 from phantomscan.reporting import (
     write_json_report,
     write_csv_report,
@@ -388,9 +389,9 @@ def test_html_report_rendering_v2_2_features(tmp_path: Path):
     assert out_file.exists()
     html = out_file.read_text(encoding="utf-8")
 
-    # Check version 2.2.0
-    assert 'content="2.2.0"' in html
-    assert "v2.2.0" in html
+    # Check version matches phantomscan.__version__
+    assert f'content="{__version__}"' in html
+    assert f"v{__version__}" in html
 
     # Check deduplication occurrences badge
     assert "3x OCCURRENCES" in html
@@ -877,4 +878,72 @@ def test_cli_json_to_pdf_conversion(tmp_path: Path):
     assert pdf_file.stat().st_size > 1000
     with open(pdf_file, "rb") as f:
         assert f.read(5) == b"%PDF-"
+
+
+def test_pdf_report_comprehensive_completeness(tmp_path: Path):
+    """Test that PDF report generator incorporates all observations, samples, and suppressed findings."""
+    pytest.importorskip("reportlab")
+    out_file = tmp_path / "comprehensive_report.pdf"
+    payload = {
+        "target": "https://secure-target.example.org",
+        "started_at": "2026-10-25T12:00:00Z",
+        "finished_at": "2026-10-25T12:05:00Z",
+        "duration": 300.0,
+        "score": 72,
+        "grade": "C",
+        "profile": "deep",
+        "observations": [
+            {"name": "ip", "value": ["93.184.216.34", "93.184.216.35"]},
+            {"name": "open_port", "value": [{"port": 443, "service": "https"}, {"port": 80, "service": "http"}]},
+            {"name": "tls_info", "value": {"grade": "A+", "issuer": "DigiCert Global Root CA"}},
+            {"name": "tech", "value": ["Nginx", "React", "Node.js"]},
+            {"name": "subdomains", "value": ["api.secure-target.example.org", "auth.secure-target.example.org"]},
+            {"name": "dns_records", "value": {"MX": ["mail.example.org"], "TXT": ["v=spf1 include:_spf.example.org -all"]}},
+            {"name": "whois_info", "value": {"registrar": "Example Registrar LLC", "expiry_date": "2028-11-01"}},
+        ],
+        "findings": [
+            {
+                "id": "SEC-DEEP-001",
+                "title": "BOLA / IDOR in User Profile API",
+                "severity": "critical",
+                "confidence": "high",
+                "category": "api_security",
+                "cwe": "CWE-639",
+                "owasp_category": "API1:2023",
+                "verification_method": "multi_role_diff",
+                "target": "https://secure-target.example.org/api/v1/user/102",
+                "evidence": "Observed unauthorized access to account details of user 102 from unprivileged role.",
+                "reproduction_steps": [
+                    "Authenticate as user A (JWT Bearer Token)",
+                    "Issue GET request to /api/v1/user/102",
+                    "Observe 200 OK containing user B sensitive PII",
+                ],
+                "request_sample": "GET /api/v1/user/102 HTTP/1.1\nHost: secure-target.example.org\nAuthorization: Bearer eyJhbGci...",
+                "response_sample": "HTTP/1.1 200 OK\nContent-Type: application/json\n\n{\"id\":102,\"name\":\"Alice B.\",\"email\":\"alice@example.com\"}",
+                "recommendation": "Enforce object-level access control authorization checks at the database query layer.",
+                "references": ["https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/"],
+            }
+        ],
+        "suppressed_findings": [
+            {
+                "id": "CAND-001",
+                "title": "Suspected Timing Discrepancy",
+                "severity": "high",
+                "reason": "FindingGate: Timing statistical check within normal variance (mu + 1.2sigma < threshold)",
+            },
+            {
+                "id": "CAND-002",
+                "title": "Missing Server Header",
+                "severity": "info",
+                "reason": "Platform Policy: Standard cloud edge proxy masking (Cloudflare / Fastly)",
+            }
+        ],
+    }
+
+    write_pdf_report(out_file, payload)
+    assert out_file.exists()
+    assert out_file.stat().st_size > 4000
+    with open(out_file, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
 

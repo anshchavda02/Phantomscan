@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional
 
+from phantomscan import __version__
+
 logger = logging.getLogger(__name__)
 
 # Color Palette (Slate / Cyan Enterprise Cybersecurity Theme)
@@ -94,7 +96,7 @@ class NumberedCanvas:
         if page_num > 1:
             self._canvas.setFont("Helvetica-Bold", 8)
             self._canvas.setFillColor(colors_mod.HexColor(COLOR_TEXT_MUTED))
-            self._canvas.drawString(margin, height - 28, "PHANTOMSCAN 2.2.0")
+            self._canvas.drawString(margin, height - 28, f"PHANTOMSCAN {__version__}")
             self._canvas.setFont("Helvetica", 8)
             target_str = f" | Target: {self.report_target}" if self.report_target else ""
             self._canvas.drawString(margin + 90, height - 28, f"Automated Security Assessment{target_str}")
@@ -128,6 +130,7 @@ class PDFReportBuilder:
         self.grade_val = str(payload.get("grade", "F")).upper()
         self.profile = _safe_text(payload.get("profile", "quick"))
         self.findings = payload.get("findings", [])
+        self.suppressed = payload.get("suppressed_findings", [])
         self.observations = payload.get("observations", [])
         self.chains = payload.get("chains", [])
         self.started_at = payload.get("started_at", "")
@@ -321,7 +324,7 @@ class PDFReportBuilder:
             [Paragraph("Scan Profile:", styles["MetaLabel"]), Paragraph(self.profile.upper(), styles["MetaVal"])],
             [Paragraph("Timestamp:", styles["MetaLabel"]), Paragraph(_safe_text(date_str), styles["MetaVal"])],
             [Paragraph("Execution Time:", styles["MetaLabel"]), Paragraph(duration_str, styles["MetaVal"])],
-            [Paragraph("Engine Version:", styles["MetaLabel"]), Paragraph("PhantomScan v2.2.0 (Polyglot Hardened)", styles["MetaVal"])],
+            [Paragraph("Engine Version:", styles["MetaLabel"]), Paragraph(f"PhantomScan v{__version__} (Polyglot Hardened)", styles["MetaVal"])],
         ]
         meta_table = Table(meta_col, colWidths=[90, 240])
         meta_table.setStyle(TableStyle([
@@ -471,6 +474,25 @@ class PDFReportBuilder:
             ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ]))
         story.append(matrix_table)
+
+        raw_total = total_findings + len(self.suppressed)
+        suppressed_count = len(self.suppressed)
+        if raw_total > 0:
+            elimination_pct = f"{round((suppressed_count / raw_total) * 100, 1)}%"
+            gate_summary = (
+                f"<b>FindingGate™ Accuracy Verification:</b> Evaluated {raw_total} candidate anomalies across all engines. "
+                f"<b>{total_findings}</b> real vulnerabilities confirmed; <b>{suppressed_count}</b> non-exploitable defensive false positives "
+                f"safely suppressed ({elimination_pct} noise reduction)."
+            )
+            gate_box = Table([[Paragraph(gate_summary, styles["TableCell"])]], colWidths=[530])
+            gate_box.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(COLOR_BG_LIGHT)),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+                ("PADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(Spacer(1, 6))
+            story.append(gate_box)
+
         story.append(Spacer(1, 14))
 
         # -------------------------------------------------------------
@@ -482,20 +504,57 @@ class PDFReportBuilder:
         open_ports: list[dict[str, Any]] = []
         tls_info: dict[str, Any] = {}
         technologies: list[str] = []
+        subdomains: list[str] = []
+        whois_info: dict[str, Any] = {}
+        dns_records: dict[str, Any] = {}
 
         for obs in self.observations:
             name = obs.get("name", "")
             val = obs.get("value")
-            if name == "ip" and isinstance(val, str) and val not in ips:
-                ips.append(val)
-            elif name == "open_port" and isinstance(val, dict):
-                open_ports.append(val)
-            elif name == "tls_info" and isinstance(val, dict):
+            if name in ("ip", "resolved_ips"):
+                if isinstance(val, list):
+                    for v in val:
+                        if isinstance(v, str) and v not in ips:
+                            ips.append(v)
+                elif isinstance(val, str) and val not in ips:
+                    ips.append(val)
+            elif name in ("open_port", "port_scan_results"):
+                if isinstance(val, list):
+                    for item in val:
+                        if isinstance(item, dict) and item not in open_ports:
+                            open_ports.append(item)
+                elif isinstance(val, dict) and val not in open_ports:
+                    open_ports.append(val)
+            elif name == "open_tcp_ports" and isinstance(val, list) and not open_ports:
+                for p in val:
+                    open_ports.append({"port": p, "service": "tcp"})
+            elif name in ("tls_info", "tls_inspection", "ssl_inspection", "ssl_cert") and isinstance(val, dict):
                 tls_info = val
-            elif name == "tech" and isinstance(val, dict):
-                t_name = val.get("name", "")
-                if t_name and t_name not in technologies:
-                    technologies.append(t_name)
+            elif name in ("tech", "technologies"):
+                if isinstance(val, list):
+                    for item in val:
+                        if isinstance(item, dict):
+                            t_name = item.get("name", "")
+                            if t_name and t_name not in technologies:
+                                technologies.append(t_name)
+                        elif isinstance(item, str) and item not in technologies:
+                            technologies.append(item)
+                elif isinstance(val, dict):
+                    t_name = val.get("name", "")
+                    if t_name and t_name not in technologies:
+                        technologies.append(t_name)
+            elif name in ("subdomain", "subdomains"):
+                if isinstance(val, list):
+                    for s in val:
+                        s_str = s.get("subdomain") if isinstance(s, dict) else str(s)
+                        if s_str and s_str not in subdomains:
+                            subdomains.append(s_str)
+                elif isinstance(val, str) and val not in subdomains:
+                    subdomains.append(val)
+            elif name == "whois_info" and isinstance(val, dict):
+                whois_info = val
+            elif name == "dns_records" and isinstance(val, dict):
+                dns_records = val
 
         recon_rows = [
             [
@@ -521,6 +580,32 @@ class PDFReportBuilder:
                 Paragraph(", ".join(technologies[:12]) if technologies else "Modern Web Application Stack", styles["TableCell"]),
             ],
         ]
+        if subdomains:
+            recon_rows.append([
+                Paragraph("Discovered Subdomains:", styles["MetaLabel"]),
+                Paragraph(", ".join(subdomains[:12]), styles["TableCell"]),
+            ])
+        if dns_records:
+            mx_list = [str(x) for x in dns_records.get("MX", [])]
+            txt_list = [str(x) for x in dns_records.get("TXT", [])]
+            dns_summary = []
+            if mx_list:
+                dns_summary.append("MX: " + ", ".join(mx_list[:3]))
+            if txt_list:
+                dns_summary.append("TXT: " + ", ".join(txt_list[:2]))
+            if dns_summary:
+                recon_rows.append([
+                    Paragraph("DNS Configuration:", styles["MetaLabel"]),
+                    Paragraph(" | ".join(dns_summary), styles["TableCell"]),
+                ])
+        if whois_info:
+            reg = whois_info.get("registrar", "")
+            exp = whois_info.get("expiry_date") or whois_info.get("events", {}).get("expiration", "")
+            if reg or exp:
+                recon_rows.append([
+                    Paragraph("Domain Registration (WHOIS):", styles["MetaLabel"]),
+                    Paragraph(f"Registrar: {reg or 'N/A'} | Expiration: {exp or 'N/A'}", styles["TableCell"]),
+                ])
         recon_table = Table(recon_rows, colWidths=[140, 390])
         recon_table.setStyle(TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
@@ -620,8 +705,8 @@ class PDFReportBuilder:
                 badge_bg = colors.HexColor(sev_color_info["badge"])
 
                 # Limit evidence snippet length for PDF layout sanity
-                if len(f_evidence) > 600:
-                    f_evidence = f_evidence[:600] + "... [truncated in PDF]"
+                if len(f_evidence) > 1500:
+                    f_evidence = f_evidence[:1500] + "... [truncated in PDF]"
 
                 card_rows = [
                     # Header row: Title + Severity
@@ -654,6 +739,33 @@ class PDFReportBuilder:
                     ],
                 ]
 
+                # Reproduction Steps (if present)
+                f_repro = _get_val(f, "reproduction_steps", [])
+                if isinstance(f_repro, list) and f_repro:
+                    repro_text = "<br/>".join(f"• {_safe_text(str(s))}" for s in f_repro)
+                    card_rows.append([
+                        Paragraph(f"<b>Reproduction Steps:</b><br/>{repro_text}", styles["TableCell"]),
+                        Paragraph("", styles["TableCell"]),
+                    ])
+
+                # HTTP Request Sample (if present)
+                f_req = _get_val(f, "request_sample", "")
+                if f_req:
+                    req_snip = _safe_text(str(f_req)[:800])
+                    card_rows.append([
+                        Paragraph(f"<b>HTTP Request Sample:</b><br/><font face='Courier' size='6.5'>{req_snip}</font>", styles["TableCell"]),
+                        Paragraph("", styles["TableCell"]),
+                    ])
+
+                # HTTP Response Sample (if present)
+                f_resp = _get_val(f, "response_sample", "")
+                if f_resp:
+                    resp_snip = _safe_text(str(f_resp)[:800])
+                    card_rows.append([
+                        Paragraph(f"<b>HTTP Response Sample:</b><br/><font face='Courier' size='6.5'>{resp_snip}</font>", styles["TableCell"]),
+                        Paragraph("", styles["TableCell"]),
+                    ])
+
                 # References row (if present)
                 if f_refs:
                     ref_text = ", ".join(_safe_text(r) for r in (f_refs[:3] if isinstance(f_refs, list) else [f_refs]))
@@ -663,12 +775,8 @@ class PDFReportBuilder:
                     ])
 
                 finding_table = Table(card_rows, colWidths=[440, 90])
-                finding_table.setStyle(TableStyle([
+                table_styles = [
                     ("BACKGROUND", (0, 0), (-1, 0), badge_bg),
-                    ("SPAN", (0, 1), (1, 1)),
-                    ("SPAN", (0, 2), (1, 2)),
-                    ("SPAN", (0, 3), (1, 3)),
-                    *([("SPAN", (0, 4), (1, 4))] if len(card_rows) > 4 else []),
                     ("BACKGROUND", (0, 2), (1, 2), colors.HexColor(COLOR_BG_CODE)),
                     ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor(COLOR_BORDER)),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
@@ -677,12 +785,51 @@ class PDFReportBuilder:
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                     ("LEFTPADDING", (0, 0), (-1, -1), 6),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ]))
+                ]
+                for r in range(1, len(card_rows)):
+                    table_styles.append(("SPAN", (0, r), (1, r)))
+                finding_table.setStyle(TableStyle(table_styles))
 
                 story.append(KeepTogether([finding_table, Spacer(1, 8)]))
 
         # -------------------------------------------------------------
-        # 7. Regulatory Compliance Summary
+        # 7. FindingGate™ Defensive False-Positive Suppression Log
+        # -------------------------------------------------------------
+        if self.suppressed:
+            story.append(Spacer(1, 10))
+            story.append(Paragraph("FindingGate™ Defensive False-Positive Elimination Log", styles["Heading1"]))
+            fp_rows = [
+                [
+                    Paragraph("Candidate Anomaly", styles["TableHead"]),
+                    Paragraph("Initial Severity", styles["TableHead"]),
+                    Paragraph("Elimination & Suppression Rationale", styles["TableHead"]),
+                ]
+            ]
+            for sf in self.suppressed[:30]:
+                sf_title = _safe_text(_get_val(sf, "title", "Candidate Anomaly"))
+                sf_sev = str(_get_val(sf, "severity", "info")).upper()
+                sf_reason = _safe_text(_get_val(sf, "reason") or _get_val(sf, "suppression_reason", "Verified non-exploitable defensive artifact"))
+                fp_rows.append([
+                    Paragraph(sf_title, styles["TableCellBold"]),
+                    Paragraph(sf_sev, styles["TableCell"]),
+                    Paragraph(sf_reason, styles["TableCell"]),
+                ])
+            fp_table = Table(fp_rows, colWidths=[180, 80, 270])
+            fp_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(COLOR_SECONDARY)),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(COLOR_BORDER)),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor(COLOR_BG_LIGHT)]),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(fp_table)
+            story.append(Spacer(1, 14))
+
+        # -------------------------------------------------------------
+        # 8. Regulatory Compliance Summary
         # -------------------------------------------------------------
         story.append(Spacer(1, 10))
         story.append(Paragraph("Regulatory Framework & Standard Compliance", styles["Heading1"]))

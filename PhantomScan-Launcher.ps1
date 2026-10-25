@@ -41,7 +41,7 @@ function Write-Title {
     }
     Write-AsciiLogo
     Write-Host "============================================================" -ForegroundColor DarkCyan
-    Write-Host " PhantomScan 2.2.0 - Authorized Security Assessment" -ForegroundColor White
+    Write-Host " PhantomScan 2.3.0 - Authorized Security Assessment" -ForegroundColor White
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host "Use only on systems you own or have written authorization to test." -ForegroundColor Yellow
     Write-Host ""
@@ -296,15 +296,47 @@ while ($true) {
     }
 
     if ($mode -eq "8") {
+        Write-Host ""
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host " AI & VIBE-CODED APP SECURITY AUDIT" -ForegroundColor White
+        Write-Host "============================================================" -ForegroundColor DarkCyan
         $target = Read-Host "Target domain or URL (e.g. https://myvibeapp.lovable.app)"
         if (-not [string]::IsNullOrWhiteSpace($target)) {
             $sourcePath = Read-Host "Optional local source code path for hybrid scan (press Enter to skip)"
-            $aiArgs = @("--target", $target, "--modules", "ai_app_security")
+            $aiArgs = @("--target", $target, "--modules", "ai_app_security", "--show-all")
             if (-not [string]::IsNullOrWhiteSpace($sourcePath)) {
                 $aiArgs += @("--source-path", $sourcePath, "--check-slopsquatting")
             }
+            $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
+            $requestPdf = Read-YesNo "Generate publication-grade PDF report" $true
+            $openPdf = if ($requestPdf) { Read-YesNo "Open PDF report after scan" $false } else { $false }
+            if ($requestPdf) {
+                $aiArgs += "--pdf"
+            }
+            Write-Host ""
+            Write-Host "Running scan: & `"$Python`" `"$Cli`" $($aiArgs -join ' ')" -ForegroundColor Cyan
             $startedAt = Get-Date
-            & $Python $Cli @aiArgs
+            try {
+                & $Python $Cli @aiArgs
+                $exitCode = $LASTEXITCODE
+            } catch {
+                Write-Host "Scan failed: $($_.Exception.Message)" -ForegroundColor Red
+                $exitCode = 1
+            }
+            if ($exitCode -eq 0 -and $openHtml) {
+                $html = Get-NewestHtmlReport -StartedAt $startedAt
+                if ($null -ne $html) {
+                    Write-Host "Opening HTML report: $($html.FullName)" -ForegroundColor Green
+                    Start-Process -FilePath $html.FullName
+                }
+            }
+            $pdf = Get-NewestPdfReport -StartedAt $startedAt
+            if ($null -ne $pdf) {
+                Write-Host "PDF report:     $($pdf.FullName)" -ForegroundColor Green
+                if ($openPdf) {
+                    Start-Process -FilePath $pdf.FullName
+                }
+            }
             Show-ScanLog -StartedAt $startedAt
         } else {
             Write-Host "No target entered." -ForegroundColor Yellow
@@ -344,7 +376,9 @@ while ($true) {
         if ($useAdvanced -and ($scanProfile -notin @("advanced", "deep"))) {
             $localArgs += "--advanced"
         }
-        if ($useAdvanced -or ($scanProfile -in @("advanced", "deep"))) {
+        if ($scanProfile -eq "deep") {
+            $localArgs += "--show-all"
+        } elseif ($useAdvanced -or ($scanProfile -eq "advanced")) {
             $localArgs += "--show-medium"
         }
         $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
@@ -384,44 +418,88 @@ while ($true) {
     }
 
     if ($mode -eq "10") {
-        $staging = Read-Host "Staging target URL/domain (e.g. staging.example.com)"
-        $production = Read-Host "Production target URL/domain (e.g. example.com)"
-        & $Python $Cli --diff-env --staging $staging --production $production
+        Write-Host ""
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host " DIFFERENTIAL ENVIRONMENT SECURITY SCANNER (--diff-env)" -ForegroundColor White
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host "Compare Staging vs Production posture to catch deploy gaps & regressions." -ForegroundColor Yellow
+        Write-Host "You can enter target URLs/domains or paths to existing JSON report files." -ForegroundColor Cyan
+        Write-Host ""
+        $staging = Read-Host "Staging target URL/domain or JSON report (e.g. staging.example.com)"
+        $production = Read-Host "Production target URL/domain or JSON report (e.g. example.com)"
+        if (-not [string]::IsNullOrWhiteSpace($staging) -and -not [string]::IsNullOrWhiteSpace($production)) {
+            $startedAt = Get-Date
+            & $Python $Cli --diff-env --staging $staging --production $production
+            Show-ScanLog -StartedAt $startedAt
+        } else {
+            Write-Host "Both staging and production targets/reports are required." -ForegroundColor Yellow
+        }
         Wait-UserReturn
         continue
     }
 
     if ($mode -eq "11") {
-        $path = Read-Host "Path to app.apk or app.ipa"
-        if ($path.EndsWith(".apk")) {
-            & $Python $Cli --mobile-apk $path --extract-apis
+        Write-Host ""
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host " MOBILE APP API EXTRACTOR & SECURITY ANALYZER" -ForegroundColor White
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        $path = Read-Host "Path to APK or IPA package file (e.g. app.apk or app.ipa)"
+        if (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path -LiteralPath $path)) {
+            $testApis = Read-YesNo "Actively test extracted API endpoints for security exposures" $true
+            $mobArgs = if ($path.EndsWith(".apk")) { @("--mobile-apk", $path) } else { @("--mobile-ipa", $path) }
+            if ($testApis) { $mobArgs += "--extract-apis" }
+            $startedAt = Get-Date
+            & $Python $Cli @mobArgs
+            Show-ScanLog -StartedAt $startedAt
         } else {
-            & $Python $Cli --mobile-ipa $path --extract-apis
+            Write-Host "Package file not found: $path" -ForegroundColor Yellow
         }
         Wait-UserReturn
         continue
     }
 
     if ($mode -eq "12") {
+        Write-Host ""
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host " DEPENDENCY CONFUSION & SUPPLY CHAIN AUDIT (--check-deps)" -ForegroundColor White
+        Write-Host "============================================================" -ForegroundColor DarkCyan
         $dir = Read-Host "Path to project directory [.]"
         if ([string]::IsNullOrWhiteSpace($dir)) { $dir = "." }
+        $startedAt = Get-Date
         & $Python $Cli --check-deps $dir
+        Show-ScanLog -StartedAt $startedAt
         Wait-UserReturn
         continue
     }
 
     if ($mode -eq "13") {
-        $files = Read-Host "Enter space-separated JSON report file paths"
-        & $Python $Cli --merge $files.Split(' ')
+        Write-Host ""
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host " MERGE & DEDUPLICATE SCAN REPORTS (--merge)" -ForegroundColor White
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        $filesInput = Read-Host "Enter space-separated JSON report file paths"
+        if (-not [string]::IsNullOrWhiteSpace($filesInput)) {
+            $fileList = @($filesInput.Split(' ') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+            $startedAt = Get-Date
+            & $Python $Cli --merge @fileList
+            Show-ScanLog -StartedAt $startedAt
+        } else {
+            Write-Host "No files entered." -ForegroundColor Yellow
+        }
         Wait-UserReturn
         continue
     }
 
     if ($mode -eq "14") {
+        Write-Host ""
+        Write-Host "============================================================" -ForegroundColor DarkCyan
+        Write-Host " REMEDIATION VERIFICATION SERVER (--serve-verify)" -ForegroundColor White
+        Write-Host "============================================================" -ForegroundColor DarkCyan
         $port = Read-Host "Port for verification server [8420]"
         if ([string]::IsNullOrWhiteSpace($port)) { $port = "8420" }
         Write-Host "Starting remediation verification server on http://localhost:$port..." -ForegroundColor Green
         & $Python $Cli --serve-verify --verify-port $port
+        Wait-UserReturn
         continue
     }
 
@@ -517,15 +595,35 @@ while ($true) {
         }
         $target = Read-Host "Target domain or URL (e.g. https://example.com)"
         if (-not [string]::IsNullOrWhiteSpace($target)) {
-            $modArgs = @("--target", $target, "--modules", $selectedMods)
+            $modArgs = @("--target", $target, "--modules", $selectedMods, "--show-all")
+            $openHtml = Read-YesNo "Open HTML report in browser after scan" $true
+            $requestPdf = Read-YesNo "Generate publication-grade PDF report" $true
+            $openPdf = if ($requestPdf) { Read-YesNo "Open PDF report after scan" $false } else { $false }
+            if ($requestPdf) {
+                $modArgs += "--pdf"
+            }
+            Write-Host ""
             Write-Host "Running targeted scan: & `"$Python`" `"$Cli`" $($modArgs -join ' ')" -ForegroundColor Cyan
             $startedAt = Get-Date
-            & $Python $Cli @modArgs
-            $html = Get-NewestHtmlReport -StartedAt $startedAt
-            if ($null -ne $html) {
-                $openHtml = Read-YesNo "Open HTML report in browser" $true
-                if ($openHtml) {
+            try {
+                & $Python $Cli @modArgs
+                $exitCode = $LASTEXITCODE
+            } catch {
+                Write-Host "Scan failed: $($_.Exception.Message)" -ForegroundColor Red
+                $exitCode = 1
+            }
+            if ($exitCode -eq 0 -and $openHtml) {
+                $html = Get-NewestHtmlReport -StartedAt $startedAt
+                if ($null -ne $html) {
+                    Write-Host "Opening HTML report: $($html.FullName)" -ForegroundColor Green
                     Start-Process -FilePath $html.FullName
+                }
+            }
+            $pdf = Get-NewestPdfReport -StartedAt $startedAt
+            if ($null -ne $pdf) {
+                Write-Host "PDF report:     $($pdf.FullName)" -ForegroundColor Green
+                if ($openPdf) {
+                    Start-Process -FilePath $pdf.FullName
                 }
             }
             Show-ScanLog -StartedAt $startedAt
@@ -597,7 +695,7 @@ while ($true) {
     $defaultPortChoice = if ($profile -in @("deep", "deepscan", "full")) { "top1000" } else { "top100" }
     $ports = $defaultPortChoice
     if ($profile -ne "proxy") {
-        $ports = Read-Choice "Ports" @("top100", "top1000", "custom") $defaultPortChoice
+        $ports = Read-Choice "Ports" @("top100", "top1000", "all", "custom") $defaultPortChoice
         if ($ports -eq "custom") {
             $ports = Read-Host "Enter ports, for example 80,443,8080 or 1-1000"
             if ([string]::IsNullOrWhiteSpace($ports)) {
@@ -653,12 +751,12 @@ while ($true) {
                 $authCookie = Read-Host "Enter Auth Cookie (e.g. session=abc123...)"
                 if (-not [string]::IsNullOrWhiteSpace($authCookie)) {
                     $scanArgs += "--auth-cookie"
-                    $scanArgs += "`"$authCookie`""
+                    $scanArgs += $authCookie
                 }
                 $authToken = Read-Host "Enter Auth Token (e.g. eyJhbGci...)"
                 if (-not [string]::IsNullOrWhiteSpace($authToken)) {
                     $scanArgs += "--auth-token"
-                    $scanArgs += "`"$authToken`""
+                    $scanArgs += $authToken
                 }
             }
         }
@@ -673,6 +771,8 @@ while ($true) {
                 } else {
                     $scanArgs += "--auto-proxy"
                 }
+            } else {
+                $scanArgs += "--no-auto-proxy"
             }
         }
     }

@@ -7,7 +7,7 @@ BIN_DIR="${HOME}/.local/bin"
 LAUNCHER="${BIN_DIR}/phantomscan"
 
 printf '\033[1;36m============================================================\033[0m\n'
-printf '\033[1;36mPhantomScan 2.2.0 macOS CLI Installer\033[0m\n'
+printf '\033[1;36mPhantomScan 2.3.0 macOS CLI Installer\033[0m\n'
 printf '\033[1;36mAuthorized security assessment use only.\033[0m\n'
 printf '\033[1;36m============================================================\033[0m\n\n'
 
@@ -74,7 +74,7 @@ printf '\n\033[1;33mRunning engine health check...\033[0m\n'
 "$ROOT/.venv/bin/python" "$ROOT/phantomscan.py" --check-engines
 
 printf '\n\033[1;32m============================================================\033[0m\n'
-printf '\033[1;32mPhantomScan 2.2.0 installation complete!\033[0m\n'
+printf '\033[1;32mPhantomScan 2.3.0 installation complete!\033[0m\n'
 printf '\033[1;32m============================================================\033[0m\n'
 printf '\nLauncher installed to: %s\n' "$LAUNCHER"
 printf 'If not already in your PATH, add to ~/.zshrc or ~/.bash_profile:\n'

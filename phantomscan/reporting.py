@@ -10,6 +10,8 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from phantomscan import __version__
+
 from phantomscan.sarif_exporter import (
     generate_sarif_report as generate_sarif_report,
     write_sarif_report as write_sarif_report,
@@ -73,7 +75,8 @@ def write_csv_report(path: Path, payload: dict[str, Any]) -> None:
         writer = csv.writer(f)
         writer.writerow([
             "Target", "Title", "Severity", "Confidence", "Category",
-            "Finding ID", "CWE", "OWASP", "Evidence", "Recommendation", "Fingerprint",
+            "Module", "Verification Method", "Finding ID", "CWE", "OWASP",
+            "Evidence", "Recommendation", "Fingerprint",
         ])
         for item in findings:
             if not isinstance(item, dict):
@@ -84,6 +87,8 @@ def write_csv_report(path: Path, payload: dict[str, Any]) -> None:
                 item.get("severity", "info"),
                 item.get("confidence", ""),
                 item.get("category", ""),
+                item.get("module", ""),
+                item.get("verification_method", ""),
                 item.get("id") or item.get("rule_id", ""),
                 item.get("cwe", ""),
                 item.get("owasp_category", ""),
@@ -1256,7 +1261,7 @@ class ReportGenerator:
             executive_narrative=executive_narrative,
             pdf_filename=pdf_rel_name,
             generated_at=datetime.now(timezone.utc).isoformat(),
-            report_version="2.2.0"
+            report_version=__version__
         )
 
         output = Path(output_path)

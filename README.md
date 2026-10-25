@@ -17,7 +17,7 @@
 [![Rust](https://img.shields.io/badge/rust-2021%20edition-dea584.svg?style=flat-square)](engines/rust/)
 [![Playwright](https://img.shields.io/badge/playwright-v1.40%2B-45ba4b.svg?style=flat-square)](engines/node/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg?style=flat-square)](INSTALL.md)
-[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg?style=flat-square)](LICENSE)
 
 [Quick Start](#quick-start) • [Architecture](#polyglot-architecture--pipeline-dag) • [Security Pillars](#core-security-pillars) • [CLI Reference](#cli-command-reference) • [Enterprise Reporting](#enterprise-reporting--telemetry) • [Documentation](INSTALL.md)
 

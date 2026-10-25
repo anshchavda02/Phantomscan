@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from phantomscan import __version__
+
 
 SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 SARIF_VERSION = "2.1.0"
@@ -127,7 +129,7 @@ def generate_sarif_report(report: dict[str, Any]) -> dict[str, Any]:
                     "driver": {
                         "name": "PhantomScan",
                         "organization": "PhantomScan Team",
-                        "semanticVersion": "2.2.0",
+                        "semanticVersion": __version__,
                         "informationUri": "https://github.com/anshchavda02/Phantomscan",
                         "rules": list(rules_map.values()),
                     }

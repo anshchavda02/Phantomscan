@@ -23,6 +23,8 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+from phantomscan import __version__
+
 
 #: Ordered list of scan module labels shown in the progress bar.
 SCAN_MODULES = [
@@ -77,7 +79,7 @@ class ScanProgressDisplay:
         self._console.print()
         self._console.print(
             Panel(
-                f"[bold cyan]PhantomScan v2.2.0[/]  [dim]— Authorized Use Only —[/]\n"
+                f"[bold cyan]PhantomScan v{__version__}[/]  [dim]— Authorized Use Only —[/]\n"
                 f"[bold]Target:[/] [green]{self._target}[/]\n"
                 f"[dim]Scanning {len(SCAN_MODULES)} modules…[/]",
                 border_style="cyan",

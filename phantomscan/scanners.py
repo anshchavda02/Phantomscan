@@ -214,6 +214,8 @@ def _identify_service(port: int, banner: str) -> str:
 
 
 def _parse_ports(spec: str) -> list[int]:
+    if spec in ("all", "full", "all-ports", "1-65535"):
+        return list(range(1, 65536))
     if spec == "top1000":
         extended = set(TOP_PORTS)
         extended.update(range(1, 1025))
