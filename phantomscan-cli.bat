@@ -3,6 +3,7 @@ setlocal
 title PhantomScan CLI
 cd /d "%~dp0"
 chcp 65001 >nul 2>&1
+set "PYTHONPATH=%~dp0;%~dp0modules;%PYTHONPATH%"
 if exist "%~dp0.venv\Scripts\python.exe" (
     "%~dp0.venv\Scripts\python.exe" "%~dp0phantomscan.py" %*
 ) else (

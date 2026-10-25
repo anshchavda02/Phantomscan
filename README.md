@@ -11,7 +11,7 @@
 ### **Next-Generation Modular Cybersecurity Platform for Automated Vulnerability Assessment**
 *Enterprise-Grade DAST Engineered for Modern APIs, AI-Generated / Vibe-Coded Web Apps, Cloud Backends, and Supply Chains*
 
-[![Tests](https://img.shields.io/badge/tests-464%20passed-brightgreen.svg?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-493%20passed-brightgreen.svg?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/)
 [![Go](https://img.shields.io/badge/go-1.21%2B-00ADD8.svg?style=flat-square)](engines/go/)
 [![Rust](https://img.shields.io/badge/rust-2021%20edition-dea584.svg?style=flat-square)](engines/rust/)
@@ -27,7 +27,7 @@
 
 ## Executive Summary
 
-**PhantomScan v2.2.0** is an evidence-driven, high-concurrency automated vulnerability assessment platform engineered for AppSec teams, DevSecOps pipelines, and modern penetration testers.
+**PhantomScan v2.3.0** is an evidence-driven, high-concurrency automated vulnerability assessment platform engineered for AppSec teams, DevSecOps pipelines, and modern penetration testers.
 
 Legacy vulnerability scanners focus primarily on monolithic web servers and static pattern fuzzing. **PhantomScan bridges the modern security posture gap** by combining:
 1. **AI-Native & Vibe-Coded Application Security**: Auditing applications built with LLM-assisted workflows (*Lovable, Bolt.new, v0, Cursor, Replit, Windsurf*), testing Backend-as-a-Service (BaaS) architectures (*Supabase, Firebase, Convex*), and verifying AI supply chain packages against hallucinated slopsquatting.

@@ -100,13 +100,39 @@ class SensitivePathScanner:
             "verify_type": "contains_any",
         },
 
-        # PHP info — body must contain phpinfo output
+        # PHP info & diagnostics — body must contain phpinfo output
         {
             "path": "/phpinfo.php",
             "severity": "High",
             "verify_body": [
                 "PHP Version", "phpinfo()",
                 "PHP Extension", "php_uname",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/info.php",
+            "severity": "High",
+            "verify_body": [
+                "PHP Version", "phpinfo()",
+                "PHP Extension", "php_uname",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/php_info.php",
+            "severity": "High",
+            "verify_body": [
+                "PHP Version", "phpinfo()",
+                "PHP Extension", "php_uname",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/admin/phpinfo.php",
+            "severity": "High",
+            "verify_body": [
+                "PHP Version", "phpinfo()",
             ],
             "verify_type": "contains_any",
         },
@@ -128,6 +154,32 @@ class SensitivePathScanner:
             "verify_body": [
                 "phpMyAdmin", "pma_", "phpmyadmin",
             ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/pma/",
+            "severity": "High",
+            "verify_body": [
+                "phpMyAdmin", "pma_", "phpmyadmin",
+            ],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/.env.backup",
+            "severity": "Critical",
+            "verify_body": [r"[A-Z_]+=.+"],
+            "verify_type": "contains_any",
+        },
+        {
+            "path": "/docker-compose.yml",
+            "severity": "High",
+            "verify_body": ["version:", "services:", "image:"],
+            "verify_type": "contains_all",
+        },
+        {
+            "path": "/storage/logs/laravel.log",
+            "severity": "High",
+            "verify_body": ["[stacktrace]", "local.ERROR:", "production.ERROR:"],
             "verify_type": "contains_any",
         },
 

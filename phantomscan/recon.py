@@ -1245,27 +1245,54 @@ def detect_technologies(observations: list[Any]) -> list[Observation]:
     # Server header
     server = str(headers.get("server", ""))
     if server:
-        name = "Google Web Server" if server.lower() == "gws" else server.split("/")[0]
+        name = "Google Web Server" if server.lower() == "gws" else server.split("/")[0].strip()
         version = ""
-        m = re.search(r"/(\d[\d.]+)", server)
+        m = re.search(r"^[^/\s]+/(\d[\d.]+)", server)
         if m:
             version = m.group(1)
-        entry: dict[str, Any] = {"name": name, "source": "server-header", "confidence": 85}
+        entry: dict[str, Any] = {"name": name, "source": "server-header", "confidence": 85, "evidence_methods": 2}
         if version:
             entry["version"] = version
         if not any(t.get("name", "").lower() == name.lower() for t in tech):
             tech.append(entry)
 
+        # Compound components in Server banner (e.g., Apache/2.4.41 (Ubuntu) PHP/8.1.2 OpenSSL/1.1.1f)
+        for sub_match in re.finditer(r"\b(PHP|OpenSSL|nginx|Apache|LiteSpeed)/(\d[\d.]+[a-z]?)", server, re.I):
+            sub_raw = sub_match.group(1)
+            sub_ver = sub_match.group(2)
+            sub_name = "PHP" if sub_raw.lower() == "php" else ("OpenSSL" if sub_raw.lower() == "openssl" else sub_raw)
+            existing = next((t for t in tech if t.get("name", "").lower() == sub_name.lower()), None)
+            if existing:
+                if not existing.get("version"):
+                    existing["version"] = sub_ver
+            else:
+                tech.append({"name": sub_name, "version": sub_ver, "source": "server-header", "confidence": 85, "evidence_methods": 2})
+
     # X-Powered-By
     powered = str(headers.get("x-powered-by", ""))
     if powered:
-        name = powered.split("/")[0]
-        entry = {"name": name, "source": "x-powered-by", "confidence": 80}
+        raw_name = powered.split("/")[0].strip()
+        name = "PHP" if raw_name.lower() == "php" else raw_name
+        entry = {"name": name, "source": "x-powered-by", "confidence": 85, "evidence_methods": 2}
         m = re.search(r"/(\d[\d.]+)", powered)
         if m:
             entry["version"] = m.group(1)
-        if not any(t.get("name", "").lower() == name.lower() for t in tech):
+        existing = next((t for t in tech if t.get("name", "").lower() == name.lower()), None)
+        if existing:
+            if not existing.get("version") and entry.get("version"):
+                existing["version"] = entry["version"]
+        else:
             tech.append(entry)
+
+    # Specific PHP headers
+    php_ver_header = headers.get("x-php-version")
+    if php_ver_header:
+        clean_php_ver = str(php_ver_header).strip()
+        existing = next((t for t in tech if t.get("name") == "PHP"), None)
+        if existing:
+            existing["version"] = clean_php_ver
+        else:
+            tech.append({"name": "PHP", "version": clean_php_ver, "source": "x-php-version", "confidence": 90, "evidence_methods": 2})
 
     # Via header → proxy/CDN
     via = str(headers.get("via", ""))
@@ -1280,11 +1307,11 @@ def detect_technologies(observations: list[Any]) -> list[Observation]:
     # Cookie-based fingerprinting
     cookies_raw = str(headers.get("set-cookie", "")).lower()
     if "phpsessid" in cookies_raw and not any(t.get("name") == "PHP" for t in tech):
-        tech.append({"name": "PHP", "source": "cookie-name", "confidence": 85})
+        tech.append({"name": "PHP", "source": "cookie-name", "confidence": 85, "evidence_methods": 2})
     if "jsessionid" in cookies_raw and not any(t.get("name") == "Java (JVM)" for t in tech):
-        tech.append({"name": "Java (JVM)", "source": "cookie-name", "confidence": 80})
+        tech.append({"name": "Java (JVM)", "source": "cookie-name", "confidence": 80, "evidence_methods": 2})
     if ("asp.net_sessionid" in cookies_raw or "aspxauth" in cookies_raw) and not any(t.get("name") == "ASP.NET" for t in tech):
-        tech.append({"name": "ASP.NET", "source": "cookie-name", "confidence": 85})
+        tech.append({"name": "ASP.NET", "source": "cookie-name", "confidence": 85, "evidence_methods": 2})
     if "nid=" in cookies_raw:
         tech.append({"name": "Google cookie stack", "source": "cookie-name", "confidence": 70})
 
@@ -1327,6 +1354,27 @@ def detect_technologies(observations: list[Any]) -> list[Observation]:
         if marker in body:
             if not any(t["name"] == sig_name for t in tech):
                 tech.append({"name": sig_name, "source": "html", "confidence": 65})
+
+    # Version extraction from HTML meta tags or phpinfo leaks
+    wp_meta_match = re.search(r'content=["\']wordpress\s+([0-9.]+)', body, re.I)
+    if wp_meta_match:
+        wp_ver = wp_meta_match.group(1)
+        wp_entry = next((t for t in tech if t.get("name") == "WordPress"), None)
+        if wp_entry:
+            wp_entry["version"] = wp_ver
+            wp_entry["evidence_methods"] = 2
+        else:
+            tech.append({"name": "WordPress", "version": wp_ver, "source": "html-meta", "confidence": 85, "evidence_methods": 2})
+
+    phpinfo_match = re.search(r"php version\s+([0-9.]+)", body, re.I)
+    if phpinfo_match:
+        php_ver = phpinfo_match.group(1)
+        php_entry = next((t for t in tech if t.get("name") == "PHP"), None)
+        if php_entry:
+            php_entry["version"] = php_ver
+            php_entry["evidence_methods"] = 2
+        else:
+            tech.append({"name": "PHP", "version": php_ver, "source": "html-phpinfo", "confidence": 95, "evidence_methods": 2})
 
     return [Observation("technologies", tech, "fingerprint")]
 

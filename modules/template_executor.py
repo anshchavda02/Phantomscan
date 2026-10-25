@@ -150,9 +150,14 @@ class TemplateExecutor:
         category = "vulnerability"
         if any(t in tags for t in ("exposure", "config", "sensitive", "git", "env")):
             category = "exposure"
+        elif "cve" in tags or template.info.metadata.get("cve-id"):
+            category = "cve"
 
-        raw_finding = {
-            "id": f"TEMPLATE-{template.id.upper()}",
+        cve_id = template.info.metadata.get("cve-id")
+        finding_id = str(cve_id).strip() if cve_id else f"TEMPLATE-{template.id.upper()}"
+
+        raw_finding: dict[str, Any] = {
+            "id": finding_id,
             "title": template.info.name,
             "severity": template.info.severity,
             "confidence": "high",
@@ -162,6 +167,16 @@ class TemplateExecutor:
             "recommendation": f"Review and restrict access to {last_matched_url}. Ensure sensitive endpoints are secured.",
             "verification_method": "baseline_differential" if catch_all and catch_all.has_catch_all else "active_confirmation",
         }
+
+        if template.info.reference:
+            raw_finding["references"] = list(template.info.reference)
+
+        cvss_val = template.info.metadata.get("cvss-score")
+        if cvss_val is not None:
+            try:
+                raw_finding["cvss_score"] = float(cvss_val)
+            except (ValueError, TypeError):
+                pass
 
         # Gate finding to enforce quality invariants
         gated = gate_finding(raw_finding)

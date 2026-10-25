@@ -1,0 +1,35 @@
+id: php2shell-rce
+info:
+  name: PHP2Shell Remote Code Execution (CVE-2026-109618 / CVE-2026-109619)
+  author: phantomscan
+  severity: critical
+  description: Core PHP runtime memory corruption during request cleanup under out-of-memory conditions (CVE-2026-109618) and stale session/global state reuse across worker requests (CVE-2026-109619) allow unauthenticated remote attackers to execute arbitrary code before application scripts run.
+  tags: cve,rce,php,php2shell,critical
+  reference:
+    - https://nvd.nist.gov/vuln/detail/CVE-2026-109618
+    - https://nvd.nist.gov/vuln/detail/CVE-2026-109619
+    - https://www.php.net/ChangeLog-8.php
+  metadata:
+    cve-id: CVE-2026-109618
+    cvss-score: 9.8
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+      - "{{BaseURL}}/index.php"
+      - "{{BaseURL}}/info.php"
+      - "{{BaseURL}}/phpinfo.php"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200, 301, 302, 403, 404, 500]
+      - type: regex
+        part: header
+        regex:
+          - "(?i)(?:x-powered-by|server):.*php/(?:5\\.[0-9.]+|7\\.[0-9.]+|8\\.[01]\\.[0-9.]+|8\\.2\\.(?:[0-9]|[12][0-9]|3[0-4])\\b|8\\.3\\.(?:[0-9]|[12][0-9]|3[0-5])\\b|8\\.4\\.(?:[0-9]|1[0-9]|2[0-6])\\b|8\\.5\\.(?:[0-9]|1[01])\\b)"
+      - type: regex
+        negative: true
+        part: header
+        regex:
+          - "(?i)(?:x-powered-by|server):.*php/(?:8\\.2\\.(?:3[5-9]|[4-9][0-9])|8\\.3\\.(?:3[6-9]|[4-9][0-9])|8\\.4\\.(?:2[7-9]|[3-9][0-9])|8\\.5\\.(?:1[2-9]|[2-9][0-9])|8\\.[6-9]\\.|9\\.)"

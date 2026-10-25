@@ -4,6 +4,16 @@ $ErrorActionPreference = "Stop"
 $Host.UI.RawUI.WindowTitle = "PhantomScan Launcher"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $Root
+
+# Ensure PYTHONPATH contains repository root and modules folder
+$ModulesDir = Join-Path $Root "modules"
+if ($env:PYTHONPATH) {
+    $env:PYTHONPATH = "$Root;$ModulesDir;$env:PYTHONPATH"
+} else {
+    $env:PYTHONPATH = "$Root;$ModulesDir"
+}
+
 $VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
 $Python = if (Test-Path -LiteralPath $VenvPython) { $VenvPython } else { "python" }
 $Cli = Join-Path $Root "phantomscan.py"

@@ -14,6 +14,9 @@ requests:
       - "{{BaseURL}}/phpinfo.php"
       - "{{BaseURL}}/info.php"
       - "{{BaseURL}}/php_info.php"
+      - "{{BaseURL}}/admin/phpinfo.php"
+      - "{{BaseURL}}/test.php"
+      - "{{BaseURL}}/i.php"
     matchers-condition: and
     matchers:
       - type: status

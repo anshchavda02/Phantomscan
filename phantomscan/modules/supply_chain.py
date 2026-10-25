@@ -13,8 +13,15 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"(?:secret|private[_-]?key)[\"'\s]*[:=][\"'\s]*[\"']?([A-Za-z0-9_\-]{20,})", re.I), "Secret Key"),
-    (re.compile(r"""(?<!\.)\b(?:[a-zA-Z0-9_]+_)?(?:password|passwd|pwd)\b\s*[:=]\s*["']([^"'`;,\r\n{}]{8,})["']""", re.I), "Password"),
+    # Specific vendor tokens first
+    (re.compile(r"sk-proj-[a-zA-Z0-9_-]{20,}"), "OpenAI Project API Key"),
+    (re.compile(r"sk-ant-api03-[a-zA-Z0-9_-]{20,}"), "Anthropic Claude API Key"),
+    (re.compile(r"AIzaSy[a-zA-Z0-9_-]{33}"), "Google AI API Key"),
+    (re.compile(r"sb_secret_[a-zA-Z0-9]{20,}"), "Supabase Secret Key"),
+    (re.compile(r"gsk_[a-zA-Z0-9]{20,}"), "Groq API Key"),
+    (re.compile(r"deepseek[_-]?api[_-]?key[\"\s]*[:=][\"\s]*([a-zA-Z0-9]{32,})", re.I), "DeepSeek API Key"),
+    (re.compile(r"re_[a-zA-Z0-9_]{20,}"), "Resend API Key"),
+    (re.compile(r"hf_[a-zA-Z0-9]{34,}"), "HuggingFace Access Token"),
     (re.compile(r"AKIA[0-9A-Z]{16}"), "AWS Access Key ID"),
     (re.compile(r"ghp_[a-zA-Z0-9]{36}"), "GitHub Personal Token"),
     (re.compile(r"gho_[a-zA-Z0-9]{36}"), "GitHub OAuth Token"),
@@ -25,6 +32,10 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"""\b(?:bearer|auth[_-]?token|access[_-]?token)\b\s*[:=]\s*["']([A-Za-z0-9_\-.]{25,})["']""", re.I), "Bearer Token"),
     (re.compile(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"), "JWT Token"),
     (re.compile(r"AIza[0-9A-Za-z\-_]{35}"), "Google Public API Key"),
+
+    # Generic secret and password patterns last
+    (re.compile(r"(?:secret|private[_-]?key)[\"'\s]*[:=][\"'\s]*[\"']?([A-Za-z0-9_\-]{20,})", re.I), "Secret Key"),
+    (re.compile(r"""(?<!\.)\b(?:[a-zA-Z0-9_]+_)?(?:password|passwd|pwd)\b\s*[:=]\s*["']([^"'`;,\r\n{}]{8,})["']""", re.I), "Password"),
     (re.compile(r"(?:api[_-]?key|apikey)[\"'\s]*[:=][\"'\s]*[\"']?([A-Za-z0-9_\-]{20,})", re.I), "API Key"),
 ]
 
@@ -37,6 +48,75 @@ _KNOWN_LIBRARIES: dict[str, re.Pattern[str]] = {
     "Bootstrap": re.compile(r"\bbootstrap(?:[.\-/]|\s+)?v?(\d+(?:\.\d+)+)", re.I),
     "Lodash": re.compile(r"\blodash(?:[.\-/]|\s+)?v?(\d+(?:\.\d+)+)", re.I),
     "Moment.js": re.compile(r"\bmoment(?:[.\-/]|\s+)?v?(\d+(?:\.\d+)+)", re.I),
+}
+
+_VULNERABLE_LIBRARIES: dict[str, list[dict[str, Any]]] = {
+    "jQuery": [
+        {
+            "cve": "CVE-2020-11022",
+            "max_version": (3, 5, 0),
+            "desc": "Cross-site scripting (XSS) in jQuery.htmlPrefilter",
+            "fixed": "3.5.0",
+            "severity": "medium",
+            "cwe": "CWE-79",
+        },
+        {
+            "cve": "CVE-2019-11358",
+            "max_version": (3, 4, 0),
+            "desc": "Prototype Pollution in jQuery.extend(true, {}, ...)",
+            "fixed": "3.4.0",
+            "severity": "medium",
+            "cwe": "CWE-1321",
+        },
+    ],
+    "Lodash": [
+        {
+            "cve": "CVE-2020-8203",
+            "max_version": (4, 17, 19),
+            "desc": "Prototype Pollution in zipObjectDeep function",
+            "fixed": "4.17.19",
+            "severity": "high",
+            "cwe": "CWE-1321",
+        },
+        {
+            "cve": "CVE-2021-23337",
+            "max_version": (4, 17, 21),
+            "desc": "Command Injection in template function",
+            "fixed": "4.17.21",
+            "severity": "high",
+            "cwe": "CWE-94",
+        },
+    ],
+    "AngularJS": [
+        {
+            "cve": "CVE-2020-7676",
+            "max_version": (1, 8, 0),
+            "desc": "Universal XSS via angular.copy() and prototype pollution",
+            "fixed": "1.8.0",
+            "severity": "high",
+            "cwe": "CWE-79",
+        },
+    ],
+    "Moment.js": [
+        {
+            "cve": "CVE-2022-31129",
+            "max_version": (2, 29, 4),
+            "desc": "Regular Expression Denial of Service (ReDoS) in rfc2822 parser",
+            "fixed": "2.29.4",
+            "severity": "high",
+            "cwe": "CWE-1333",
+        },
+    ],
+    "Bootstrap": [
+        {
+            "cve": "CVE-2019-8331",
+            "max_version": (4, 3, 1),
+            "desc": "XSS via tooltip or popover data-template attribute",
+            "fixed": "4.3.1",
+            "severity": "medium",
+            "cwe": "CWE-79",
+        },
+    ],
 }
 
 
@@ -247,22 +327,55 @@ class SupplyChainAnalyzer:
                 # Validation: version must have digits and not be just punctuation or short invalid string
                 if not version or not any(c.isdigit() for c in version) or version.strip(".") == "":
                     continue
-                findings.append({
-                    "id": f"SC-LIBRARY-{lib_name.upper().replace('.', '')}",
-                    "title": f"Third-Party Library Detected: {lib_name} {version}",
-                    "severity": "info",
-                    "confidence": "high",
-                    "category": "supply-chain",
-                    "target": "",
-                    "evidence": (
-                        f"Detected {lib_name} version {version}. "
-                        f"Check for known CVEs for this version."
-                    ),
-                    "recommendation": (
-                        f"Verify {lib_name} {version} against known "
-                        f"vulnerabilities. Update to the latest stable version."
-                    ),
-                })
+
+                # Check if version matches known vulnerabilities
+                v_nums = tuple(int(p) for p in re.findall(r"\d+", version))
+                vuln_records = _VULNERABLE_LIBRARIES.get(lib_name, [])
+                matched_vuln = None
+                for vr in vuln_records:
+                    max_v = vr["max_version"]
+                    max_len = max(len(v_nums), len(max_v))
+                    v_pad = v_nums + (0,) * (max_len - len(v_nums))
+                    m_pad = max_v + (0,) * (max_len - len(max_v))
+                    if v_pad < m_pad:
+                        matched_vuln = vr
+                        break
+
+                if matched_vuln:
+                    findings.append({
+                        "id": f"SC-VULN-{matched_vuln['cve']}",
+                        "title": f"Vulnerable Library {lib_name} {version} ({matched_vuln['cve']})",
+                        "severity": matched_vuln["severity"],
+                        "confidence": "high",
+                        "category": "supply-chain",
+                        "target": "",
+                        "evidence": (
+                            f"Detected {lib_name} version {version} which is vulnerable to "
+                            f"{matched_vuln['cve']}: {matched_vuln['desc']}.\n"
+                            f"Fixed in {lib_name} {matched_vuln['fixed']} or newer."
+                        ),
+                        "recommendation": (
+                            f"Update {lib_name} to {matched_vuln['fixed']} or later immediately to mitigate {matched_vuln['cve']}."
+                        ),
+                        "cwe": matched_vuln.get("cwe", "CWE-937"),
+                    })
+                else:
+                    findings.append({
+                        "id": f"SC-LIBRARY-{lib_name.upper().replace('.', '')}",
+                        "title": f"Third-Party Library Detected: {lib_name} {version}",
+                        "severity": "info",
+                        "confidence": "high",
+                        "category": "supply-chain",
+                        "target": "",
+                        "evidence": (
+                            f"Detected {lib_name} version {version}. "
+                            f"Check for known CVEs for this version."
+                        ),
+                        "recommendation": (
+                            f"Verify {lib_name} {version} against known "
+                            f"vulnerabilities. Update to the latest stable version."
+                        ),
+                    })
         return findings
 
     @staticmethod

@@ -1,0 +1,26 @@
+id: openssl-punycode-overflow
+info:
+  name: OpenSSL Punycode Buffer Overflow (CVE-2022-3602 / CVE-2022-3786)
+  author: phantomscan
+  severity: high
+  description: Buffer overflow vulnerability in OpenSSL 3.0.0 through 3.0.6 during X.509 email address certificate verification.
+  tags: cve,openssl,buffer-overflow,high
+  reference:
+    - https://nvd.nist.gov/vuln/detail/CVE-2022-3602
+    - https://nvd.nist.gov/vuln/detail/CVE-2022-3786
+  metadata:
+    cve-id: CVE-2022-3602
+    cvss-score: 7.5
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200, 301, 302, 403, 404]
+      - type: regex
+        part: header
+        regex:
+          - "(?i)server:.*openssl/3\\.0\\.[0-6]\\b"
