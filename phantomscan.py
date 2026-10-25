@@ -26,6 +26,7 @@ import hashlib
 
 logger = logging.getLogger("phantomscan")
 
+from phantomscan import __version__
 from phantomscan.config import load_config
 from phantomscan.db import Database
 from phantomscan.email_security import analyze_email
@@ -79,8 +80,8 @@ from modules.structured_logging import (
     build_scan_summary,
 )
 
-WARNING = """
-PhantomScan 2.2.0 - Scan Smart. Stay Secure.
+WARNING = f"""
+PhantomScan {__version__} - Scan Smart. Stay Secure.
 Authorized security assessment only. Run this tool only against systems you own
 or have explicit written authorization to test. Scope is enforced per target.
 """
@@ -118,7 +119,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser."""
     parser = argparse.ArgumentParser(
         prog="phantomscan", 
-        description="PhantomScan v2.2 - Advanced Polyglot Vulnerability Scanner (38+ Modules)",
+        description=f"PhantomScan v{__version__} - Advanced Polyglot Vulnerability Scanner (38+ Modules)",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
@@ -390,7 +391,7 @@ async def scan_one(
         "Starting authorised scan target=%s profile=%s ports=%s", target.host, args.profile, getattr(args, "ports", "")
     )
     if not args.silent:
-        cprint("[*] PhantomScan v2.2.0 — Authorised Use Only", "cyan")
+        cprint(f"[*] PhantomScan v{__version__} — Authorised Use Only", "cyan")
         cprint(f"[*] Target  : {target.host}", "cyan")
         cprint(f"[*] Profile : {args.profile}", "cyan")
         if args.profile == "deep":

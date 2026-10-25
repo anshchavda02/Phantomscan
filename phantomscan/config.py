@@ -7,12 +7,14 @@ from pathlib import Path
 from typing import Any
 import yaml
 
+from phantomscan import __version__
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "app": {
         "name": "PhantomScan",
-        "version": "2.2.0",
+        "version": __version__,
         "tagline": "Scan Smart. Stay Secure.",
         "authorization_warning": True,
     },
@@ -20,7 +22,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "default_profile": "quick",
         "timeout_seconds": 8,
         "max_redirects": 5,
-        "user_agent": "PhantomScan/2.2.0 authorized-security-assessment",
+        "user_agent": f"PhantomScan/{__version__} authorized-security-assessment",
         "enforce_scope": True,
         "collect_evidence": False,
     },

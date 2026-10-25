@@ -41,7 +41,7 @@ function Write-Title {
     }
     Write-AsciiLogo
     Write-Host "============================================================" -ForegroundColor DarkCyan
-    Write-Host " PhantomScan 2.2.0 - Authorized Security Assessment" -ForegroundColor White
+    Write-Host " PhantomScan 2.3.0 - Authorized Security Assessment" -ForegroundColor White
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host "Use only on systems you own or have written authorization to test." -ForegroundColor Yellow
     Write-Host ""

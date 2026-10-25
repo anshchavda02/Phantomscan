@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional
 
+from phantomscan import __version__
+
 logger = logging.getLogger(__name__)
 
 # Color Palette (Slate / Cyan Enterprise Cybersecurity Theme)
@@ -94,7 +96,7 @@ class NumberedCanvas:
         if page_num > 1:
             self._canvas.setFont("Helvetica-Bold", 8)
             self._canvas.setFillColor(colors_mod.HexColor(COLOR_TEXT_MUTED))
-            self._canvas.drawString(margin, height - 28, "PHANTOMSCAN 2.2.0")
+            self._canvas.drawString(margin, height - 28, f"PHANTOMSCAN {__version__}")
             self._canvas.setFont("Helvetica", 8)
             target_str = f" | Target: {self.report_target}" if self.report_target else ""
             self._canvas.drawString(margin + 90, height - 28, f"Automated Security Assessment{target_str}")
@@ -321,7 +323,7 @@ class PDFReportBuilder:
             [Paragraph("Scan Profile:", styles["MetaLabel"]), Paragraph(self.profile.upper(), styles["MetaVal"])],
             [Paragraph("Timestamp:", styles["MetaLabel"]), Paragraph(_safe_text(date_str), styles["MetaVal"])],
             [Paragraph("Execution Time:", styles["MetaLabel"]), Paragraph(duration_str, styles["MetaVal"])],
-            [Paragraph("Engine Version:", styles["MetaLabel"]), Paragraph("PhantomScan v2.2.0 (Polyglot Hardened)", styles["MetaVal"])],
+            [Paragraph("Engine Version:", styles["MetaLabel"]), Paragraph(f"PhantomScan v{__version__} (Polyglot Hardened)", styles["MetaVal"])],
         ]
         meta_table = Table(meta_col, colWidths=[90, 240])
         meta_table.setStyle(TableStyle([

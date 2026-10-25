@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import pytest
+from phantomscan import __version__
 from phantomscan.reporting import (
     write_json_report,
     write_csv_report,
@@ -388,9 +389,9 @@ def test_html_report_rendering_v2_2_features(tmp_path: Path):
     assert out_file.exists()
     html = out_file.read_text(encoding="utf-8")
 
-    # Check version 2.2.0
-    assert 'content="2.2.0"' in html
-    assert "v2.2.0" in html
+    # Check version matches phantomscan.__version__
+    assert f'content="{__version__}"' in html
+    assert f"v{__version__}" in html
 
     # Check deduplication occurrences badge
     assert "3x OCCURRENCES" in html

@@ -10,6 +10,8 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from phantomscan import __version__
+
 from phantomscan.sarif_exporter import (
     generate_sarif_report as generate_sarif_report,
     write_sarif_report as write_sarif_report,
@@ -1256,7 +1258,7 @@ class ReportGenerator:
             executive_narrative=executive_narrative,
             pdf_filename=pdf_rel_name,
             generated_at=datetime.now(timezone.utc).isoformat(),
-            report_version="2.2.0"
+            report_version=__version__
         )
 
         output = Path(output_path)
